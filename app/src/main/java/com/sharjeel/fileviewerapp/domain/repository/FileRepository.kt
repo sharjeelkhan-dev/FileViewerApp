@@ -17,6 +17,8 @@ interface FileRepository {
     fun getFavoriteFiles(): Flow<List<FileModel>>
     suspend fun toggleFavorite(file: FileModel)
     suspend fun isFavorite(path: String): Boolean
+    fun getVaultFiles(): Flow<List<FileModel>>
+    suspend fun toggleVault(file: FileModel): Boolean
 }
 
 enum class FileCategory {

@@ -105,7 +105,32 @@ class ExplorerViewModel @Inject constructor(
     fun renameFile(path: String, newName: String) {
         viewModelScope.launch {
             if (repository.renameFile(path, newName)) {
-                loadFiles(_currentPath.value)
+                refresh()
+            }
+        }
+    }
+
+    fun toggleFavorite(file: FileModel) {
+        viewModelScope.launch {
+            repository.toggleFavorite(file)
+            refresh()
+        }
+    }
+
+    fun moveToVault(file: FileModel) {
+        viewModelScope.launch {
+            if (repository.toggleVault(file)) {
+                refresh()
+            }
+        }
+    }
+
+    fun loadVault() {
+        viewModelScope.launch {
+            _uiState.value = ExplorerUiState.Loading
+            repository.getVaultFiles().collect { files ->
+                _rawFiles.value = files
+                _uiState.value = ExplorerUiState.Success(files)
             }
         }
     }

@@ -48,7 +48,7 @@ fun FileViewerScreen(
                 title = { 
                     Text(
                         file.name, 
-                        color = MaterialTheme.colorScheme.onBackground,
+                        color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     ) 
@@ -58,7 +58,7 @@ fun FileViewerScreen(
                         Icon(
                             Icons.AutoMirrored.Rounded.ArrowBack, 
                             contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onBackground
+                            tint = Color.White
                         )
                     }
                 },
@@ -67,43 +67,57 @@ fun FileViewerScreen(
                         Icon(
                             if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                             contentDescription = "Favorite",
-                            tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
+                            tint = if (isFavorite) MaterialTheme.colorScheme.primary else Color.White
                         )
                     }
                     IconButton(onClick = { com.sharjeel.fileviewerapp.util.FileUtils.openWithExternalApp(context, filePath) }) {
                         Icon(
                             Icons.Rounded.Share, 
                             contentDescription = "Share",
-                            tint = MaterialTheme.colorScheme.onBackground
+                            tint = Color.White
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Black.copy(alpha = 0.3f),
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = Color.Black,
+        contentWindowInsets = WindowInsets(0.dp)
     ) { innerPadding ->
+        val isMedia = fileType.lowercase() in listOf("jpg", "png", "webp", "gif", "mp4", "mkv", "avi", "mp3", "wav", "flac", "opus", "ogg")
+        
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
+            modifier = Modifier.fillMaxSize()
         ) {
-            when {
-                fileType.equals("pdf", true) -> PdfViewerScreen(filePath)
-                fileType.lowercase() in listOf("jpg", "png", "webp", "gif") -> ImageViewer(filePath)
-                fileType.lowercase() in listOf("mp4", "mkv", "avi", "mp3", "wav", "flac", "opus", "ogg") -> VideoViewer(filePath)
-                fileType.lowercase() in listOf("txt", "csv", "json", "xml", "kt", "java", "log", "py", "js") -> TextViewer(filePath)
-                fileType.lowercase() in listOf("html", "htm") -> WebViewViewer(filePath)
-                fileType.lowercase() == "docx" -> DocxViewer(filePath)
-                fileType.lowercase() == "xlsx" -> XlsxViewer(filePath)
-                fileType.lowercase() in listOf("epub", "mobi") -> EpubViewer(filePath)
-                else -> {
-                    // For other formats (Office, Presentations, RTF), we'll try WebView or TextViewer
-                    if (fileType.lowercase() in listOf("doc", "xls", "ppt", "pptx", "rtf", "docm")) {
-                        WebViewViewer(filePath)
-                    } else {
-                        TextViewer(filePath)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (!isMedia) {
+                            Modifier.padding(innerPadding)
+                        } else Modifier
+                    )
+            ) {
+                when {
+                    fileType.equals("pdf", true) -> PdfViewerScreen(filePath)
+                    fileType.lowercase() in listOf("jpg", "png", "webp", "gif") -> ImageViewer(filePath)
+                    fileType.lowercase() in listOf("mp4", "mkv", "avi", "mp3", "wav", "flac", "opus", "ogg") -> VideoViewer(filePath)
+                    fileType.lowercase() in listOf("txt", "csv", "json", "xml", "kt", "java", "log", "py", "js") -> TextViewer(filePath)
+                    fileType.lowercase() in listOf("html", "htm") -> WebViewViewer(filePath)
+                    fileType.lowercase() == "docx" -> DocxViewer(filePath)
+                    fileType.lowercase() == "xlsx" -> XlsxViewer(filePath)
+                    fileType.lowercase() in listOf("epub", "mobi") -> EpubViewer(filePath)
+                    else -> {
+                        if (fileType.lowercase() in listOf("doc", "xls", "ppt", "pptx", "rtf", "docm")) {
+                            WebViewViewer(filePath)
+                        } else {
+                            TextViewer(filePath)
+                        }
                     }
                 }
             }

@@ -51,6 +51,8 @@ class FileRepositoryImpl @Inject constructor(
             FileCategory.AUDIO -> queryMediaStore(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
             FileCategory.DOCUMENTS -> queryMediaStore(MediaStore.Files.getContentUri("external"), isDocument = true)
             FileCategory.ARCHIVES -> queryAllFilesForArchives()
+            FileCategory.RECENT -> getRecentFiles().first()
+            FileCategory.FAVORITES -> getFavoriteFiles().first()
             else -> emptyList()
         }
         emit(files.sortedByDescending { it.lastModified })
@@ -137,16 +139,36 @@ class FileRepositoryImpl @Inject constructor(
         val file = File(path)
         if (file.exists()) {
             val newFile = File(file.parent, newName)
-            file.renameTo(newFile)
+            if (file.renameTo(newFile)) {
+                true
+            } else {
+                try {
+                    file.copyTo(newFile, overwrite = true)
+                    file.delete()
+                    true
+                } catch (e: Exception) {
+                    false
+                }
+            }
         } else false
     }
 
     override suspend fun moveFile(sourcePath: String, targetPath: String): Boolean = withContext(Dispatchers.IO) {
         val sourceFile = File(sourcePath)
+        if (!sourceFile.exists()) return@withContext false
+        
         val targetFile = File(targetPath, sourceFile.name)
-        if (sourceFile.exists()) {
-            sourceFile.renameTo(targetFile)
-        } else false
+        if (sourceFile.renameTo(targetFile)) {
+            true
+        } else {
+            try {
+                sourceFile.copyTo(targetFile, overwrite = true)
+                sourceFile.delete()
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }
     }
 
     override fun getRecentFiles(): Flow<List<FileModel>> = fileDao.getRecentFiles().map { entities ->
@@ -205,5 +227,44 @@ class FileRepositoryImpl @Inject constructor(
 
     override suspend fun isFavorite(path: String): Boolean = withContext(Dispatchers.IO) {
         fileDao.isFavorite(path)
+    }
+
+    override fun getVaultFiles(): Flow<List<FileModel>> = flow {
+        val vaultDir = File(context.filesDir, ".vault")
+        if (!vaultDir.exists()) vaultDir.mkdirs()
+        val files = vaultDir.listFiles()?.map { FileModel.fromFile(it) } ?: emptyList()
+        emit(files.sortedByDescending { it.lastModified })
+    }.flowOn(Dispatchers.IO)
+
+    override suspend fun toggleVault(file: FileModel): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val vaultDir = File(context.filesDir, ".vault")
+            if (!vaultDir.exists()) vaultDir.mkdirs()
+
+            val sourceFile = File(file.path)
+            if (!sourceFile.exists()) return@withContext false
+
+            val isAlreadyInVault = sourceFile.parentFile?.absolutePath == vaultDir.absolutePath
+
+            val targetFile = if (isAlreadyInVault) {
+                val restoreDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                if (!restoreDir.exists()) restoreDir.mkdirs()
+                File(restoreDir, sourceFile.name)
+            } else {
+                File(vaultDir, sourceFile.name)
+            }
+
+            // Using copyTo + delete instead of renameTo for cross-volume reliability
+            if (sourceFile.renameTo(targetFile)) {
+                true
+            } else {
+                sourceFile.copyTo(targetFile, overwrite = true)
+                sourceFile.delete()
+                true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
     }
 }

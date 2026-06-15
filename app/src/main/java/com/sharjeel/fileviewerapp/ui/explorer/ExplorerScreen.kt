@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,22 +23,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Clear
-import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MoveUp
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -49,6 +48,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -64,6 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,6 +78,7 @@ import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
 import com.sharjeel.fileviewerapp.ui.theme.NeonPrimary
 import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
 import com.sharjeel.fileviewerapp.util.FileUtils
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,6 +96,18 @@ fun ExplorerScreen(
 
     var isSearchActive by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var fileToRename by remember { mutableStateOf<FileModel?>(null) }
+
+    if (fileToRename != null) {
+        RenameDialog(
+            fileName = fileToRename!!.name,
+            onDismiss = { fileToRename = null },
+            onConfirm = { newName ->
+                viewModel.renameFile(fileToRename!!.path, newName)
+                fileToRename = null
+            }
+        )
+    }
 
     BackHandler(enabled = selectedFiles.isNotEmpty() || isSearchActive) {
         if (selectedFiles.isNotEmpty()) {
@@ -235,7 +249,6 @@ fun ExplorerScreen(
                         }
                     } else {
                         FileList(
-                            title = title,
                             currentPath = currentPath,
                             files = state.files,
                             selectedFiles = selectedFiles,
@@ -248,12 +261,15 @@ fun ExplorerScreen(
                             },
                             onFileLongClick = { viewModel.toggleFileSelection(it.path) },
                             onDeleteClick = { viewModel.toggleFileSelection(it.path); viewModel.deleteSelectedFiles() },
-                            onRenameClick = { /* Implement Rename Dialog */ },
+                            onRenameClick = { fileToRename = it },
                             onShareClick = { FileUtils.openWithExternalApp(context, it.path) },
                             onOpenWithClick = { FileUtils.openWithExternalApp(context, it.path) },
-                            onFavoriteClick = { /* viewModel.toggleFavorite(it) */ },
+                            onFavoriteClick = { viewModel.toggleFavorite(it) },
                             onExtractClick = { viewModel.extractArchive(it.path) },
+                            onLockClick = { viewModel.moveToVault(it) },
                             onPathClick = { viewModel.loadFiles(it) },
+                            onMoveClick = { android.widget.Toast.makeText(context, "Move feature coming soon", android.widget.Toast.LENGTH_SHORT).show() },
+                            onCopyClick = { android.widget.Toast.makeText(context, "Copy feature coming soon", android.widget.Toast.LENGTH_SHORT).show() },
                             bottomPadding = innerPadding.calculateBottomPadding()
                         )
                     }
@@ -312,7 +328,11 @@ fun SearchTopBar(
 
 @Composable
 fun Breadcrumbs(currentPath: String, onPathClick: (String) -> Unit) {
-    val rootPath = android.os.Environment.getExternalStorageDirectory().absolutePath
+    val isPreview = LocalInspectionMode.current
+    val rootPath = remember {
+        if (isPreview) "/storage/emulated/0"
+        else android.os.Environment.getExternalStorageDirectory().absolutePath
+    }
     val relativePath = currentPath.removePrefix(rootPath).trimStart('/')
     val segments = if (relativePath.isEmpty()) emptyList() else relativePath.split('/')
     
@@ -322,6 +342,7 @@ fun Breadcrumbs(currentPath: String, onPathClick: (String) -> Unit) {
         modifier = Modifier
             .padding(horizontal = 2.dp)
             .fillMaxWidth()
+            .offset(y = (-5).dp)
             .horizontalScroll(scrollState),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -381,6 +402,7 @@ fun SortBar() {
     Row(
         modifier = Modifier
             .padding(horizontal = 10.dp)
+            .offset(y = (-10).dp)
             .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
@@ -411,7 +433,6 @@ fun SortBar() {
 
 @Composable
 fun FileList(
-    title: String,
     currentPath: String,
     files: List<FileModel>,
     selectedFiles: Set<String>,
@@ -423,7 +444,10 @@ fun FileList(
     onOpenWithClick: (FileModel) -> Unit,
     onFavoriteClick: (FileModel) -> Unit,
     onExtractClick: (FileModel) -> Unit,
+    onLockClick: (FileModel) -> Unit,
     onPathClick: (String) -> Unit,
+    onMoveClick: (FileModel) -> Unit,
+    onCopyClick: (FileModel) -> Unit,
     bottomPadding: androidx.compose.ui.unit.Dp
 ) {
     LazyColumn(
@@ -437,7 +461,7 @@ fun FileList(
                 Breadcrumbs(currentPath, onPathClick)
                 SortBar()
                 HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 20.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp).offset(y = (-7).dp),
                     thickness = 0.5.dp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
                 )
@@ -455,7 +479,10 @@ fun FileList(
                 onShare = { onShareClick(file) },
                 onOpenWith = { onOpenWithClick(file) },
                 onFavorite = { onFavoriteClick(file) },
-                onExtract = { onExtractClick(file) }
+                onExtract = { onExtractClick(file) },
+                onLock = { onLockClick(file) },
+                onMove = { onMoveClick(file) },
+                onCopy = { onCopyClick(file) }
             )
         }
     }
@@ -473,15 +500,22 @@ fun FileItem(
     onShare: () -> Unit,
     onOpenWith: () -> Unit,
     onFavorite: () -> Unit,
-    onExtract: () -> Unit
-) {
+    onExtract: () -> Unit,
+    onLock: () -> Unit,
+    onMove: () -> Unit,
+    onCopy: () -> Unit
+)
+{
     Surface(
-        color = if (isSelected) NeonSecondary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface,
+        color = if (isSelected) NeonSecondary.copy(alpha = 0.1f)
+        else MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(20.dp),
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, NeonSecondary) else null,
+        border = if (isSelected) androidx.compose.foundation
+            .BorderStroke(1.dp, NeonSecondary) else null,
         shadowElevation = if (isSelected) 0.dp else 2.dp,
         modifier = Modifier
             .fillMaxWidth()
+            .offset(y = (-15).dp)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -541,7 +575,11 @@ fun FileItem(
                             onClick = { 
                                 showFileMenu = false
                             },
-                            leadingIcon = { Icon(Icons.Rounded.Info, contentDescription = null, tint = NeonPrimary) }
+                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.info_circle_icon),
+
+                                contentDescription = null,
+                                tint = NeonPrimary,
+                                modifier = Modifier.size(20.dp)) }
                         )
                         DropdownMenuItem(
                             text = { Text("Rename", fontWeight = FontWeight.SemiBold) },
@@ -549,17 +587,30 @@ fun FileItem(
                                 onRename()
                                 showFileMenu = false 
                             },
-                            leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null, tint = NeonPrimary) }
+                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.brush_paintbrush_icon),
+                                contentDescription = null,
+                                tint = NeonPrimary,
+                                modifier = Modifier.size(20.dp)) }
                         )
                         DropdownMenuItem(
                             text = { Text("Move", fontWeight = FontWeight.SemiBold) },
-                            onClick = { showFileMenu = false },
-                            leadingIcon = { Icon(Icons.Rounded.MoveUp, contentDescription = null, tint = NeonPrimary) }
+                            onClick = { 
+                                onMove()
+                                showFileMenu = false 
+                            },
+                            leadingIcon = { Icon(Icons.Rounded.MoveUp,
+                                contentDescription = null, tint = NeonPrimary,
+                                modifier = Modifier.size(20.dp)) }
                         )
                         DropdownMenuItem(
                             text = { Text("Copy", fontWeight = FontWeight.SemiBold) },
-                            onClick = { showFileMenu = false },
-                            leadingIcon = { Icon(Icons.Rounded.ContentCopy, contentDescription = null, tint = NeonPrimary) }
+                            onClick = { 
+                                onCopy()
+                                showFileMenu = false 
+                            },
+                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.copy_outline_icon),
+                                contentDescription = null, tint = NeonPrimary,
+                                modifier = Modifier.size(20.dp)) }
                         )
                         DropdownMenuItem(
                             text = { Text("Delete", fontWeight = FontWeight.SemiBold) },
@@ -567,16 +618,23 @@ fun FileItem(
                                 onDelete()
                                 showFileMenu = false 
                             },
-                            leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null, tint = Color(0xFFEF5350)) }
+                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.recycle_bin_line_icon),
+                                contentDescription = null,
+                                tint = Color(0xFFEF5350),
+                                modifier = Modifier.size(20.dp)) }
                         )
                         if (file.extension.lowercase() in listOf("zip", "rar")) {
                             DropdownMenuItem(
-                                text = { Text("Extract Here", fontWeight = FontWeight.SemiBold) },
+                                text = { Text("Extract Here",
+                                    fontWeight = FontWeight.SemiBold) },
                                 onClick = { 
                                     onExtract()
                                     showFileMenu = false 
                                 },
-                                leadingIcon = { Icon(painterResource(R.drawable.archive_line_icon), contentDescription = null, tint = NeonPrimary) }
+                                leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
+                                    contentDescription = null,
+                                    tint = NeonPrimary,
+                                    modifier = Modifier.size(20.dp)) }
                             )
                         }
                         DropdownMenuItem(
@@ -585,7 +643,30 @@ fun FileItem(
                                 onLongClick()
                                 showFileMenu = false 
                             },
-                            leadingIcon = { Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = NeonSecondary) }
+                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
+                                contentDescription = null, tint = NeonSecondary,
+                                modifier = Modifier.size(20.dp)) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Favorite", fontWeight = FontWeight.SemiBold) },
+                            onClick = { 
+                                onFavorite()
+                                showFileMenu = false 
+                            },
+                            leadingIcon = { Icon(Icons.Rounded.Favorite,
+                                contentDescription = null,
+                                tint = Color(0xFFFF4081),
+                                modifier = Modifier.size(20.dp)) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Lock (Vault)", fontWeight = FontWeight.SemiBold) },
+                            onClick = { 
+                                onLock()
+                                showFileMenu = false 
+                            },
+                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.lock_line_icon),
+                                contentDescription = null, tint = NeonPrimary,
+                                modifier = Modifier.size(20.dp)) }
                         )
                         DropdownMenuItem(
                             text = { Text("Share", fontWeight = FontWeight.SemiBold) },
@@ -593,7 +674,9 @@ fun FileItem(
                                 onShare()
                                 showFileMenu = false 
                             },
-                            leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null, tint = NeonSecondary) }
+                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.share_icon),
+                                contentDescription = null, tint = NeonSecondary,
+                                modifier = Modifier.size(20.dp)) }
                         )
                         DropdownMenuItem(
                             text = { Text("Open with", fontWeight = FontWeight.SemiBold) },
@@ -601,15 +684,9 @@ fun FileItem(
                                 onOpenWith()
                                 showFileMenu = false 
                             },
-                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, tint = NeonSecondary) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Add to Favorites", fontWeight = FontWeight.SemiBold) },
-                            onClick = { 
-                                onFavorite()
-                                showFileMenu = false 
-                            },
-                            leadingIcon = { Icon(Icons.Rounded.Star, contentDescription = null, tint = Color(0xFFFFD600)) }
+                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.shortcut_icon),
+                                contentDescription = null, tint = NeonSecondary,
+                                modifier = Modifier.size(20.dp)) }
                         )
                     }
                 }
@@ -619,11 +696,52 @@ fun FileItem(
 }
 
 @Composable
+fun RenameDialog(
+    fileName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var text by remember { mutableStateOf(fileName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename File", fontWeight = FontWeight.Bold) },
+        text = {
+            TextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent
+                )
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(text) },
+                colors = ButtonDefaults.buttonColors(containerColor = NeonPrimary)
+            ) {
+                Text("Rename", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surface
+    )
+}
+
+@Composable
 fun FileThumbnail(file: FileModel) {
     val isVideo = FileUtils.isVideoFile(file.path)
     val isImage = FileUtils.isImageFile(file.path)
+    val isApk = file.extension.lowercase() == "apk"
     
-    if (isVideo || isImage) {
+    if (isVideo || isImage || isApk) {
         Surface(
             shape = RoundedCornerShape(14.dp),
             modifier = Modifier.size(48.dp),
@@ -635,7 +753,7 @@ fun FileThumbnail(file: FileModel) {
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
                 placeholder = painterResource(R.drawable.photo_collage_icon),
-                error = painterResource(R.drawable.photo_collage_icon)
+                error = painterResource(if (isApk) R.drawable.archive_line_icon else R.drawable.photo_collage_icon)
             )
             if (isVideo) {
                 Box(
@@ -655,6 +773,9 @@ fun FileThumbnail(file: FileModel) {
         val (icon, color) = when {
             file.isDirectory -> painterResource(R.drawable.archive_line_icon) to Color(0xFF64B5F6)
             file.extension.lowercase() == "pdf" -> painterResource(R.drawable.text_document_line_icon) to Color(0xFFEF5350)
+            file.extension.lowercase() in listOf("doc", "docx") -> painterResource(R.drawable.text_document_line_icon) to Color(0xFF1E88E5)
+            file.extension.lowercase() in listOf("xls", "xlsx") -> painterResource(R.drawable.text_document_line_icon) to Color(0xFF43A047)
+            file.extension.lowercase() in listOf("ppt", "pptx") -> painterResource(R.drawable.text_document_line_icon) to Color(0xFFF4511E)
             file.extension.lowercase() in listOf("mp3", "wav", "flac", "opus", "ogg") -> painterResource(R.drawable.audio_tune_icon) to Color(0xFF66BB6A)
             file.extension.lowercase() in listOf("zip", "rar", "7z") -> painterResource(R.drawable.archive_line_icon) to Color(0xFF78909C)
             else -> painterResource(R.drawable.text_document_line_icon) to Color(0xFFBDBDBD)
@@ -718,7 +839,6 @@ fun ExplorerPreviewFull() {
         ) { padding ->
             Box(modifier = Modifier.padding(top = padding.calculateTopPadding())) {
                 FileList(
-                    title = "Downloads",
                     currentPath = "/storage/emulated/0/Download",
                     files = mockFiles,
                     selectedFiles = setOf("/path/img.jpg"),
@@ -730,7 +850,10 @@ fun ExplorerPreviewFull() {
                     onOpenWithClick = {},
                     onFavoriteClick = {},
                     onExtractClick = {},
+                    onLockClick = {},
                     onPathClick = {},
+                    onMoveClick = {},
+                    onCopyClick = {},
                     bottomPadding = 0.dp
                 )
             }
@@ -761,7 +884,10 @@ fun ExplorerPreviewLight() {
                         onShare = {},
                         onOpenWith = {},
                         onFavorite = {},
-                        onExtract = {}
+                        onExtract = {},
+                        onLock = {},
+                        onMove = {},
+                        onCopy = {}
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     FileItem(
@@ -777,7 +903,10 @@ fun ExplorerPreviewLight() {
                         onShare = {},
                         onOpenWith = {},
                         onFavorite = {},
-                        onExtract = {}
+                        onExtract = {},
+                        onLock = {},
+                        onMove = {},
+                        onCopy = {}
                     )
                 }
             }
@@ -807,7 +936,10 @@ fun ExplorerPreviewDark() {
                         onShare = {},
                         onOpenWith = {},
                         onFavorite = {},
-                        onExtract = {}
+                        onExtract = {},
+                        onLock = {},
+                        onMove = {},
+                        onCopy = {}
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     FileItem(
@@ -822,7 +954,10 @@ fun ExplorerPreviewDark() {
                         onShare = {},
                         onOpenWith = {},
                         onFavorite = {},
-                        onExtract = {}
+                        onExtract = {},
+                        onLock = {},
+                        onMove = {},
+                        onCopy = {}
                     )
                 }
             }

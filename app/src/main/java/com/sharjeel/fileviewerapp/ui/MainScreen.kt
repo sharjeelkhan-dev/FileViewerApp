@@ -1,5 +1,14 @@
 package com.sharjeel.fileviewerapp.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import android.os.Environment
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -38,7 +47,12 @@ fun MainScreen() {
     val scope = rememberCoroutineScope()
     val adaptiveInfo = currentWindowAdaptiveInfo()
     
-    val backstack = remember { mutableStateListOf<NavRoute>(NavRoute.Home) }
+    val backstack = rememberSaveable(
+        saver = listSaver<SnapshotStateList<NavRoute>, String>(
+            save = { it.toList().map { route -> Json.encodeToString(route) } },
+            restore = { it.map { json -> Json.decodeFromString<NavRoute>(json) }.toMutableStateList() }
+        )
+    ) { mutableStateListOf<NavRoute>(NavRoute.Home) }
     val currentRoute = backstack.last()
 
     val explorerViewModel: ExplorerViewModel = hiltViewModel()
@@ -85,7 +99,13 @@ fun MainScreen() {
                             }
                             scope.launch { drawerState.close() }
                         },
-                        icon = { Icon(Icons.Rounded.Home, contentDescription = null) },
+                        icon = { 
+                            Icon(
+                                painter = painterResource(R.drawable.house_window_icon), 
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            ) 
+                        },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                         colors = NavigationDrawerItemDefaults.colors(
                             unselectedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -102,7 +122,13 @@ fun MainScreen() {
                             backstack.add(NavRoute.Explorer(title = "Storage"))
                             scope.launch { drawerState.close() }
                         },
-                        icon = { Icon(Icons.Rounded.SdStorage, contentDescription = null) },
+                        icon = { 
+                            Icon(
+                                painter = painterResource(R.drawable.database_line_icon), 
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            ) 
+                        },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                         colors = NavigationDrawerItemDefaults.colors(
                             unselectedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -180,7 +206,8 @@ fun MainScreen() {
                         )
                     )
                     
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 28.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 28.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                     
                     NavigationDrawerItem(
                         label = { Text("Settings") },
@@ -192,20 +219,10 @@ fun MainScreen() {
                             unselectedTextColor = MaterialTheme.colorScheme.onSurface
                         )
                     )
-
-                    NavigationDrawerItem(
-                        label = { Text("Share This App") },
-                        selected = false,
-                        onClick = { /* TODO */ },
-                        icon = { Icon(Icons.Rounded.Share, contentDescription = null) },
-                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                        colors = NavigationDrawerItemDefaults.colors(
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
                 }
             }
-        ) {
+        )
+        {
             NavDisplay(
                 backStack = backstack,
                 onBack = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) }
@@ -274,7 +291,7 @@ fun MainScreen() {
                         )
                     }
                     is NavRoute.Vault -> NavEntry(route) {
-                        VaultScreen(onAccessGranted = { /* TODO */ })
+                        VaultScreen(onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) })
                     }
                     else -> NavEntry(route) {
                         Box(modifier = Modifier.fillMaxSize()) { Text("Other Screen", color = MaterialTheme.colorScheme.onBackground) }
@@ -316,17 +333,25 @@ fun DrawerPreviewLight() {
                 label = { Text("Home") },
                 selected = true,
                 onClick = {},
-                icon = { Icon(Icons.Rounded.Home, contentDescription = null) },
-                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                icon = { Icon(painter = painterResource
+                    (id = R.drawable.house_window_icon),
+                    contentDescription = null) },
+                modifier = Modifier.padding(NavigationDrawerItemDefaults
+                    .ItemPadding)
             )
             NavigationDrawerItem(
                 label = { Text("Internal Storage") },
                 selected = false,
                 onClick = {},
-                icon = { Icon(Icons.Rounded.SdStorage, contentDescription = null) },
-                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                icon = { Icon(Icons.Rounded.SdStorage,
+                    contentDescription = null) },
+                modifier = Modifier.padding(NavigationDrawerItemDefaults
+                    .ItemPadding)
             )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 28.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            HorizontalDivider(modifier = Modifier
+                .padding(vertical = 8.dp,
+                    horizontal = 28.dp),
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
         }
     }
 }
@@ -345,7 +370,13 @@ fun DrawerPreviewDark() {
                 label = { Text("Home") },
                 selected = true,
                 onClick = {},
-                icon = { Icon(Icons.Rounded.Home, contentDescription = null) },
+                icon = { 
+                    Icon(
+                        painter = painterResource(R.drawable.house_window_icon), 
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    ) 
+                },
                 modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 colors = NavigationDrawerItemDefaults.colors(
                     unselectedTextColor = Color.White,

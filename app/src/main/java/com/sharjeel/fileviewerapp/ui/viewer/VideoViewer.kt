@@ -35,6 +35,12 @@ fun VideoViewer(filePath: String) {
         factory = {
             PlayerView(context).apply {
                 player = exoPlayer
+                setBackgroundColor(android.graphics.Color.BLACK)
+                // Ensure the view is laid out in the full available space
+                layoutParams = android.view.ViewGroup.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                )
             }
         },
         modifier = Modifier.fillMaxSize()
