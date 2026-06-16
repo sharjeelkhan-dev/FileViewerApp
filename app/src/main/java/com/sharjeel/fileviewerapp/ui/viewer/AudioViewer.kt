@@ -1,73 +1,51 @@
 package com.sharjeel.fileviewerapp.ui.viewer
 
 import android.annotation.SuppressLint
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
 import android.net.Uri
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.annotation.OptIn as AOptIn
+import kotlin.OptIn as KOptIn
+import androidx.compose.animation.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.rounded.Forward10
-import androidx.compose.material.icons.rounded.Replay10
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.PlayerView
 import com.sharjeel.fileviewerapp.R
+import androidx.compose.ui.tooling.preview.Preview
 import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
 import kotlinx.coroutines.delay
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
-import androidx.annotation.OptIn as AOptIn
-import kotlin.OptIn as KOptIn
 
 @AOptIn(UnstableApi::class)
 @Composable
-fun VideoViewer(filePath: String, isVisible: Boolean) {
+fun AudioViewer(filePath: String, isVisible: Boolean) {
     val context = LocalContext.current
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
@@ -77,11 +55,25 @@ fun VideoViewer(filePath: String, isVisible: Boolean) {
             playWhenReady = true
         }
     }
-
     var isPlaying by remember { mutableStateOf(value = true) }
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
+    var albumArt by remember { mutableStateOf<Bitmap?>(null) }
 
+    LaunchedEffect(filePath) {
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(filePath)
+            val art = retriever.embeddedPicture
+            if (art != null) {
+                albumArt = BitmapFactory.decodeByteArray(art, 0, art.size)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            retriever.release()
+        }
+    }
     LaunchedEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlayingChanged: Boolean) {
@@ -106,9 +98,8 @@ fun VideoViewer(filePath: String, isVisible: Boolean) {
             exoPlayer.release()
         }
     }
-
-    VideoViewerContent(
-        player = exoPlayer,
+    AudioViewerContent(
+        albumArt = albumArt,
         isPlaying = isPlaying,
         currentPosition = currentPosition,
         duration = duration,
@@ -126,19 +117,16 @@ fun VideoViewer(filePath: String, isVisible: Boolean) {
         onForward15s = { exoPlayer.seekTo(currentPosition + 15000) },
     )
 }
-
 @SuppressLint("DefaultLocale")
 private fun formatTime(millis: Long): String {
     val minutes = TimeUnit.MILLISECONDS.toMinutes(millis)
     val seconds = TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(minutes)
     return String.format("%02d:%02d", minutes, seconds)
 }
-
-@AOptIn(UnstableApi::class)
 @KOptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VideoViewerContent(
-    player: Player?,
+fun AudioViewerContent(
+    albumArt: Bitmap?,
     isPlaying: Boolean,
     currentPosition: Long,
     duration: Long,
@@ -150,33 +138,49 @@ fun VideoViewerContent(
     onReplay15s: () -> Unit,
     onForward15s: () -> Unit
 ) {
-    val context = LocalContext.current
-    
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // Video Surface - Full Screen
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            if (player != null) {
-                AndroidView(
-                    factory = {
-                        PlayerView(context).apply {
-                            this.player = player
-                            useController = false
-                            setBackgroundColor(android.graphics.Color.BLACK)
-                            layoutParams = android.view.ViewGroup.LayoutParams(
-                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+        // Blurred Background
+        if (albumArt != null) {
+            Image(
+                bitmap = albumArt.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize().blur(40.dp).alpha(0.5f),
+                contentScale = ContentScale.Crop
+            )
         }
 
-        // Overlay Controls
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 40.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Album Art
+            Box(
+                modifier = Modifier
+                    .size(280.dp)
+                    .offset(y = (-80).dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.DarkGray),
+                contentAlignment = Alignment.Center
+            ) {
+                if (albumArt != null) {
+                    Image(
+                        bitmap = albumArt.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.audio_tune_icon),
+                        contentDescription = null,
+                        modifier = Modifier.size(100.dp),
+                        tint = Color.White.copy(alpha = 0.5f)
+                    )
+                }
+            }
+        }
+        // Bottom Controls
         AnimatedVisibility(
             visible = isVisible,
             enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
@@ -229,8 +233,12 @@ fun VideoViewerContent(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(formatTime(currentPosition), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium)
-                        Text(formatTime(duration), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium)
+                        Text(formatTime(currentPosition),
+                            color = Color.White.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.labelMedium)
+                        Text(formatTime(duration),
+                            color = Color.White.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.labelMedium)
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -253,7 +261,6 @@ fun VideoViewerContent(
                                 tint = Color.White,
                                 modifier = Modifier.size(32.dp))
                         }
-                        
                         Surface(
                             onClick = onTogglePlay,
                             shape = CircleShape,
@@ -262,7 +269,8 @@ fun VideoViewerContent(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                    if (isPlaying) Icons.Filled.Pause
+                                    else Icons.Filled.PlayArrow,
                                     contentDescription = if (isPlaying) "Pause" else "Play",
                                     tint = Color.Black,
                                     modifier = Modifier.size(40.dp)
@@ -276,8 +284,8 @@ fun VideoViewerContent(
                                 modifier = Modifier.size(32.dp))
                         }
                         IconButton(onClick = { onNext() }) {
-                            Icon(painter = painterResource(id = R.drawable.step_forward_icon)
-                                , contentDescription = "Next",
+                            Icon(painter = painterResource(id = R.drawable.step_forward_icon),
+                                contentDescription = "Next",
                                 tint = Color.White,
                                 modifier = Modifier.size(20.dp))
                         }
@@ -287,16 +295,15 @@ fun VideoViewerContent(
         }
     }
 }
-
 @Preview(showBackground = true)
 @Composable
-fun VideoViewerPreview() {
+fun AudioViewerPreview() {
     FileViewerAppTheme {
-        VideoViewerContent(
-            player = null,
+        AudioViewerContent(
+            albumArt = null,
             isPlaying = true,
-            currentPosition = 120000L,
-            duration = 360000L,
+            currentPosition = 45000L,
+            duration = 180000L,
             isVisible = true,
             onSeek = {},
             onTogglePlay = {},

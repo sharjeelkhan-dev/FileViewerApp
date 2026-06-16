@@ -7,13 +7,15 @@ import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.domain.repository.FileCategory
 import com.sharjeel.fileviewerapp.domain.repository.FileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.File
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.io.File
-import javax.inject.Inject
 
 @HiltViewModel
 class ExplorerViewModel @Inject constructor(
@@ -24,7 +26,6 @@ class ExplorerViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    private val _uiState = MutableStateFlow<ExplorerUiState>(ExplorerUiState.Loading)
     val uiState: StateFlow<ExplorerUiState> = combine(_rawFiles, _searchQuery) { files, query ->
         if (query.isBlank()) {
             ExplorerUiState.Success(files)
@@ -32,7 +33,11 @@ class ExplorerViewModel @Inject constructor(
             val filtered = files.filter { it.name.contains(query, ignoreCase = true) }
             ExplorerUiState.Success(filtered)
         }
-    }.asStateFlow(_uiState.value, viewModelScope)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ExplorerUiState.Loading
+    )
 
     private val _currentPath = MutableStateFlow(Environment.getExternalStorageDirectory().absolutePath)
     val currentPath: StateFlow<String> = _currentPath.asStateFlow()
@@ -46,10 +51,8 @@ class ExplorerViewModel @Inject constructor(
         viewModelScope.launch {
             _currentPath.value = path
             _currentCategory.value = null
-            _uiState.value = ExplorerUiState.Loading
             repository.getFiles(File(path)).collect { files ->
                 _rawFiles.value = files
-                _uiState.value = ExplorerUiState.Success(files)
             }
         }
     }
@@ -57,10 +60,8 @@ class ExplorerViewModel @Inject constructor(
     fun loadCategory(category: FileCategory) {
         viewModelScope.launch {
             _currentCategory.value = category
-            _uiState.value = ExplorerUiState.Loading
             repository.getFilesByCategory(category).collect { files ->
                 _rawFiles.value = files
-                _uiState.value = ExplorerUiState.Success(files)
             }
         }
     }
@@ -127,10 +128,8 @@ class ExplorerViewModel @Inject constructor(
 
     fun loadVault() {
         viewModelScope.launch {
-            _uiState.value = ExplorerUiState.Loading
             repository.getVaultFiles().collect { files ->
                 _rawFiles.value = files
-                _uiState.value = ExplorerUiState.Success(files)
             }
         }
     }
@@ -152,33 +151,23 @@ class ExplorerViewModel @Inject constructor(
 
     fun loadRecent() {
         viewModelScope.launch {
-            _uiState.value = ExplorerUiState.Loading
             repository.getRecentFiles().collect { files ->
                 _rawFiles.value = files
-                _uiState.value = ExplorerUiState.Success(files)
             }
         }
     }
 
     fun loadFavorites() {
         viewModelScope.launch {
-            _uiState.value = ExplorerUiState.Loading
             repository.getFavoriteFiles().collect { files ->
                 _rawFiles.value = files
-                _uiState.value = ExplorerUiState.Success(files)
             }
         }
     }
 }
 
-// Extension to handle flow conversion with initial value
-private fun <T> kotlinx.coroutines.flow.Flow<T>.asStateFlow(initialValue: T, scope: kotlinx.coroutines.CoroutineScope): StateFlow<T> {
-    val flow = MutableStateFlow(initialValue)
-    scope.launch {
-        this@asStateFlow.collect { flow.value = it }
-    }
-    return flow.asStateFlow()
-}
+// Extension is no longer needed
+// private fun <T> kotlinx.coroutines.flow.Flow<T>.asStateFlow(...)
 
 sealed interface ExplorerUiState {
     data object Loading : ExplorerUiState

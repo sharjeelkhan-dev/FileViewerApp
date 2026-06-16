@@ -31,10 +31,10 @@ class FileRepositoryImpl @Inject constructor(
         } else directory
 
         val files = if (targetDir.exists() && targetDir.isDirectory) {
-            targetDir.listFiles()?.map { FileModel.fromFile(it) } ?: emptyList()
+            targetDir.listFiles()?.map { FileModel.fromFile(it, countItems = true) } ?: emptyList()
         } else {
             // Fallback to internal storage root if path doesn't exist
-            Environment.getExternalStorageDirectory().listFiles()?.map { FileModel.fromFile(it) } ?: emptyList()
+            Environment.getExternalStorageDirectory().listFiles()?.map { FileModel.fromFile(it, countItems = true) } ?: emptyList()
         }
         
         emit(files.sortedWith(compareByDescending<FileModel> { it.isDirectory }.thenBy { it.name }))
@@ -44,7 +44,7 @@ class FileRepositoryImpl @Inject constructor(
         val files = when (category) {
             FileCategory.DOWNLOADS -> {
                 val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                downloadsDir.listFiles()?.map { FileModel.fromFile(it) } ?: emptyList()
+                downloadsDir.listFiles()?.map { FileModel.fromFile(it, countItems = false) } ?: emptyList()
             }
             FileCategory.IMAGES -> queryMediaStore(MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
             FileCategory.VIDEOS -> queryMediaStore(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
@@ -118,7 +118,7 @@ class FileRepositoryImpl @Inject constructor(
                     }
                 } else {
                     if (extensions.contains(file.extension.lowercase())) {
-                        result.add(FileModel.fromFile(file))
+                        result.add(FileModel.fromFile(file, countItems = false))
                     }
                 }
             }
@@ -232,7 +232,7 @@ class FileRepositoryImpl @Inject constructor(
     override fun getVaultFiles(): Flow<List<FileModel>> = flow {
         val vaultDir = File(context.filesDir, ".vault")
         if (!vaultDir.exists()) vaultDir.mkdirs()
-        val files = vaultDir.listFiles()?.map { FileModel.fromFile(it) } ?: emptyList()
+        val files = vaultDir.listFiles()?.map { FileModel.fromFile(it, countItems = false) } ?: emptyList()
         emit(files.sortedByDescending { it.lastModified })
     }.flowOn(Dispatchers.IO)
 

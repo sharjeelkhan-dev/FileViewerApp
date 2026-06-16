@@ -108,7 +108,6 @@ fun ExplorerScreen(
             }
         )
     }
-
     BackHandler(enabled = selectedFiles.isNotEmpty() || isSearchActive) {
         if (selectedFiles.isNotEmpty()) {
             viewModel.clearSelection()
@@ -117,7 +116,6 @@ fun ExplorerScreen(
             viewModel.setSearchQuery("")
         }
     }
-
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -134,7 +132,8 @@ fun ExplorerScreen(
                             viewModel.setSearchQuery("")
                         }
                     )
-                } else {
+                }
+                else {
                     TopAppBar(
                         title = { 
                             Text(
@@ -262,7 +261,7 @@ fun ExplorerScreen(
                             onFileLongClick = { viewModel.toggleFileSelection(it.path) },
                             onDeleteClick = { viewModel.toggleFileSelection(it.path); viewModel.deleteSelectedFiles() },
                             onRenameClick = { fileToRename = it },
-                            onShareClick = { FileUtils.openWithExternalApp(context, it.path) },
+                            onShareClick = { FileUtils.shareFile(context, it.path) },
                             onOpenWithClick = { FileUtils.openWithExternalApp(context, it.path) },
                             onFavoriteClick = { viewModel.toggleFavorite(it) },
                             onExtractClick = { viewModel.extractArchive(it.path) },
@@ -284,7 +283,6 @@ fun ExplorerScreen(
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchTopBar(

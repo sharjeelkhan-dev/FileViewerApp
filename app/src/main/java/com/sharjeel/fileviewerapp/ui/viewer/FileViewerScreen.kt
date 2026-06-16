@@ -1,10 +1,17 @@
 package com.sharjeel.fileviewerapp.ui.viewer
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.HelpOutline
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Star
@@ -36,6 +43,11 @@ fun FileViewerScreen(
     val fileModel = remember(filePath) { FileModel.fromFile(file) }
     val context = androidx.compose.ui.platform.LocalContext.current
 
+    var controlsVisible by remember { mutableStateOf(true) }
+    val isAudio = fileType.lowercase() in listOf("mp3", "wav", "flac", "opus", "ogg")
+    val isVideo = fileType.lowercase() in listOf("mp4", "mkv", "avi")
+    val isMedia = isAudio || isVideo || fileType.lowercase() in listOf("jpg", "png", "webp", "gif")
+
     LaunchedEffect(filePath) {
         viewModel.checkIfFavorite(filePath)
         viewModel.addToRecent(fileModel)
@@ -44,55 +56,94 @@ fun FileViewerScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                title = { 
-                    Text(
-                        file.name, 
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    ) 
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack, 
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.toggleFavorite(fileModel) }) {
-                        Icon(
-                            if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                            contentDescription = "Favorite",
-                            tint = if (isFavorite) MaterialTheme.colorScheme.primary else Color.White
-                        )
-                    }
-                    IconButton(onClick = { com.sharjeel.fileviewerapp.util.FileUtils.openWithExternalApp(context, filePath) }) {
-                        Icon(
-                            Icons.Rounded.Share, 
-                            contentDescription = "Share",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Black.copy(alpha = 0.3f),
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White,
-                    actionIconContentColor = Color.White
+            AnimatedVisibility(
+                visible = controlsVisible || !isMedia,
+                enter = fadeIn() + slideInVertically(),
+                exit = fadeOut() + slideOutVertically()
+            ) {
+                TopAppBar(
+                    title = { 
+                        Text(
+                            file.name, 
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        ) 
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
+                            if (isAudio || isVideo) {
+                                Icon(
+                                    painter = painterResource(R.drawable.house_window_icon),
+                                    contentDescription = "Home",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            } else {
+                                Icon(
+                                    Icons.AutoMirrored.Rounded.ArrowBack, 
+                                    contentDescription = "Back",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    },
+                    actions = {
+                        if (isAudio || isVideo) {
+                            IconButton(onClick = { /* Info logic */ }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.info_circle_icon),
+                                    contentDescription = "Info",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            IconButton(onClick = { /* More logic */ }) {
+                                Icon(
+                                    imageVector = Icons.Rounded.MoreVert,
+                                    contentDescription = "More",
+                                    tint = Color.White
+                                )
+                            }
+                        } else {
+                            IconButton(onClick = { viewModel.toggleFavorite(fileModel) }) {
+                                Icon(
+                                    if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                                    contentDescription = "Favorite",
+                                    tint = if (isFavorite) MaterialTheme.colorScheme.primary else Color.White
+                                )
+                            }
+                            IconButton(onClick = { com.sharjeel.fileviewerapp.util.FileUtils.shareFile(context, filePath) }) {
+                                Icon(
+                                    Icons.Rounded.Share, 
+                                    contentDescription = "Share",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Black.copy(alpha = 0.5f),
+                        titleContentColor = Color.White,
+                        navigationIconContentColor = Color.White,
+                        actionIconContentColor = Color.White
+                    )
                 )
-            )
+            }
         },
         containerColor = Color.Black,
         contentWindowInsets = WindowInsets(0.dp)
     ) { innerPadding ->
-        val isMedia = fileType.lowercase() in listOf("jpg", "png", "webp", "gif", "mp4", "mkv", "avi", "mp3", "wav", "flac", "opus", "ogg")
-        
         Box(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (isMedia) Color.Black else MaterialTheme.colorScheme.background)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    if (isMedia) controlsVisible = !controlsVisible
+                }
         ) {
             Box(
                 modifier = Modifier
@@ -100,25 +151,27 @@ fun FileViewerScreen(
                     .then(
                         if (!isMedia) {
                             Modifier.padding(innerPadding)
-                        } else Modifier
+                        } else {
+                            Modifier
+                        }
                     )
             ) {
                 when {
                     fileType.equals("pdf", true) -> PdfViewerScreen(filePath)
                     fileType.lowercase() in listOf("jpg", "png", "webp", "gif") -> ImageViewer(filePath)
-                    fileType.lowercase() in listOf("mp4", "mkv", "avi", "mp3", "wav", "flac", "opus", "ogg") -> VideoViewer(filePath)
+                    isVideo -> VideoViewer(filePath, controlsVisible)
+                    isAudio -> AudioViewer(filePath, controlsVisible)
                     fileType.lowercase() in listOf("txt", "csv", "json", "xml", "kt", "java", "log", "py", "js") -> TextViewer(filePath)
                     fileType.lowercase() in listOf("html", "htm") -> WebViewViewer(filePath)
-                    fileType.lowercase() == "docx" -> DocxViewer(filePath)
-                    fileType.lowercase() == "xlsx" -> XlsxViewer(filePath)
-                    fileType.lowercase() in listOf("epub", "mobi") -> EpubViewer(filePath)
-                    else -> {
-                        if (fileType.lowercase() in listOf("doc", "xls", "ppt", "pptx", "rtf", "docm")) {
-                            WebViewViewer(filePath)
-                        } else {
-                            TextViewer(filePath)
+                    fileType.lowercase() in listOf("docx", "doc", "xls", "xlsx", "ppt", "pptx") -> {
+                        when (fileType.lowercase()) {
+                            "docx" -> DocxViewer(filePath)
+                            "xls", "xlsx" -> XlsxViewer(filePath)
+                            else -> WebViewViewer(filePath)
                         }
                     }
+                    fileType.lowercase() in listOf("epub", "mobi") -> EpubViewer(filePath)
+                    else -> TextViewer(filePath)
                 }
             }
         }

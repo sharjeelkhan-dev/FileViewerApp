@@ -13,7 +13,7 @@ data class FileModel(
     val mimeType: String? = null
 ) {
     companion object {
-        fun fromFile(file: File): FileModel {
+        fun fromFile(file: File, countItems: Boolean = false): FileModel {
             return FileModel(
                 name = file.name,
                 path = file.absolutePath,
@@ -21,7 +21,7 @@ data class FileModel(
                 lastModified = file.lastModified(),
                 isDirectory = file.isDirectory,
                 extension = file.extension,
-                itemCount = if (file.isDirectory) file.list()?.size ?: 0 else 0
+                itemCount = if (file.isDirectory && countItems) file.list()?.size ?: 0 else 0
             )
         }
     }

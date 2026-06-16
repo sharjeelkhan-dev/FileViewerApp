@@ -50,10 +50,30 @@ object FileUtils {
             "ogg" -> "audio/ogg"
             "zip" -> "application/zip"
             "rar" -> "application/x-rar-compressed"
-            "doc", "docx" -> "application/msword"
-            "xls", "xlsx" -> "application/vnd.ms-excel"
-            "ppt", "pptx" -> "application/vnd.ms-powerpoint"
+            "doc", "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            "xls", "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            "ppt", "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
             else -> "*/*"
+        }
+    }
+
+    fun shareFile(context: Context, filePath: String) {
+        val file = File(filePath)
+        try {
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.provider",
+                file
+            )
+            val mimeType = getMimeType(filePath)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = mimeType
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "Share via"))
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 

@@ -47,13 +47,17 @@ fun XlsxViewer(filePath: String) {
                         row.forEachIndexed { index, cell ->
                             Surface(
                                 modifier = Modifier.width(120.dp).padding(horizontal = 2.dp),
-                                color = if (index % 2 == 0) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f) else Color.Transparent,
-                                border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+                                color = if (index % 2 == 0) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) 
+                                        else MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                             ) {
                                 Text(
                                     text = cell,
                                     modifier = Modifier.padding(8.dp),
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = if (rows.indexOf(row) == 0) FontWeight.Bold else FontWeight.Normal
+                                    ),
                                     maxLines = 2
                                 )
                             }

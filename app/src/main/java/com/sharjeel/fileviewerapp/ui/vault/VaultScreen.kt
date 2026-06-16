@@ -289,7 +289,7 @@ fun VaultScreen(
                                 onFileLongClick = { },
                                 onDeleteClick = { viewModel.deleteFile(it.path) },
                                 onRenameClick = { fileToRename = it },
-                                onShareClick = { FileUtils.openWithExternalApp(context, it.path) },
+                                onShareClick = { FileUtils.shareFile(context, it.path) },
                                 onOpenWithClick = { FileUtils.openWithExternalApp(context, it.path) },
                                 onFavoriteClick = { },
                                 onExtractClick = { },
