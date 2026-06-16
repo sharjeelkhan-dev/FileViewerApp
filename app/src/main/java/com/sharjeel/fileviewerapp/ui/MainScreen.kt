@@ -1,23 +1,39 @@
 package com.sharjeel.fileviewerapp.ui
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import android.os.Environment
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.SdStorage
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.decodeFromString
-import android.os.Environment
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
-import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -34,12 +50,16 @@ import com.sharjeel.fileviewerapp.ui.explorer.ExplorerScreen
 import com.sharjeel.fileviewerapp.ui.explorer.ExplorerViewModel
 import com.sharjeel.fileviewerapp.ui.home.HomeScreen
 import com.sharjeel.fileviewerapp.ui.navigation.NavRoute
-import com.sharjeel.fileviewerapp.ui.theme.*
+import com.sharjeel.fileviewerapp.ui.settings.SettingsScreen
+import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
+import com.sharjeel.fileviewerapp.ui.theme.GlassSurface
+import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
 import com.sharjeel.fileviewerapp.ui.vault.VaultScreen
 import com.sharjeel.fileviewerapp.ui.viewer.FileViewerScreen
 import com.sharjeel.fileviewerapp.ui.viewer.ViewerViewModel
 import com.sharjeel.fileviewerapp.util.PermissionHandler
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 
 @Composable
 fun MainScreen() {
@@ -211,12 +231,23 @@ fun MainScreen() {
                     
                     NavigationDrawerItem(
                         label = { Text("Settings") },
-                        selected = false,
-                        onClick = { /* TODO */ },
-                        icon = { Icon(Icons.Rounded.Settings, contentDescription = null) },
+                        selected = currentRoute == NavRoute.Settings,
+                        onClick = { 
+                            backstack.add(NavRoute.Settings)
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = { 
+                            Icon(
+                                Icons.Rounded.Settings, 
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            ) 
+                        },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                         colors = NavigationDrawerItemDefaults.colors(
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurface
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                            selectedTextColor = NeonSecondary,
+                            selectedIconColor = NeonSecondary
                         )
                     )
                 }
@@ -292,6 +323,9 @@ fun MainScreen() {
                     }
                     is NavRoute.Vault -> NavEntry(route) {
                         VaultScreen(onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) })
+                    }
+                    is NavRoute.Settings -> NavEntry(route) {
+                        SettingsScreen(onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) })
                     }
                     else -> NavEntry(route) {
                         Box(modifier = Modifier.fillMaxSize()) { Text("Other Screen", color = MaterialTheme.colorScheme.onBackground) }

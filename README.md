@@ -43,7 +43,9 @@ Built with modern tools and a stunning **Neon & Glassmorphism** aesthetic.
 
 ## 📸 Screenshots
 
-| Home Screen | File Explorer | Secure Vault |
+|                          Home Screen                          |                            File Explorer                            |                          Secure Vault                           |
+|:-------------------------------------------------------------:|:-------------------------------------------------------------------:|:---------------------------------------------------------------:|
+| ![Home](https://via.placeholder.com/300x600?text=Home+Screen) | ![Explorer](https://via.placeholder.com/300x600?text=File+Explorer) | ![Vault](https://via.placeholder.com/300x600?text=Secure+Vault) |
 
 ---
 
