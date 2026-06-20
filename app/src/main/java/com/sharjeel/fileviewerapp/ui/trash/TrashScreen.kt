@@ -129,7 +129,7 @@ fun TrashScreen(
                             onRestoreAllClick = { viewModel.restoreAll() },
                             isEmptyTrashEnabled = true,
                             onEmptyTrashClick = { viewModel.emptyTrash() },
-                            showBreadcrumbs = true // Header and Breadcrumbs will show when content exists
+                            // Header and Breadcrumbs will show when content exists
                         )
                     }
                 }

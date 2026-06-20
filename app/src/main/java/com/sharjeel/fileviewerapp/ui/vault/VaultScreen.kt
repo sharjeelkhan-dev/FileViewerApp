@@ -1,38 +1,28 @@
 package com.sharjeel.fileviewerapp.ui.vault
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState
 import com.sharjeel.fileviewerapp.ui.explorer.FileList
 import com.sharjeel.fileviewerapp.ui.explorer.RenameDialog
-import com.sharjeel.fileviewerapp.ui.explorer.SearchTopBar
 import com.sharjeel.fileviewerapp.ui.explorer.SortBottomSheet
 import com.sharjeel.fileviewerapp.ui.explorer.ViewOptionsBottomSheet
-import com.sharjeel.fileviewerapp.ui.explorer.SortType
-import com.sharjeel.fileviewerapp.ui.explorer.SortOrder
-import com.sharjeel.fileviewerapp.ui.explorer.ViewMode
 import com.sharjeel.fileviewerapp.ui.theme.GlassSurface
 import com.sharjeel.fileviewerapp.ui.theme.NeonPrimary
 import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
@@ -265,8 +255,8 @@ fun VaultScreen(
                                 onPathClick = { },
                                 onMoveClick = { },
                                 onCopyClick = { },
-                                bottomPadding = bottomPad
-                        )
+                                bottomPadding = bottomPad,
+                            )
                         }
                     }
                     is ExplorerUiState.Error -> {
