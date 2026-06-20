@@ -43,9 +43,15 @@ Built with modern tools and a stunning **Neon & Glassmorphism** aesthetic.
 
 ## 📸 Screenshots
 
-|                          Home Screen                          |                            File Explorer                            |                          Secure Vault                           |
-|:-------------------------------------------------------------:|:-------------------------------------------------------------------:|:---------------------------------------------------------------:|
-| ![Home](https://via.placeholder.com/300x600?text=Home+Screen) | ![Explorer](https://via.placeholder.com/300x600?text=File+Explorer) | ![Vault](https://via.placeholder.com/300x600?text=Secure+Vault) |
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/35cfccdf-243a-4865-b227-75f73f1b3c00" />
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/59083f6b-a0f9-4aaa-a805-f5d21c6e6676" />
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/d88a3cf6-ff54-4716-8714-731d22eef1f6" />
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/ee030fe4-c5ef-44db-8bb4-bb65016e25ba" />
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/a8c81e1f-4877-46bb-bd21-fdbe897ae196" />
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/118b18d9-deeb-456e-9941-02f522f3c2ba" />
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/260e784a-34e2-4fb6-963f-6075915eda65" />
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/d238acb7-53c1-4e30-88a8-86422599c0f7" />
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/5467c1b3-390f-4dec-ae77-a5f844bd0f65" />
 
 ---
 
