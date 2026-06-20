@@ -48,30 +48,43 @@ fun DocxViewer(filePath: String) {
  * We read word/document.xml and strip tags.
  */
 private fun extractTextFromDocx(filePath: String): String {
-    val file = File(filePath)
-    ZipFile(file).use { zip ->
-        val entry = zip.getEntry("word/document.xml") ?: return "Not a valid DOCX file"
-        val xmlContent = zip.getInputStream(entry).bufferedReader().use { it.readText() }
-        
-        // Very basic XML tag stripping to get visible text
-        val sb = StringBuilder()
-        var inTag = false
-        var i = 0
-        while (i < xmlContent.length) {
-            val c = xmlContent[i]
-            if (c == '<') {
-                inTag = true
-                // Check for paragraph breaks
-                if (xmlContent.startsWith("<w:p ", i) || xmlContent.startsWith("<w:p>", i)) {
-                    sb.append("\n\n")
-                }
-            } else if (c == '>') {
-                inTag = false
-            } else if (!inTag) {
-                sb.append(c)
+    return try {
+        val file = File(filePath)
+        ZipFile(file).use { zip ->
+            val entry = zip.getEntry("word/document.xml") ?: return "Not a valid DOCX file (missing word/document.xml)"
+            val inputStream = zip.getInputStream(entry)
+            val dbf = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+            dbf.isNamespaceAware = true
+            val db = dbf.newDocumentBuilder()
+            val doc = db.parse(inputStream)
+            
+            val sb = StringBuilder()
+            val nodeList = doc.getElementsByTagNameNS("*", "t")
+            for (i in 0 until nodeList.length) {
+                sb.append(nodeList.item(i).textContent)
+                // Add a space if needed or handle paragraphs
             }
-            i++
+            
+            // Better approach: handle paragraphs (w:p)
+            val pList = doc.getElementsByTagNameNS("*", "p")
+            val result = StringBuilder()
+            for (i in 0 until pList.length) {
+                val p = pList.item(i)
+                val tList = (p as org.w3c.dom.Element).getElementsByTagNameNS("*", "t")
+                for (j in 0 until tList.length) {
+                    result.append(tList.item(j).textContent)
+                }
+                result.append("\n\n")
+            }
+            
+            if (result.isBlank()) {
+                // Fallback to simple stripping if structured extraction failed
+                sb.toString()
+            } else {
+                result.toString().trim()
+            }
         }
-        return sb.toString().trim().replace(Regex("\\n{3,}"), "\n\n")
+    } catch (e: Exception) {
+        "Error reading DOCX: ${e.localizedMessage}"
     }
 }

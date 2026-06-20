@@ -36,20 +36,41 @@ fun FileViewerScreen(
     filePath: String,
     fileType: String,
     viewModel: ViewerViewModel,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
 ) {
     val isFavorite by viewModel.isFavorite.collectAsState()
-    val file = remember(filePath) { File(filePath) }
-    val fileModel = remember(filePath) { FileModel.fromFile(file) }
+    val playlist by viewModel.videoPlaylist.collectAsState()
+    val currentIndex by viewModel.currentVideoIndex.collectAsState()
+
+    val isVideo = fileType.lowercase() in listOf("mp4", "mkv", "avi", "webm", "3gp")
+
+    val currentVideo = if (isVideo && currentIndex != -1 && currentIndex < playlist.size) {
+        playlist[currentIndex]
+    } else null
+
+    val effectiveFilePath = currentVideo?.path ?: filePath
+    val effectiveFileName = currentVideo?.name ?: File(filePath).name
+    val fileModel = remember(effectiveFilePath) { FileModel.fromFile(File(effectiveFilePath)) }
+
     val context = androidx.compose.ui.platform.LocalContext.current
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
     var controlsVisible by remember { mutableStateOf(true) }
     val isAudio = fileType.lowercase() in listOf("mp3", "wav", "flac", "opus", "ogg")
-    val isVideo = fileType.lowercase() in listOf("mp4", "mkv", "avi")
-    val isMedia = isAudio || isVideo || fileType.lowercase() in listOf("jpg", "png", "webp", "gif")
+    // PDF added to media types for edge-to-edge
+    val isMedia = isAudio || isVideo || fileType.lowercase() in listOf("jpg", "png", "webp", "gif", "pdf")
 
     LaunchedEffect(filePath) {
         viewModel.checkIfFavorite(filePath)
+        viewModel.addToRecent(fileModel)
+        if (isVideo) {
+            viewModel.loadVideoPlaylist(filePath)
+        }
+    }
+
+    LaunchedEffect(effectiveFilePath) {
+        viewModel.checkIfFavorite(effectiveFilePath)
         viewModel.addToRecent(fileModel)
     }
 
@@ -62,26 +83,27 @@ fun FileViewerScreen(
                 exit = fadeOut() + slideOutVertically()
             ) {
                 TopAppBar(
-                    title = { 
+                    title = {
                         Text(
-                            file.name, 
+                            effectiveFileName,
                             color = Color.White,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        ) 
+                            overflow = TextOverflow.Ellipsis,
+                            style = if (isLandscape) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.titleMedium
+                        )
                     },
                     navigationIcon = {
-                        IconButton(onClick = onBackClick) {
+                        IconButton(onClick = onBackClick, modifier = if (isLandscape) Modifier.size(40.dp) else Modifier.size(48.dp)) {
                             if (isAudio || isVideo) {
                                 Icon(
                                     painter = painterResource(R.drawable.house_window_icon),
                                     contentDescription = "Home",
                                     tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp)
                                 )
                             } else {
                                 Icon(
-                                    Icons.AutoMirrored.Rounded.ArrowBack, 
+                                    Icons.AutoMirrored.Rounded.ArrowBack,
                                     contentDescription = "Back",
                                     tint = Color.White
                                 )
@@ -90,15 +112,17 @@ fun FileViewerScreen(
                     },
                     actions = {
                         if (isAudio || isVideo) {
-                            IconButton(onClick = { /* Info logic */ }) {
+                            IconButton(onClick = { /* Info logic */ }, modifier = if (isLandscape)
+                                Modifier.size(40.dp) else Modifier.size(48.dp)) {
                                 Icon(
                                     painter = painterResource(R.drawable.info_circle_icon),
                                     contentDescription = "Info",
                                     tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp)
                                 )
                             }
-                            IconButton(onClick = { /* More logic */ }) {
+                            IconButton(onClick = { /* More logic */ }, modifier = if (isLandscape)
+                                Modifier.size(40.dp) else Modifier.size(48.dp)) {
                                 Icon(
                                     imageVector = Icons.Rounded.MoreVert,
                                     contentDescription = "More",
@@ -113,9 +137,9 @@ fun FileViewerScreen(
                                     tint = if (isFavorite) MaterialTheme.colorScheme.primary else Color.White
                                 )
                             }
-                            IconButton(onClick = { com.sharjeel.fileviewerapp.util.FileUtils.shareFile(context, filePath) }) {
+                            IconButton(onClick = { com.sharjeel.fileviewerapp.util.FileUtils.shareFile(context, effectiveFilePath) }) {
                                 Icon(
-                                    Icons.Rounded.Share, 
+                                    Icons.Rounded.Share,
                                     contentDescription = "Share",
                                     tint = Color.White
                                 )
@@ -127,51 +151,74 @@ fun FileViewerScreen(
                         titleContentColor = Color.White,
                         navigationIconContentColor = Color.White,
                         actionIconContentColor = Color.White
-                    )
+                    ),
+                    windowInsets = if (isLandscape) WindowInsets(0, 0, 0, 0)
+                    else TopAppBarDefaults.windowInsets
                 )
             }
         },
-        containerColor = Color.Black,
-        contentWindowInsets = WindowInsets(0.dp)
+        containerColor = if (isMedia) Color.Black else MaterialTheme.colorScheme.background,
+        // Using parent Scaffold's padding bounds instead of systemBars insets directly to prevent doubling
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(if (isMedia) Color.Black else MaterialTheme.colorScheme.background)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    if (isMedia) controlsVisible = !controlsVisible
-                }
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .then(
-                        if (!isMedia) {
-                            Modifier.padding(innerPadding)
-                        } else {
-                            Modifier
-                        }
-                    )
-            ) {
-                when {
-                    fileType.equals("pdf", true) -> PdfViewerScreen(filePath)
-                    fileType.lowercase() in listOf("jpg", "png", "webp", "gif") -> ImageViewer(filePath)
-                    isVideo -> VideoViewer(filePath, controlsVisible)
-                    isAudio -> AudioViewer(filePath, controlsVisible)
-                    fileType.lowercase() in listOf("txt", "csv", "json", "xml", "kt", "java", "log", "py", "js") -> TextViewer(filePath)
-                    fileType.lowercase() in listOf("html", "htm") -> WebViewViewer(filePath)
-                    fileType.lowercase() in listOf("docx", "doc", "xls", "xlsx", "ppt", "pptx") -> {
-                        when (fileType.lowercase()) {
-                            "docx" -> DocxViewer(filePath)
-                            "xls", "xlsx" -> XlsxViewer(filePath)
-                            else -> WebViewViewer(filePath)
-                        }
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        if (isMedia) controlsVisible = !controlsVisible
                     }
-                    fileType.lowercase() in listOf("epub", "mobi") -> EpubViewer(filePath)
-                    else -> TextViewer(filePath)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(
+                            top = if (!isMedia) innerPadding.calculateTopPadding() else 0.dp,
+                            bottom = if (!isMedia) innerPadding.calculateBottomPadding() else 0.dp
+                        )
+                ) {
+                    when {
+                        fileType.equals("pdf", true) -> PdfViewerScreen(effectiveFilePath)
+                        fileType.lowercase() in listOf("jpg", "png", "webp", "gif") -> ImageViewer(effectiveFilePath)
+                        isVideo -> VideoViewer(
+                            filePath = effectiveFilePath,
+                            isVisible = controlsVisible,
+                            onNext = { viewModel.playNextVideo() },
+                            onPrevious = { viewModel.playPreviousVideo() }
+                        )
+                        isAudio -> AudioViewer(effectiveFilePath, controlsVisible)
+                        fileType.lowercase() in listOf("txt", "csv", "json", "xml", "kt", "java", "log", "py", "js") -> TextViewer(effectiveFilePath)
+                        fileType.lowercase() in listOf("html", "htm") -> WebViewViewer(effectiveFilePath)
+                        fileType.lowercase() in listOf("docx", "doc", "xls", "xlsx", "ppt", "pptx", "docm", "xlsm", "pptm") -> {
+                            when {
+                                fileType.lowercase() in listOf("docx", "docm") -> DocxViewer(effectiveFilePath)
+                                fileType.lowercase() in listOf("xlsx", "xlsm") -> XlsxViewer(effectiveFilePath)
+                                fileType.lowercase() in listOf("pptx", "pptm") -> PptxViewer(effectiveFilePath)
+                                else -> {
+                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
+                                            Text("Direct viewing of older formats ($fileType) is not yet supported.",
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Button(onClick = { com.sharjeel.fileviewerapp.util.FileUtils.openWithExternalApp(context, effectiveFilePath) }) {
+                                                Text("Open with External App")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        fileType.lowercase() in listOf("epub", "mobi") -> EpubViewer(effectiveFilePath)
+                        else -> TextViewer(effectiveFilePath)
+                    }
                 }
             }
         }
@@ -183,7 +230,6 @@ fun FileViewerScreen(
 fun FileViewerPreviewLight() {
     FileViewerAppTheme(darkTheme = false) {
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            // Mocking a viewer layout
             Column(modifier = Modifier.fillMaxSize()) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().height(56.dp),

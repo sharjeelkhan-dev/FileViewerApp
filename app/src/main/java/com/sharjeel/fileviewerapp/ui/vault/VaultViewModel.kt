@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.domain.repository.FileRepository
 import com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState
+import com.sharjeel.fileviewerapp.ui.explorer.SortOrder
+import com.sharjeel.fileviewerapp.ui.explorer.SortType
+import com.sharjeel.fileviewerapp.ui.explorer.ViewMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +25,25 @@ class VaultViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<ExplorerUiState>(ExplorerUiState.Loading)
     val uiState: StateFlow<ExplorerUiState> = _uiState.asStateFlow()
+
+    private val _viewMode = MutableStateFlow(ViewMode.SMALL)
+    val viewMode: StateFlow<ViewMode> = _viewMode.asStateFlow()
+
+    private val _sortType = MutableStateFlow(SortType.NAME)
+    val sortType: StateFlow<SortType> = _sortType.asStateFlow()
+
+    private val _sortOrder = MutableStateFlow(SortOrder.ASCENDING)
+    val sortOrder: StateFlow<SortOrder> = _sortOrder.asStateFlow()
+
+    fun updateViewMode(mode: ViewMode) {
+        _viewMode.value = mode
+    }
+
+    fun updateSort(type: SortType, order: SortOrder) {
+        _sortType.value = type
+        _sortOrder.value = order
+        loadVaultFiles()
+    }
 
     fun unlock() {
         _isUnlocked.value = true

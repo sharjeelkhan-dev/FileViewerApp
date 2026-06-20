@@ -20,6 +20,12 @@ class ViewerViewModel @Inject constructor(
     private val _isFavorite = MutableStateFlow(false)
     val isFavorite: StateFlow<Boolean> = _isFavorite.asStateFlow()
 
+    private val _videoPlaylist = MutableStateFlow<List<FileModel>>(emptyList())
+    val videoPlaylist: StateFlow<List<FileModel>> = _videoPlaylist.asStateFlow()
+
+    private val _currentVideoIndex = MutableStateFlow(-1)
+    val currentVideoIndex: StateFlow<Int> = _currentVideoIndex.asStateFlow()
+
     fun checkIfFavorite(path: String) {
         viewModelScope.launch {
             _isFavorite.value = repository.isFavorite(path)
@@ -36,6 +42,38 @@ class ViewerViewModel @Inject constructor(
     fun addToRecent(file: FileModel) {
         viewModelScope.launch {
             repository.addToRecent(file)
+        }
+    }
+
+    fun loadVideoPlaylist(currentFilePath: String) {
+        viewModelScope.launch {
+            val file = File(currentFilePath)
+            val parentDir = file.parentFile
+            if (parentDir != null && parentDir.exists()) {
+                val videoExtensions = setOf("mp4", "mkv", "avi", "3gp", "webm")
+                val videos = parentDir.listFiles()
+                    ?.filter { it.isFile && it.extension.lowercase() in videoExtensions }
+                    ?.map { FileModel.fromFile(it) }
+                    ?.sortedBy { it.name }
+                    ?: emptyList()
+                
+                _videoPlaylist.value = videos
+                _currentVideoIndex.value = videos.indexOfFirst { it.path == currentFilePath }
+            }
+        }
+    }
+
+    fun playNextVideo() {
+        val nextIndex = _currentVideoIndex.value + 1
+        if (nextIndex < _videoPlaylist.value.size) {
+            _currentVideoIndex.value = nextIndex
+        }
+    }
+
+    fun playPreviousVideo() {
+        val prevIndex = _currentVideoIndex.value - 1
+        if (prevIndex >= 0) {
+            _currentVideoIndex.value = prevIndex
         }
     }
 }

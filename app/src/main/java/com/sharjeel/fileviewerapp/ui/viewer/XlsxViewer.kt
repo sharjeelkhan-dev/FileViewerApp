@@ -1,6 +1,5 @@
 package com.sharjeel.fileviewerapp.ui.viewer
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,7 +20,7 @@ import javax.xml.parsers.DocumentBuilderFactory
 @Composable
 fun XlsxViewer(filePath: String) {
     var rows by remember { mutableStateOf<List<List<String>>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(value = true) }
 
     LaunchedEffect(filePath) {
         isLoading = true
@@ -47,9 +46,12 @@ fun XlsxViewer(filePath: String) {
                         row.forEachIndexed { index, cell ->
                             Surface(
                                 modifier = Modifier.width(120.dp).padding(horizontal = 2.dp),
-                                color = if (index % 2 == 0) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) 
+                                color = if ((index % 2 == 0)) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) 
                                         else MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                                border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                                border = androidx.compose.foundation.BorderStroke(
+                                    width = 0.5.dp, 
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                ),
                             ) {
                                 Text(
                                     text = cell,
@@ -76,9 +78,10 @@ private fun extractDataFromXlsx(filePath: String): List<List<String>> {
         val sharedStrings = mutableListOf<String>()
         zip.getEntry("xl/sharedStrings.xml")?.let { entry ->
             val dbf = DocumentBuilderFactory.newInstance()
+            dbf.isNamespaceAware = true
             val db = dbf.newDocumentBuilder()
             val doc = db.parse(zip.getInputStream(entry))
-            val nodeList = doc.getElementsByTagName("t")
+            val nodeList = doc.getElementsByTagNameNS("*", "t")
             for (i in 0 until nodeList.length) {
                 sharedStrings.add(nodeList.item(i).textContent)
             }
@@ -88,9 +91,10 @@ private fun extractDataFromXlsx(filePath: String): List<List<String>> {
         val rows = mutableListOf<List<String>>()
         zip.getEntry("xl/worksheets/sheet1.xml")?.let { entry ->
             val dbf = DocumentBuilderFactory.newInstance()
+            dbf.isNamespaceAware = true
             val db = dbf.newDocumentBuilder()
             val doc = db.parse(zip.getInputStream(entry))
-            val rowNodes = doc.getElementsByTagName("row")
+            val rowNodes = doc.getElementsByTagNameNS("*", "row")
             
             for (i in 0 until rowNodes.length) {
                 val rowNode = rowNodes.item(i)
@@ -99,11 +103,13 @@ private fun extractDataFromXlsx(filePath: String): List<List<String>> {
                 
                 for (j in 0 until cellNodes.length) {
                     val cellNode = cellNodes.item(j)
-                    if (cellNode.nodeName == "c") {
+                    if (cellNode.localName == "c" || cellNode.nodeName.endsWith(":c") || cellNode.nodeName == "c") {
                         val type = cellNode.attributes?.getNamedItem("t")?.nodeValue
-                        val vNode = (0 until cellNode.childNodes.length)
-                            .map { cellNode.childNodes.item(it) }
-                            .firstOrNull { it.nodeName == "v" }
+                        
+                        // Look for 'v' tag regardless of namespace
+                        val vNode = if (cellNode is org.w3c.dom.Element) {
+                             cellNode.getElementsByTagNameNS("*", "v").item(0)
+                        } else null
                         
                         val value = vNode?.textContent ?: ""
                         if (type == "s" && value.isNotEmpty()) {

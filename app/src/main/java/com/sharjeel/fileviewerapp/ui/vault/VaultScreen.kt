@@ -28,6 +28,11 @@ import com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState
 import com.sharjeel.fileviewerapp.ui.explorer.FileList
 import com.sharjeel.fileviewerapp.ui.explorer.RenameDialog
 import com.sharjeel.fileviewerapp.ui.explorer.SearchTopBar
+import com.sharjeel.fileviewerapp.ui.explorer.SortBottomSheet
+import com.sharjeel.fileviewerapp.ui.explorer.ViewOptionsBottomSheet
+import com.sharjeel.fileviewerapp.ui.explorer.SortType
+import com.sharjeel.fileviewerapp.ui.explorer.SortOrder
+import com.sharjeel.fileviewerapp.ui.explorer.ViewMode
 import com.sharjeel.fileviewerapp.ui.theme.GlassSurface
 import com.sharjeel.fileviewerapp.ui.theme.NeonPrimary
 import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
@@ -44,8 +49,14 @@ fun VaultScreen(
     val activity = context as? FragmentActivity
     val isUnlocked by viewModel.isUnlocked.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+    val viewMode by viewModel.viewMode.collectAsState()
+    val sortType by viewModel.sortType.collectAsState()
+    val sortOrder by viewModel.sortOrder.collectAsState()
+    
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var fileToRename by remember { mutableStateOf<FileModel?>(null) }
+    var showSortSheet by remember { mutableStateOf(false) }
+    var showViewOptionsSheet by remember { mutableStateOf(false) }
     val isDark = isSystemInDarkTheme()
 
     var isSearchActive by remember { mutableStateOf(false) }
@@ -63,99 +74,39 @@ fun VaultScreen(
         )
     }
 
+    if (showSortSheet) {
+        SortBottomSheet(
+            currentType = sortType,
+            currentOrder = sortOrder,
+            onDismiss = { showSortSheet = false },
+            onSortSelected = { type, order ->
+                viewModel.updateSort(type, order)
+                showSortSheet = false
+            }
+        )
+    }
+
+    if (showViewOptionsSheet) {
+        ViewOptionsBottomSheet(
+            currentMode = viewMode,
+            onDismiss = { showViewOptionsSheet = false },
+            onModeSelected = { mode ->
+                viewModel.updateViewMode(mode)
+                showViewOptionsSheet = false
+            }
+        )
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        topBar = {
-            Surface(
-                color = MaterialTheme.colorScheme.background,
-                tonalElevation = 0.dp
-            ) {
-                if (isSearchActive && isUnlocked) {
-                    SearchTopBar(
-                        query = searchQuery,
-                        onQueryChange = { searchQuery = it },
-                        onCloseClick = { 
-                            isSearchActive = false
-                            searchQuery = ""
-                        }
-                    )
-                } else {
-                    TopAppBar(
-                        title = { 
-                            Text(
-                                "SECURE VAULT", 
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp,
-                                color = MaterialTheme.colorScheme.onBackground
-                            ) 
-                        },
-                        navigationIcon = {
-                            IconButton(onClick = onBackClick) {
-                                Icon(
-                                    Icons.AutoMirrored.Rounded.ArrowBack, 
-                                    contentDescription = "Back",
-                                    tint = MaterialTheme.colorScheme.onBackground
-                                )
-                            }
-                        },
-                        actions = {
-                            if (isUnlocked) {
-                                IconButton(onClick = { isSearchActive = true }) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.magnifying_glass_icon),
-                                        contentDescription = "Search",
-                                        modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.onBackground
-                                    )
-                                }
-                                Box {
-                                    IconButton(onClick = { showMenu = !showMenu }) {
-                                        Icon(
-                                            Icons.Rounded.MoreVert,
-                                            contentDescription = "More",
-                                            tint = MaterialTheme.colorScheme.onBackground
-                                        )
-                                    }
-                                    DropdownMenu(
-                                        expanded = showMenu,
-                                        onDismissRequest = { showMenu = false },
-                                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                                        shape = RoundedCornerShape(16.dp)
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text("Refresh") },
-                                            onClick = { 
-                                                showMenu = false 
-                                                viewModel.unlock() // Reuse unlock to reload
-                                            },
-                                            leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null, tint = NeonPrimary) }
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text("Lock Vault") },
-                                            onClick = { 
-                                                showMenu = false 
-                                                viewModel.lock()
-                                            },
-                                            leadingIcon = { Icon(Icons.Rounded.Lock, contentDescription = null, tint = NeonPrimary) }
-                                        )
-                                    }
-                                }
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                        windowInsets = TopAppBarDefaults.windowInsets
-                    )
-                }
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding())
         ) {
+            val bottomPad = innerPadding.calculateBottomPadding()
             if (!isUnlocked) {
                 Column(
                     modifier = Modifier
@@ -282,9 +233,26 @@ fun VaultScreen(
                             }
                         } else {
                             FileList(
-                                currentPath = "vault",
+                                title = "Secure Vault",
+                                currentPath = "Vault",
                                 files = filteredFiles,
                                 selectedFiles = emptySet(),
+                                viewMode = viewMode,
+                                sortType = sortType,
+                                sortOrder = sortOrder,
+                                onSortClick = { showSortSheet = true },
+                                onViewModeClick = { showViewOptionsSheet = true },
+                                onBackClick = onBackClick,
+                                onMenuClick = { showMenu = !showMenu },
+                                showMenu = showMenu,
+                                onDismissMenu = { showMenu = false },
+                                isSearchActive = isSearchActive,
+                                searchQuery = searchQuery,
+                                onSearchToggle = { isSearchActive = it },
+                                onSearchQueryChange = { searchQuery = it },
+                                onRefreshClick = { viewModel.unlock() },
+                                onSelectAllClick = { },
+                                onDeleteSelectedClick = { },
                                 onFileClick = { FileUtils.openWithExternalApp(context, it.path) },
                                 onFileLongClick = { },
                                 onDeleteClick = { viewModel.deleteFile(it.path) },
@@ -297,8 +265,8 @@ fun VaultScreen(
                                 onPathClick = { },
                                 onMoveClick = { },
                                 onCopyClick = { },
-                                bottomPadding = innerPadding.calculateBottomPadding()
-                            )
+                                bottomPadding = bottomPad
+                        )
                         }
                     }
                     is ExplorerUiState.Error -> {

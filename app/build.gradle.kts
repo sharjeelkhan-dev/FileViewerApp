@@ -21,10 +21,16 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ""
+        }
         release {
-            optimization {
-                enable = false
-            }
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
     compileOptions {
@@ -70,10 +76,6 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.common)
-    implementation(libs.androidx.pdf.compose)
-    implementation(libs.androidx.pdf.viewer)
-    implementation(libs.androidx.pdf.viewer.fragment)
-    implementation(libs.androidx.pdf.document.service)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.compose.material3.adaptive)
     implementation(libs.androidx.compose.material3.adaptive.layout)
@@ -92,6 +94,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.play.services.location)
     implementation(libs.retrofit)
+    implementation(libs.poi.android)
     implementation("com.github.junrar:junrar:7.5.4")
     testImplementation(libs.androidx.core)
     testImplementation(libs.androidx.junit)

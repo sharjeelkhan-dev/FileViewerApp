@@ -9,13 +9,16 @@ sealed interface NavRoute : NavKey {
     data object Home : NavRoute
 
     @Serializable
-    data class Explorer(val title: String = "Explorer") : NavRoute
+    data class Explorer(val title: String = "Explorer", val path: String? = null) : NavRoute
 
     @Serializable
     data class Viewer(val filePath: String, val fileType: String) : NavRoute
 
     @Serializable
     data object Vault : NavRoute
+
+    @Serializable
+    data object Trash : NavRoute
 
     @Serializable
     data object Settings : NavRoute

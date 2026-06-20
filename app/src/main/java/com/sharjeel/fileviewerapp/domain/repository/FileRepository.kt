@@ -19,6 +19,13 @@ interface FileRepository {
     suspend fun isFavorite(path: String): Boolean
     fun getVaultFiles(): Flow<List<FileModel>>
     suspend fun toggleVault(file: FileModel): Boolean
+
+    // Trash
+    fun getTrashFiles(): Flow<List<FileModel>>
+    suspend fun deleteFileToTrash(file: FileModel): Boolean
+    suspend fun restoreFile(file: FileModel): Boolean
+    suspend fun permanentlyDeleteFile(file: FileModel): Boolean
+    suspend fun emptyTrash(): Boolean
 }
 
 enum class FileCategory {

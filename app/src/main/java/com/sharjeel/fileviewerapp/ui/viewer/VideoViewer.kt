@@ -8,44 +8,20 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.Replay10
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -67,73 +43,91 @@ import kotlin.OptIn as KOptIn
 
 @AOptIn(UnstableApi::class)
 @Composable
-fun VideoViewer(filePath: String, isVisible: Boolean) {
+fun VideoViewer(
+    filePath: String, 
+    isVisible: Boolean,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit
+)
+{
     val context = LocalContext.current
-    val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            val mediaItem = MediaItem.fromUri(Uri.fromFile(File(filePath)))
-            setMediaItem(mediaItem)
-            prepare()
-            playWhenReady = true
-        }
+    val exoPlayer = remember(filePath) {
+        ExoPlayer.Builder(context)
+            .setRenderersFactory(
+                androidx.media3.exoplayer.DefaultRenderersFactory(context)
+                    .setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+                    .setEnableDecoderFallback(true)
+            )
+            .build().apply {
+                val mediaItem = MediaItem.fromUri(Uri.fromFile(File(filePath)))
+                setMediaItem(mediaItem)
+                prepare()
+                playWhenReady = true
+            }
     }
-
-    var isPlaying by remember { mutableStateOf(value = true) }
+    var isPlaying by remember { mutableStateOf(false) }
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
-
-    LaunchedEffect(exoPlayer) {
+    var isBuffering by remember { mutableStateOf(true) }
+    DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlayingChanged: Boolean) {
                 isPlaying = isPlayingChanged
             }
             override fun onPlaybackStateChanged(state: Int) {
+                isBuffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_READY) {
-                    duration = exoPlayer.duration
+                    duration = exoPlayer.duration.coerceAtLeast(0L)
                 }
             }
         }
         exoPlayer.addListener(listener)
-        
-        while (true) {
-            currentPosition = exoPlayer.currentPosition
-            delay(1000.milliseconds)
-        }
-    }
-
-    DisposableEffect(Unit) {
         onDispose {
+            exoPlayer.removeListener(listener)
             exoPlayer.release()
         }
     }
-
-    VideoViewerContent(
-        player = exoPlayer,
-        isPlaying = isPlaying,
-        currentPosition = currentPosition,
-        duration = duration,
-        isVisible = isVisible,
-        onSeek = { 
-            currentPosition = it.toLong()
-            exoPlayer.seekTo(it.toLong())
-        },
-        onTogglePlay = { 
-            if (isPlaying) exoPlayer.pause() else exoPlayer.play()
-        },
-        onPrevious = { exoPlayer.seekToPrevious() },
-        onNext = { exoPlayer.seekToNext() },
-        onReplay15s = { exoPlayer.seekTo(currentPosition - 15000) },
-        onForward15s = { exoPlayer.seekTo(currentPosition + 15000) },
-    )
+    LaunchedEffect(exoPlayer) {
+        while (true) {
+            currentPosition = exoPlayer.currentPosition
+            delay(500.milliseconds)
+        }
+    }
+    Box(modifier = Modifier.fillMaxSize()) {
+        VideoViewerContent(
+            player = exoPlayer,
+            isPlaying = isPlaying,
+            currentPosition = currentPosition,
+            duration = duration,
+            isVisible = isVisible,
+            onSeek = {
+                exoPlayer.seekTo(it.toLong())
+                currentPosition = it.toLong()
+            },
+            onTogglePlay = {
+                if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+            },
+            onPrevious = onPrevious,
+            onNext = onNext,
+            onReplay15s = { exoPlayer.seekTo((exoPlayer.currentPosition - 15000).coerceAtLeast(0)) },
+            onForward15s = { exoPlayer.seekTo((exoPlayer.currentPosition + 15000).coerceAtMost(duration)) },
+        )
+        if (isBuffering) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center),
+                color = Color.White
+            )
+        }
+    }
 }
 
 @SuppressLint("DefaultLocale")
 private fun formatTime(millis: Long): String {
-    val minutes = TimeUnit.MILLISECONDS.toMinutes(millis)
-    val seconds = TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(minutes)
+    val totalSeconds = TimeUnit.MILLISECONDS.toSeconds(millis)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
     return String.format("%02d:%02d", minutes, seconds)
 }
-
 @AOptIn(UnstableApi::class)
 @KOptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,27 +143,32 @@ fun VideoViewerContent(
     onNext: () -> Unit,
     onReplay15s: () -> Unit,
     onForward15s: () -> Unit
-) {
+)
+{
     val context = LocalContext.current
-    
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content
+        .res.Configuration.ORIENTATION_LANDSCAPE
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // Video Surface - Full Screen
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            if (player != null) {
+        // Video Surface
+        if (player != null) {
+            key(player) {
                 AndroidView(
                     factory = {
                         PlayerView(context).apply {
                             this.player = player
                             useController = false
+                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                             setBackgroundColor(android.graphics.Color.BLACK)
+                            (this.videoSurfaceView as? android.view.SurfaceView)?.setZOrderMediaOverlay(false)
                             layoutParams = android.view.ViewGroup.LayoutParams(
                                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                                 android.view.ViewGroup.LayoutParams.MATCH_PARENT
                             )
                         }
+                    },
+                    update = {
+                        it.player = player
                     },
                     modifier = Modifier.fillMaxSize()
                 )
@@ -186,28 +185,27 @@ fun VideoViewerContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.Black)
-                    .padding(horizontal = 24.dp, vertical = 70.dp)
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(horizontal = 24.dp, vertical = if (isLandscape) 12.dp else 40.dp)
+                    .navigationBarsPadding()
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     // Seek Bar
                     Slider(
                         value = currentPosition.toFloat(),
                         onValueChange = onSeek,
                         valueRange = 0f..(if (duration > 0) duration.toFloat() else 1f),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(if (isLandscape) 32.dp else 40.dp),
                         thumb = {
                             Box(
                                 modifier = Modifier
-                                    .size(20.dp)
+                                    .size(if (isLandscape) 16.dp else 20.dp)
                                     .background(Color.White, CircleShape)
                             )
                         },
                         track = { sliderState ->
-                            val fraction = (sliderState.value - sliderState.valueRange.start) / 
-                                         (sliderState.valueRange.endInclusive - sliderState.valueRange.start)
+                            val fraction = (sliderState.value - sliderState.valueRange.start) /
+                                    (sliderState.valueRange.endInclusive - sliderState.valueRange.start)
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -224,62 +222,50 @@ fun VideoViewerContent(
                             }
                         }
                     )
-
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(formatTime(currentPosition), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium)
-                        Text(formatTime(duration), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium)
+                        Text(formatTime(currentPosition), color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Text(formatTime(duration), color = Color.White, style = MaterialTheme.typography.labelSmall)
                     }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
+                    
+                    Spacer(modifier = Modifier.height(if (isLandscape) 8.dp else 24.dp))
+                    
                     // Controls
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = onPrevious) {
+                        IconButton(onClick = onPrevious, modifier = Modifier.size(if (isLandscape) 40.dp else 48.dp)) {
                             Icon(painter = painterResource(id = R.drawable.step_backward_icon),
-                                contentDescription = "Previous",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp))
+                                contentDescription = "Previous", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
-                        IconButton(onClick = onReplay15s) {
-                            Icon(Icons.Rounded.Replay10,
-                                contentDescription = "-15s",
-                                tint = Color.White,
-                                modifier = Modifier.size(32.dp))
+                        IconButton(onClick = onReplay15s, modifier = Modifier.size(if (isLandscape) 48.dp else 56.dp)) {
+                            Icon(Icons.Rounded.Replay10, contentDescription = "-15s", tint = Color.White, modifier = Modifier.size(32.dp))
                         }
-                        
                         Surface(
                             onClick = onTogglePlay,
                             shape = CircleShape,
                             color = Color.White,
-                            modifier = Modifier.size(72.dp)
+                            modifier = Modifier.size(if (isLandscape) 56.dp else 72.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                                     contentDescription = if (isPlaying) "Pause" else "Play",
                                     tint = Color.Black,
-                                    modifier = Modifier.size(40.dp)
+                                    modifier = Modifier.size(if (isLandscape) 32.dp else 40.dp)
                                 )
                             }
                         }
-                        IconButton(onClick = onForward15s) {
-                            Icon(Icons.Rounded.Forward10,
-                                contentDescription = "+15s",
-                                tint = Color.White,
-                                modifier = Modifier.size(32.dp))
+                        IconButton(onClick = onForward15s, modifier = Modifier.size(if (isLandscape) 48.dp else 56.dp)) {
+                            Icon(Icons.Rounded.Forward10, contentDescription = "+15s", tint = Color.White, modifier = Modifier.size(32.dp))
                         }
-                        IconButton(onClick = { onNext() }) {
-                            Icon(painter = painterResource(id = R.drawable.step_forward_icon)
-                                , contentDescription = "Next",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp))
+                        IconButton(onClick = onNext, modifier = Modifier.size(if (isLandscape) 40.dp else 48.dp)) {
+                            Icon(painter = painterResource(id = R.drawable.step_forward_icon),
+                                contentDescription = "Next", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                     }
                 }

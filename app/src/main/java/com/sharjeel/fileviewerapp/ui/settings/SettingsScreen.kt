@@ -75,6 +75,11 @@ fun SettingsScreen(
             // PROFILE CARD (Premium Dashboard Style like HomeScreen)
             ProfileDashboardCard()
             
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // STORAGE SUMMARY MINI-CARD
+            StorageSummaryMiniCard()
+
             Spacer(modifier = Modifier.height(32.dp))
             
             SettingsSectionHeader("GENERAL")
@@ -179,7 +184,9 @@ fun SettingsScreen(
 fun ProfileDashboardCard() {
     val isDark = isSystemInDarkTheme()
     Card(
-        modifier = Modifier.fillMaxWidth().height(120.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(110.dp),
         shape = RoundedCornerShape(32.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) GlassSurface else MaterialTheme.colorScheme.surface
@@ -188,7 +195,8 @@ fun ProfileDashboardCard() {
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Box(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
                     .background(
                         Brush.linearGradient(
                             colors = if (isDark) {
@@ -201,27 +209,128 @@ fun ProfileDashboardCard() {
             )
             
             Row(
-                modifier = Modifier.padding(24.dp).fillMaxSize(),
+                modifier = Modifier
+                    .padding(20.dp)
+                    .fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    modifier = Modifier.size(60.dp),
-                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.size(64.dp),
+                    shape = RoundedCornerShape(22.dp),
                     color = NeonPrimary.copy(alpha = 0.1f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, NeonPrimary.copy(alpha = 0.2f))
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        NeonPrimary.copy(alpha = 0.2f)
+                    )
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Person, contentDescription = null, tint = NeonPrimary, modifier = Modifier.size(32.dp))
+                        Icon(
+                            Icons.Rounded.Person,
+                            contentDescription = null,
+                            tint = NeonPrimary,
+                            modifier = Modifier.size(36.dp)
+                        )
                     }
                 }
                 
                 Spacer(modifier = Modifier.width(20.dp))
                 
-                Column {
-                    Text("Sharjeel Premium", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
-                    Text("Pro Account Active", style = MaterialTheme.typography.labelMedium, color = NeonSecondary, fontWeight = FontWeight.Bold)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Sharjeel Premium",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "Pro Account Active",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = NeonSecondary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                IconButton(
+                    onClick = { /* TODO */ },
+                    modifier = Modifier.background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        RoundedCornerShape(12.dp)
+                    )
+                ) {
+                    Icon(
+                        Icons.Rounded.Edit,
+                        contentDescription = "Edit Profile",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun StorageSummaryMiniCard() {
+    val isDark = isSystemInDarkTheme()
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = if (isDark) GlassSurface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier.size(48.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    progress = { 0.65f },
+                    modifier = Modifier.fillMaxSize(),
+                    strokeWidth = 6.dp,
+                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                    color = NeonSecondary,
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                )
+                Icon(
+                    Icons.Rounded.SdStorage,
+                    contentDescription = null,
+                    tint = NeonSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(20.dp))
+            
+            Column {
+                Text(
+                    "65% Storage Used",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "47 GB available",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Spacer(modifier = Modifier.weight(1f))
+            
+            Text(
+                "DETAILS",
+                style = MaterialTheme.typography.labelLarge,
+                color = NeonPrimary,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 1.sp,
+                modifier = Modifier.clickable { /* TODO */ }
+            )
         }
     }
 }

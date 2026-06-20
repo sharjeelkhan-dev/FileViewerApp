@@ -7,6 +7,7 @@ import android.provider.MediaStore
 import com.sharjeel.fileviewerapp.data.local.dao.FileDao
 import com.sharjeel.fileviewerapp.data.local.entity.FavoriteFileEntity
 import com.sharjeel.fileviewerapp.data.local.entity.RecentFileEntity
+import com.sharjeel.fileviewerapp.data.local.entity.TrashFileEntity
 import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.domain.repository.FileCategory
 import com.sharjeel.fileviewerapp.domain.repository.FileRepository
@@ -25,7 +26,6 @@ class FileRepositoryImpl @Inject constructor(
 ) : FileRepository {
 
     override fun getFiles(directory: File): Flow<List<FileModel>> = flow {
-        // Robust directory check
         val targetDir = if (directory.absolutePath.isEmpty()) {
             Environment.getExternalStorageDirectory()
         } else directory
@@ -33,7 +33,6 @@ class FileRepositoryImpl @Inject constructor(
         val files = if (targetDir.exists() && targetDir.isDirectory) {
             targetDir.listFiles()?.map { FileModel.fromFile(it, countItems = true) } ?: emptyList()
         } else {
-            // Fallback to internal storage root if path doesn't exist
             Environment.getExternalStorageDirectory().listFiles()?.map { FileModel.fromFile(it, countItems = true) } ?: emptyList()
         }
         
@@ -101,38 +100,22 @@ class FileRepositoryImpl @Inject constructor(
     }
 
     private fun queryAllFilesForArchives(): List<FileModel> {
-        val extensions = listOf("zip", "rar", "7z", "tar")
-        return walkExternalStorage(extensions)
-    }
-
-    private fun walkExternalStorage(extensions: List<String>): List<FileModel> {
-        val result = mutableListOf<FileModel>()
+        val extensions = setOf("zip", "rar", "7z", "tar")
         val root = Environment.getExternalStorageDirectory()
         
-        fun walk(dir: File) {
-            val files = dir.listFiles() ?: return
-            for (file in files) {
-                if (file.isDirectory) {
-                    if (!file.name.startsWith(".")) {
-                        walk(file)
-                    }
-                } else {
-                    if (extensions.contains(file.extension.lowercase())) {
-                        result.add(FileModel.fromFile(file, countItems = false))
-                    }
-                }
-            }
-        }
-        
-        walk(root)
-        return result
+        return root.walkTopDown()
+            .onEnter { !it.name.startsWith(".") }
+            .filter { it.isFile && extensions.contains(it.extension.lowercase()) }
+            .map { FileModel.fromFile(it, countItems = false) }
+            .toList()
     }
 
     override suspend fun deleteFile(path: String): Boolean = withContext(Dispatchers.IO) {
         val file = File(path)
-        if (file.exists()) {
-            file.delete()
-        } else false
+        if (!file.exists()) return@withContext false
+        
+        // standard delete always goes to trash now
+        deleteFileToTrash(FileModel.fromFile(file))
     }
 
     override suspend fun renameFile(path: String, newName: String): Boolean = withContext(Dispatchers.IO) {
@@ -254,7 +237,6 @@ class FileRepositoryImpl @Inject constructor(
                 File(vaultDir, sourceFile.name)
             }
 
-            // Using copyTo + delete instead of renameTo for cross-volume reliability
             if (sourceFile.renameTo(targetFile)) {
                 true
             } else {
@@ -263,7 +245,136 @@ class FileRepositoryImpl @Inject constructor(
                 true
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            false
+        }
+    }
+
+    override fun getTrashFiles(): Flow<List<FileModel>> = fileDao.getTrashFiles().map { entities ->
+        entities.map { entity ->
+            FileModel(
+                name = entity.name,
+                path = entity.originalPath,
+                size = entity.size,
+                lastModified = entity.deleteTimestamp,
+                isDirectory = entity.isDirectory,
+                extension = File(entity.originalPath).extension,
+                mimeType = entity.mimeType
+            )
+        }
+    }
+
+    override suspend fun deleteFileToTrash(file: FileModel): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val sourceFile = File(file.path)
+            if (!sourceFile.exists()) return@withContext false
+
+            val trashDir = File(context.filesDir, ".trash")
+            if (!trashDir.exists()) trashDir.mkdirs()
+
+            // To avoid name collisions in trash, use a unique name
+            val uniqueName = "${System.currentTimeMillis()}_${sourceFile.name}"
+            val targetFile = File(trashDir, uniqueName)
+            
+            // Cross-volume support: Use copyTo + delete if renameTo fails
+            val moved = if (sourceFile.renameTo(targetFile)) true 
+                        else {
+                            try {
+                                sourceFile.copyTo(targetFile, overwrite = true)
+                                sourceFile.delete()
+                                true
+                            } catch (e: Exception) { false }
+                        }
+
+            if (moved) {
+                fileDao.insertTrashFile(
+                    TrashFileEntity(
+                        originalPath = file.path,
+                        name = uniqueName, // Store the unique name used in .trash folder
+                        size = file.size,
+                        deleteTimestamp = System.currentTimeMillis(),
+                        isDirectory = file.isDirectory,
+                        mimeType = file.mimeType
+                    )
+                )
+                true
+            } else false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    override suspend fun restoreFile(file: FileModel): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val trashDir = File(context.filesDir, ".trash")
+            // file.name here is the unique name stored in DB
+            val sourceFile = File(trashDir, file.name)
+            if (!sourceFile.exists()) return@withContext false
+
+            val targetFile = File(file.path)
+            // Ensure parent directory exists for restore
+            targetFile.parentFile?.let { if (!it.exists()) it.mkdirs() }
+
+            val restored = if (sourceFile.renameTo(targetFile)) true
+                           else {
+                               try {
+                                   sourceFile.copyTo(targetFile, overwrite = true)
+                                   sourceFile.delete()
+                                   true
+                               } catch (e: Exception) { false }
+                           }
+
+            if (restored) {
+                fileDao.deleteTrashFile(
+                    TrashFileEntity(
+                        originalPath = file.path,
+                        name = file.name,
+                        size = file.size,
+                        deleteTimestamp = file.lastModified,
+                        isDirectory = file.isDirectory,
+                        mimeType = file.mimeType
+                    )
+                )
+                true
+            } else false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    override suspend fun permanentlyDeleteFile(file: FileModel): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val trashDir = File(context.filesDir, ".trash")
+            val sourceFile = File(trashDir, file.name)
+            if (sourceFile.exists()) {
+                sourceFile.delete()
+            }
+            
+            // Clean DB regardless if file exists or not to keep sync
+            fileDao.deleteTrashFile(
+                TrashFileEntity(
+                    originalPath = file.path,
+                    name = file.name,
+                    size = file.size,
+                    deleteTimestamp = file.lastModified,
+                    isDirectory = file.isDirectory,
+                    mimeType = file.mimeType
+                )
+            )
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    override suspend fun emptyTrash(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val trashDir = File(context.filesDir, ".trash")
+            if (trashDir.exists()) {
+                trashDir.deleteRecursively()
+            }
+            fileDao.emptyTrash()
+            true
+        } catch (e: Exception) {
             false
         }
     }

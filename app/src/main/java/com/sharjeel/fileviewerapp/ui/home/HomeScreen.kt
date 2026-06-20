@@ -1,7 +1,6 @@
 package com.sharjeel.fileviewerapp.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,21 +12,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Menu
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,12 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -68,64 +58,10 @@ fun HomeScreen(
     onMenuClick: () -> Unit = {},
     onCategoryClick: (String) -> Unit = {},
     onPlaceClick: (String) -> Unit = {},
-    onStorageClick: () -> Unit = {},
-    onSearchClick: () -> Unit = {},
-    onRefresh: () -> Unit = {},
-    onSelectAll: () -> Unit = {}
+    onStorageClick: () -> Unit = {}
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { 
-                    Text(
-                        "FILE VIEWER",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 2.sp,
-                        color = MaterialTheme.colorScheme.onBackground
-                    ) 
-                },
-                navigationIcon = {
-                    IconButton(onClick = onMenuClick) {
-                        Icon(Icons.Rounded.Menu,
-                            contentDescription = "Menu",
-                            tint = MaterialTheme.colorScheme.onBackground)
-                    }
-                },
-                actions = {
-                    Box {
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Refresh") },
-                                onClick = { 
-                                    onRefresh()
-                                    showMenu = false 
-                                },
-                                leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Select") },
-                                onClick = { 
-                                    onSelectAll()
-                                    showMenu = false 
-                                },
-                                leadingIcon = { Icon(Icons.Rounded.CheckCircle, contentDescription = null) }
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent
-                ),
-                windowInsets = TopAppBarDefaults.windowInsets
-            )
-        },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
@@ -134,8 +70,8 @@ fun HomeScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
-            // Apply top padding only if needed (Scaffold already handles TopAppBar)
-            Spacer(modifier = Modifier.height(innerPadding.calculateTopPadding() + 16.dp))
+            // Scrollable Header
+            HomeHeader(onMenuClick)
             
             StorageDashboardCard(onStorageClick)
             
@@ -152,6 +88,38 @@ fun HomeScreen(
             // Bottom spacer to account for system navigation bar
             Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding() + 24.dp))
         }
+    }
+}
+
+@Composable
+fun HomeHeader(onMenuClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        IconButton(onClick = onMenuClick) {
+            Icon(
+                imageVector = Icons.Rounded.Menu,
+                contentDescription = "Menu",
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        
+        Text(
+            "FILE VIEWER",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 2.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        
+        // Spacer to balance the Menu icon for center-aligned title look
+        Spacer(modifier = Modifier.size(48.dp))
     }
 }
 
@@ -276,40 +244,55 @@ fun PlacesGrid(onPlaceClick: (String) -> Unit) {
         PlaceItem("Downloads", painterResource(R.drawable.import_icon), NeonPrimary),
         PlaceItem("Recent", painterResource(R.drawable.rotate_left_arrow_icon), NeonSecondary),
         PlaceItem("Favorites", painterResource(R.drawable.photo_collage_icon), Color(0xFFFF4081)),
-        PlaceItem("Vault", painterResource(R.drawable.shield_lock_line_icon), Color(0xFF69F0AE))
+        PlaceItem("Vault", painterResource(R.drawable.shield_lock_line_icon), Color(0xFF69F0AE)),
+        PlaceItem("Trash", painterResource(R.drawable.recycle_bin_line_icon), Color(0xFFEF5350))
     )
 
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        places.forEach { place ->
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(onClick = { onPlaceClick(place.name) }),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Surface(
-                    modifier = Modifier.size(64.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, place.color.copy(alpha = 0.3f)),
-                    shadowElevation = 4.dp
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(place.icon,
-                            contentDescription = null,
-                            tint = place.color,
-                            modifier = Modifier.size(32.dp))
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    place.name, 
-                    style = MaterialTheme.typography.labelMedium, 
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            places.take(3).forEach { place ->
+                PlaceCard(place, Modifier.weight(1f), onPlaceClick)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            places.drop(3).forEach { place ->
+                PlaceCard(place, Modifier.weight(1f), onPlaceClick)
+            }
+            Spacer(modifier = Modifier.weight((3 - places.size % 3).toFloat()))
+        }
+    }
+}
+
+@Composable
+fun PlaceCard(place: PlaceItem, modifier: Modifier, onPlaceClick: (String) -> Unit) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Surface(
+            modifier = Modifier.size(64.dp),
+            onClick = { onPlaceClick(place.name) },
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, place.color.copy(alpha = 0.3f)),
+            shadowElevation = 4.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    place.icon,
+                    contentDescription = null,
+                    tint = place.color,
+                    modifier = Modifier.size(32.dp)
                 )
             }
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            place.name,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
     }
 }
 

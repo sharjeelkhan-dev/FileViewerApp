@@ -230,7 +230,7 @@ fun AudioViewerContent(
                     )
 
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(formatTime(currentPosition),

@@ -29,7 +29,12 @@ private val DarkColorScheme = darkColorScheme(
     
     outline = Color.White.copy(alpha = 0.12f),
     error = Color(0xFFCF6679),
-    onError = Color.Black
+    onError = Color.Black,
+    
+    tertiary = Color(0xFF80DEEA),
+    onTertiary = Color.Black,
+    tertiaryContainer = Color(0xFF006064).copy(alpha = 0.3f),
+    onTertiaryContainer = Color(0xFF80DEEA)
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -54,7 +59,12 @@ private val LightColorScheme = lightColorScheme(
     
     outline = Color(0xFF74777F),
     error = Color(0xFFBA1A1A),
-    onError = Color.White
+    onError = Color.White,
+    
+    tertiary = Color(0xFF00ACC1),
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFE0F7FA),
+    onTertiaryContainer = Color(0xFF00ACC1)
 )
 
 @Composable

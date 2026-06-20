@@ -1,48 +1,177 @@
 package com.sharjeel.fileviewerapp.ui.viewer
 
-import android.net.Uri
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import android.graphics.Bitmap
+import android.graphics.pdf.PdfRenderer
+import android.os.ParcelFileDescriptor
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.pdf.PdfDocument
-import androidx.pdf.SandboxedPdfLoader
-import androidx.pdf.compose.PdfViewer
-import androidx.pdf.compose.PdfViewerState
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.core.graphics.createBitmap
+import com.sharjeel.fileviewerapp.ui.theme.NeonPrimary
+import com.sharjeel.fileviewerapp.ui.theme.GlassBackground
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
 fun PdfViewerScreen(filePath: String) {
-    val context = LocalContext.current
-    val pdfUri = Uri.fromFile(File(filePath))
-    val pdfLoader = remember { SandboxedPdfLoader(context) }
-    val pdfViewerState = remember { PdfViewerState() }
+    var pageCount by remember { mutableIntStateOf(0) }
+    var renderer by remember { mutableStateOf<PdfRenderer?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
 
-    val pdfDocument by produceState<PdfDocument?>(initialValue = null, pdfUri) {
-        value = try {
-            pdfLoader.openDocument(pdfUri)
-        } catch (e: Exception) {
-            null
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(filePath) {
+        withContext(Dispatchers.IO) {
+            try {
+                val file = File(filePath)
+                val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+                val pdfRenderer = PdfRenderer(pfd)
+                renderer = pdfRenderer
+                pageCount = pdfRenderer.pageCount
+                isLoading = false
+            } catch (e: Exception) {
+                error = e.localizedMessage
+                isLoading = false
+            }
         }
     }
 
-    Scaffold { paddingValues ->
-        pdfDocument?.let { document ->
-            PdfViewer(
-                pdfDocument = document,
-                state = pdfViewerState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = paddingValues
+    DisposableEffect(Unit) {
+        onDispose {
+            renderer?.close()
+        }
+    }
+
+    // High-quality background based on theme
+    val bgColor = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) Color(0xFFF5F5F5) else GlassBackground
+
+    Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = NeonPrimary)
+        } else if (error != null) {
+            Text(text = "Error: $error", modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.error)
+        } else {
+            var scale by remember { mutableFloatStateOf(1f) }
+            val state = rememberTransformableState { zoomChange, _, _ ->
+                scale *= zoomChange
+            }
+            
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .transformable(state = state)
+                    .graphicsLayer(
+                        scaleX = scale.coerceIn(1f, 5f),
+                        scaleY = scale.coerceIn(1f, 5f)
+                    ),
+                state = listState,
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                items(pageCount) { index ->
+                    PdfPageItem(renderer, index)
+                }
+            }
+            
+            // Modern Page Indicator
+            val firstVisibleItem by remember { derivedStateOf { listState.firstVisibleItemIndex } }
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = Color.Black.copy(alpha = 0.6f),
+                contentColor = Color.White,
+                shadowElevation = 4.dp
+            ) {
+                Text(
+                    text = "${firstVisibleItem + 1} / $pageCount",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PdfPageItem(renderer: PdfRenderer?, index: Int) {
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(renderer, index) {
+        if (renderer == null) return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            try {
+                val page = renderer.openPage(index)
+                // High resolution rendering (3.0x for crisp text)
+                val targetWidth = (page.width * 3.0).toInt()
+                val targetHeight = (page.height * 3.0).toInt()
+                
+                val destBitmap = createBitmap(targetWidth, targetHeight)
+                page.render(destBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                bitmap = destBitmap
+                page.close()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    Surface(
+        modifier = Modifier
+            .widthIn(max = 800.dp) // Professional limit for readability
+            .fillMaxWidth()
+            .wrapContentHeight(),
+        shape = RoundedCornerShape(8.dp),
+        color = Color.White,
+        shadowElevation = 6.dp,
+        border = BorderStroke(0.5.dp, Color.Black.copy(alpha = 0.05f))
+    ) {
+        bitmap?.let {
+            Image(
+                bitmap = it.asImageBitmap(),
+                contentDescription = "Page ${index + 1}",
+                modifier = Modifier.fillMaxWidth(),
+                contentScale = ContentScale.FillWidth
             )
         } ?: Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(450.dp),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(modifier = Modifier.size(32.dp), color = NeonPrimary)
+        }
+    }
+
+    DisposableEffect(index) {
+        onDispose {
+            bitmap?.recycle()
+            bitmap = null
         }
     }
 }
