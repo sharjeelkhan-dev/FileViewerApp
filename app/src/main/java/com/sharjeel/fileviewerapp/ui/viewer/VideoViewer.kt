@@ -8,6 +8,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -46,8 +48,10 @@ import kotlin.OptIn as KOptIn
 fun VideoViewer(
     filePath: String, 
     isVisible: Boolean,
+    isActive: Boolean,
     onNext: () -> Unit,
-    onPrevious: () -> Unit
+    onPrevious: () -> Unit,
+    onTap: () -> Unit = {}
 )
 {
     val context = LocalContext.current
@@ -62,9 +66,15 @@ fun VideoViewer(
                 val mediaItem = MediaItem.fromUri(Uri.fromFile(File(filePath)))
                 setMediaItem(mediaItem)
                 prepare()
-                playWhenReady = true
+                playWhenReady = false // Managed by isActive
             }
     }
+
+    LaunchedEffect(isActive) {
+        exoPlayer.playWhenReady = isActive
+        if (!isActive) exoPlayer.pause()
+    }
+
     var isPlaying by remember { mutableStateOf(false) }
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
@@ -93,7 +103,14 @@ fun VideoViewer(
             delay(500.milliseconds)
         }
     }
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onTap() }
+    ) {
         VideoViewerContent(
             player = exoPlayer,
             isPlaying = isPlaying,

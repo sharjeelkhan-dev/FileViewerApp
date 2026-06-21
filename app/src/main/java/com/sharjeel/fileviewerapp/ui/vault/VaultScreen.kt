@@ -33,6 +33,7 @@ import com.sharjeel.fileviewerapp.util.FileUtils
 @Composable
 fun VaultScreen(
     onBackClick: () -> Unit,
+    onFileClick: (FileModel) -> Unit,
     viewModel: VaultViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -243,7 +244,7 @@ fun VaultScreen(
                                 onRefreshClick = { viewModel.unlock() },
                                 onSelectAllClick = { },
                                 onDeleteSelectedClick = { },
-                                onFileClick = { FileUtils.openWithExternalApp(context, it.path) },
+                                onFileClick = onFileClick,
                                 onFileLongClick = { },
                                 onDeleteClick = { viewModel.deleteFile(it.path) },
                                 onRenameClick = { fileToRename = it },

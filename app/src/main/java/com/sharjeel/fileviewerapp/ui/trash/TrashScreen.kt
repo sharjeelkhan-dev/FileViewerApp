@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.ui.explorer.*
 import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
 
@@ -17,6 +18,7 @@ import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
 @Composable
 fun TrashScreen(
     onBackClick: () -> Unit,
+    onFileClick: (FileModel) -> Unit,
     viewModel: TrashViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -111,7 +113,11 @@ fun TrashScreen(
                             onSelectAllClick = { viewModel.selectAll() },
                             onDeleteSelectedClick = { viewModel.deleteSelectedPermanently() },
                             onFileClick = { file ->
-                                if (selectedFiles.isNotEmpty()) viewModel.toggleFileSelection(file.path)
+                                if (selectedFiles.isNotEmpty()) {
+                                    viewModel.toggleFileSelection(file.path)
+                                } else {
+                                    onFileClick(file)
+                                }
                             },
                             onFileLongClick = { viewModel.toggleFileSelection(it.path) },
                             onDeleteClick = { viewModel.toggleFileSelection(it.path); viewModel.deleteSelectedPermanently() },

@@ -6,8 +6,6 @@ import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -33,8 +31,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
+/**
+ * Professional PdfViewer with perfected Swipe and Zoom separation.
+ * Uses GestureCoordinatedBox to ensure frictionless single-hand swiping at 1.0x scale.
+ */
 @Composable
-fun PdfViewerScreen(filePath: String) {
+fun PdfViewerScreen(
+    filePath: String, 
+    onZoomChanged: (Boolean) -> Unit = {},
+    onTap: () -> Unit = {}
+) {
     var pageCount by remember { mutableIntStateOf(0) }
     var renderer by remember { mutableStateOf<PdfRenderer?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -64,7 +70,6 @@ fun PdfViewerScreen(filePath: String) {
         }
     }
 
-    // High-quality background based on theme
     val bgColor = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) Color(0xFFF5F5F5) else GlassBackground
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
@@ -73,30 +78,30 @@ fun PdfViewerScreen(filePath: String) {
         } else if (error != null) {
             Text(text = "Error: $error", modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.error)
         } else {
-            var scale by remember { mutableFloatStateOf(1f) }
-            val state = rememberTransformableState { zoomChange, _, _ ->
-                scale *= zoomChange
-            }
-            
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .transformable(state = state)
-                    .graphicsLayer(
-                        scaleX = scale.coerceIn(1f, 5f),
-                        scaleY = scale.coerceIn(1f, 5f)
-                    ),
-                state = listState,
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                items(pageCount) { index ->
-                    PdfPageItem(renderer, index)
+            GestureCoordinatedBox(
+                onZoomChanged = onZoomChanged,
+                onTap = onTap
+            ) { scale, offset ->
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offset.x,
+                            translationY = offset.y
+                        ),
+                    state = listState,
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    items(pageCount) { index ->
+                        PdfPageItem(renderer, index)
+                    }
                 }
             }
             
-            // Modern Page Indicator
             val firstVisibleItem by remember { derivedStateOf { listState.firstVisibleItemIndex } }
             Surface(
                 modifier = Modifier
@@ -127,10 +132,9 @@ fun PdfPageItem(renderer: PdfRenderer?, index: Int) {
         withContext(Dispatchers.IO) {
             try {
                 val page = renderer.openPage(index)
-                // High resolution rendering (3.0x for crisp text)
-                val targetWidth = (page.width * 3.0).toInt()
-                val targetHeight = (page.height * 3.0).toInt()
-                
+                val targetWidth = (page.width * 2.0).toInt()
+                val targetHeight = (page.height * 2.0).toInt()
+
                 val destBitmap = createBitmap(targetWidth, targetHeight)
                 page.render(destBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                 bitmap = destBitmap
@@ -143,7 +147,7 @@ fun PdfPageItem(renderer: PdfRenderer?, index: Int) {
 
     Surface(
         modifier = Modifier
-            .widthIn(max = 800.dp) // Professional limit for readability
+            .widthIn(max = 800.dp)
             .fillMaxWidth()
             .wrapContentHeight(),
         shape = RoundedCornerShape(8.dp),

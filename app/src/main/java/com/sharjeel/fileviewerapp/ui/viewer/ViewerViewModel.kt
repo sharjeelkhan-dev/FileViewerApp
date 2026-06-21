@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -20,11 +19,40 @@ class ViewerViewModel @Inject constructor(
     private val _isFavorite = MutableStateFlow(false)
     val isFavorite: StateFlow<Boolean> = _isFavorite.asStateFlow()
 
-    private val _videoPlaylist = MutableStateFlow<List<FileModel>>(emptyList())
-    val videoPlaylist: StateFlow<List<FileModel>> = _videoPlaylist.asStateFlow()
+    // Universal playlist for all file types in the current view
+    private val _filePlaylist = MutableStateFlow<List<FileModel>>(emptyList())
+    val filePlaylist: StateFlow<List<FileModel>> = _filePlaylist.asStateFlow()
 
-    private val _currentVideoIndex = MutableStateFlow(-1)
-    val currentVideoIndex: StateFlow<Int> = _currentVideoIndex.asStateFlow()
+    private val _currentFileIndex = MutableStateFlow(-1)
+    val currentFileIndex: StateFlow<Int> = _currentFileIndex.asStateFlow()
+
+    fun setPlaylist(files: List<FileModel>, initialPath: String) {
+        _filePlaylist.value = files
+        _currentFileIndex.value = files.indexOfFirst { it.path == initialPath }
+    }
+
+    /**
+     * Fallback for external intents: Loads all viewable files in the same directory.
+     */
+    fun loadFolderPlaylist(currentFilePath: String) {
+        // Don't overwrite if playlist is already set (e.g. from Categories/Explorer)
+        if (_filePlaylist.value.isNotEmpty()) return
+        
+        viewModelScope.launch {
+            val file = java.io.File(currentFilePath)
+            val parentDir = file.parentFile
+            if (parentDir != null && parentDir.exists()) {
+                val files = parentDir.listFiles()
+                    ?.filter { it.isFile && !it.name.startsWith(".") }
+                    ?.map { FileModel.fromFile(it) }
+                    ?.sortedBy { it.name.lowercase() }
+                    ?: emptyList()
+                
+                _filePlaylist.value = files
+                _currentFileIndex.value = files.indexOfFirst { it.path == currentFilePath }
+            }
+        }
+    }
 
     fun checkIfFavorite(path: String) {
         viewModelScope.launch {
@@ -45,35 +73,9 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
-    fun loadVideoPlaylist(currentFilePath: String) {
-        viewModelScope.launch {
-            val file = File(currentFilePath)
-            val parentDir = file.parentFile
-            if (parentDir != null && parentDir.exists()) {
-                val videoExtensions = setOf("mp4", "mkv", "avi", "3gp", "webm")
-                val videos = parentDir.listFiles()
-                    ?.filter { it.isFile && it.extension.lowercase() in videoExtensions }
-                    ?.map { FileModel.fromFile(it) }
-                    ?.sortedBy { it.name }
-                    ?: emptyList()
-                
-                _videoPlaylist.value = videos
-                _currentVideoIndex.value = videos.indexOfFirst { it.path == currentFilePath }
-            }
-        }
-    }
-
-    fun playNextVideo() {
-        val nextIndex = _currentVideoIndex.value + 1
-        if (nextIndex < _videoPlaylist.value.size) {
-            _currentVideoIndex.value = nextIndex
-        }
-    }
-
-    fun playPreviousVideo() {
-        val prevIndex = _currentVideoIndex.value - 1
-        if (prevIndex >= 0) {
-            _currentVideoIndex.value = prevIndex
+    fun updateFileIndex(index: Int) {
+        if (index in _filePlaylist.value.indices) {
+            _currentFileIndex.value = index
         }
     }
 }

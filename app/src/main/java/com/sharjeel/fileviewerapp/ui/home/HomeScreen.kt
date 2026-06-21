@@ -264,7 +264,8 @@ fun PlacesGrid(onPlaceClick: (String) -> Unit) {
 }
 
 @Composable
-fun PlaceCard(place: PlaceItem, modifier: Modifier, onPlaceClick: (String) -> Unit) {
+fun PlaceCard(place: PlaceItem, modifier: Modifier, onPlaceClick: (String) -> Unit)
+{
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally

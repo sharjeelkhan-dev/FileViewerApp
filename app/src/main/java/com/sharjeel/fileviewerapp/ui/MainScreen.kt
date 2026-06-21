@@ -31,8 +31,10 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.material3.rememberDrawerState
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
@@ -95,6 +97,12 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
 
     val explorerViewModel: ExplorerViewModel = hiltViewModel()
     val viewerViewModel: ViewerViewModel = hiltViewModel()
+    val trashViewModel: com.sharjeel.fileviewerapp.ui.trash.TrashViewModel = hiltViewModel()
+    val vaultViewModel: com.sharjeel.fileviewerapp.ui.vault.VaultViewModel = hiltViewModel()
+
+    val explorerFiles by explorerViewModel.uiState.collectAsState()
+    val trashFiles by trashViewModel.uiState.collectAsState()
+    val vaultFiles by vaultViewModel.uiState.collectAsState()
 
     PermissionHandler {
         // Permissions granted
@@ -372,6 +380,14 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                         if (file.isDirectory) {
                                             backstack.add(NavRoute.Explorer(title = key.title, path = file.path))
                                         } else {
+                                            // Pass current sorted list to viewer for correct swiping sequence
+                                            val state = explorerFiles
+                                            if (state is com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState.Success) {
+                                                viewerViewModel.setPlaylist(
+                                                    state.files,
+                                                    file.path
+                                                )
+                                            }
                                             backstack.add(NavRoute.Viewer(file.path, file.extension))
                                         }
                                     }
@@ -387,10 +403,30 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                 )
                             }
                             is NavRoute.Vault -> NavEntry(route) {
-                                VaultScreen(onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) })
+                                VaultScreen(
+                                    viewModel = vaultViewModel,
+                                    onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) },
+                                    onFileClick = { file ->
+                                        val state = vaultFiles
+                                        if (state is com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState.Success) {
+                                            viewerViewModel.setPlaylist(state.files, file.path)
+                                        }
+                                        backstack.add(NavRoute.Viewer(file.path, file.extension))
+                                    }
+                                )
                             }
                             is NavRoute.Trash -> NavEntry(route) {
-                                TrashScreen(onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) })
+                                TrashScreen(
+                                    viewModel = trashViewModel,
+                                    onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) },
+                                    onFileClick = { file ->
+                                        val state = trashFiles
+                                        if (state is com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState.Success) {
+                                            viewerViewModel.setPlaylist(state.files, file.path)
+                                        }
+                                        backstack.add(NavRoute.Viewer(file.path, file.extension))
+                                    }
+                                )
                             }
                             is NavRoute.Settings -> NavEntry(route) {
                                 SettingsScreen(onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) })

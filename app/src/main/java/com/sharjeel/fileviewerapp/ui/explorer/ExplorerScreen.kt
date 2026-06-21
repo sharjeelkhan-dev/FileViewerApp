@@ -1,7 +1,11 @@
 package com.sharjeel.fileviewerapp.ui.explorer
 
+import android.graphics.Bitmap
+import android.graphics.pdf.PdfRenderer
+import android.os.ParcelFileDescriptor
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -23,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -41,6 +46,9 @@ import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
 import com.sharjeel.fileviewerapp.ui.theme.NeonPrimary
 import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
 import com.sharjeel.fileviewerapp.util.FileUtils
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1017,21 +1025,26 @@ fun FileThumbnail(file: FileModel) {
     val isVideo = FileUtils.isVideoFile(file.path)
     val isImage = FileUtils.isImageFile(file.path)
     val isApk = file.extension.lowercase() == "apk"
+    val isPdf = file.extension.lowercase() == "pdf"
     
-    if (isVideo || isImage || isApk) {
+    if (isVideo || isImage || isApk || isPdf) {
         Surface(
             shape = RoundedCornerShape(14.dp),
             modifier = Modifier.size(48.dp),
             color = MaterialTheme.colorScheme.surfaceVariant
         ) {
-            AsyncImage(
-                model = file.path, 
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-                placeholder = painterResource(R.drawable.photo_collage_icon),
-                error = painterResource(if (isApk) R.drawable.archive_line_icon else R.drawable.photo_collage_icon)
-            )
+            if (isPdf) {
+                PdfThumbnail(file.path, Modifier.fillMaxSize())
+            } else {
+                AsyncImage(
+                    model = file.path, 
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                    placeholder = painterResource(R.drawable.photo_collage_icon),
+                    error = painterResource(if (isApk) R.drawable.archive_line_icon else R.drawable.photo_collage_icon)
+                )
+            }
             if (isVideo) {
                 Box(
                     modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)),
@@ -1052,7 +1065,6 @@ fun FileThumbnail(file: FileModel) {
         val (icon, color) = when
         {
             file.isDirectory -> painterResource(R.drawable.archive_line_icon) to Color(0xFF64B5F6)
-            file.extension.lowercase() == "pdf" -> painterResource(R.drawable.text_document_line_icon) to Color(0xFFEF5350)
             file.extension.lowercase() in listOf("doc", "docx") -> painterResource(R.drawable.text_document_line_icon) to Color(0xFF1E88E5)
             file.extension.lowercase() in listOf("xls", "xlsx") -> painterResource(R.drawable.text_document_line_icon) to Color(0xFF43A047)
             file.extension.lowercase() in listOf("ppt", "pptx") -> painterResource(R.drawable.text_document_line_icon) to Color(0xFFF4511E)
@@ -1071,6 +1083,59 @@ fun FileThumbnail(file: FileModel) {
                 contentDescription = null,
                 tint = color,
                 modifier = Modifier.size(24.dp))
+        }
+    }
+}
+
+@Composable
+fun PdfThumbnail(path: String, modifier: Modifier) {
+    val bitmap by produceState<Bitmap?>(initialValue = null, path) {
+        value = withContext(Dispatchers.IO) {
+            try {
+                val file = File(path)
+                if (!file.exists()) return@withContext null
+                val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+                val renderer = PdfRenderer(pfd)
+                if (renderer.pageCount > 0) {
+                    val page = renderer.openPage(0)
+                    // Render at thumbnail size for performance
+                    val targetWidth = 150 
+                    val targetHeight = (page.height.toFloat() / page.width.toFloat() * targetWidth).toInt()
+                    val bmp = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+                    page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    page.close()
+                    renderer.close()
+                    pfd.close()
+                    bmp
+                } else {
+                    renderer.close()
+                    pfd.close()
+                    null
+                }
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap!!.asImageBitmap(),
+            contentDescription = null,
+            modifier = modifier,
+            contentScale = ContentScale.Crop
+        )
+    } else {
+        Box(
+            modifier = modifier.background(Color(0xFFEF5350).copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.text_document_line_icon),
+                contentDescription = null,
+                tint = Color(0xFFEF5350),
+                modifier = Modifier.size(24.dp)
+            )
         }
     }
 }
