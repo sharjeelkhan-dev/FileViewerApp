@@ -48,8 +48,8 @@ Built with modern tools and a stunning **Neon & Glassmorphism** aesthetic.
 <img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/d88a3cf6-ff54-4716-8714-731d22eef1f6" />
 <img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/ee030fe4-c5ef-44db-8bb4-bb65016e25ba" />
 <img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/a8c81e1f-4877-46bb-bd21-fdbe897ae196" />
-<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/118b18d9-deeb-456e-9941-02f522f3c2ba" />
-<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/260e784a-34e2-4fb6-963f-6075915eda65" />
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/1cdea009-47f9-4bbb-9976-889863cea1b5" />
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/67f62f94-8cc0-4dd0-92cd-960f4663f99c" />
 <img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/d238acb7-53c1-4e30-88a8-86422599c0f7" />
 <img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/5467c1b3-390f-4dec-ae77-a5f844bd0f65" />
 
