@@ -4,37 +4,46 @@ import com.github.junrar.Junrar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
+import java.util.zip.ZipFile
 
 object ArchiveUtils {
 
     suspend fun extractZip(zipFile: File, destinationDir: File): Boolean = withContext(Dispatchers.IO) {
         try {
-            if (!destinationDir.exists()) destinationDir.mkdirs()
+            if (!zipFile.exists() || !zipFile.canRead()) return@withContext false
             
-            ZipInputStream(FileInputStream(zipFile)).use { zis ->
-                var entry: ZipEntry? = zis.nextEntry
-                while (entry != null) {
+            // Ensure destination exists
+            if (!destinationDir.exists()) {
+                destinationDir.mkdirs()
+            }
+            if (!destinationDir.isDirectory) return@withContext false
+
+            val destCanonicalPath = destinationDir.canonicalPath
+            
+            ZipFile(zipFile).use { zip ->
+                val entries = zip.entries()
+                while (entries.hasMoreElements()) {
+                    val entry = entries.nextElement()
                     val newFile = File(destinationDir, entry.name)
                     
                     // Security check: Zip Slip vulnerability
-                    if (!newFile.canonicalPath.startsWith(destinationDir.canonicalPath + File.separator)) {
-                        throw Exception("Security Error: Archive entry is outside of destination directory")
+                    val entryCanonicalPath = newFile.canonicalPath
+                    if (!entryCanonicalPath.startsWith(destCanonicalPath + File.separator) && 
+                        entryCanonicalPath != destCanonicalPath) {
+                        continue // Skip entries that try to escape
                     }
 
                     if (entry.isDirectory) {
                         newFile.mkdirs()
                     } else {
                         newFile.parentFile?.mkdirs()
-                        FileOutputStream(newFile).use { fos ->
-                            zis.copyTo(fos)
+                        zip.getInputStream(entry).use { input ->
+                            FileOutputStream(newFile).use { output ->
+                                input.copyTo(output)
+                            }
                         }
                     }
-                    zis.closeEntry()
-                    entry = zis.nextEntry
                 }
             }
             true

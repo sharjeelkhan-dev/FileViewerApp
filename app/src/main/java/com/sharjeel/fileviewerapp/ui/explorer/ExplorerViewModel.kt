@@ -9,11 +9,13 @@ import com.sharjeel.fileviewerapp.domain.repository.FileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import javax.inject.Inject
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -21,6 +23,9 @@ import kotlinx.coroutines.launch
 class ExplorerViewModel @Inject constructor(
     private val repository: FileRepository
 ) : ViewModel() {
+
+    private val _events = Channel<ExplorerEvent>()
+    val events = _events.receiveAsFlow()
 
     private val _rawFiles = MutableStateFlow<List<FileModel>>(emptyList())
     private val _searchQuery = MutableStateFlow("")
@@ -181,13 +186,20 @@ class ExplorerViewModel @Inject constructor(
         viewModelScope.launch {
             val file = File(path)
             val destination = File(file.parentFile, file.nameWithoutExtension)
+            
+            _events.send(ExplorerEvent.ShowMessage("Extracting..."))
+            
             val success = if (file.extension.lowercase() == "zip") {
                 com.sharjeel.fileviewerapp.util.ArchiveUtils.extractZip(file, destination)
             } else {
                 com.sharjeel.fileviewerapp.util.ArchiveUtils.extractRar(file, destination)
             }
+            
             if (success) {
+                _events.send(ExplorerEvent.ShowMessage("Extracted successfully to ${destination.name}"))
                 refresh()
+            } else {
+                _events.send(ExplorerEvent.ShowMessage("Extraction failed"))
             }
         }
     }
@@ -209,6 +221,10 @@ class ExplorerViewModel @Inject constructor(
             }
         }
     }
+}
+
+sealed interface ExplorerEvent {
+    data class ShowMessage(val message: String) : ExplorerEvent
 }
 
 sealed interface ExplorerUiState {

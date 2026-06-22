@@ -1,5 +1,4 @@
 package com.sharjeel.fileviewerapp.ui.explorer
-
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
@@ -47,6 +46,7 @@ import com.sharjeel.fileviewerapp.ui.theme.NeonPrimary
 import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
 import com.sharjeel.fileviewerapp.util.FileUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -67,6 +67,16 @@ fun ExplorerScreen(
     val sortOrder by viewModel.sortOrder.collectAsState()
     val viewMode by viewModel.viewMode.collectAsState()
     val context = LocalContext.current
+
+    LaunchedEffect(viewModel.events) {
+        viewModel.events.collectLatest { event ->
+            when (event) {
+                is ExplorerEvent.ShowMessage -> {
+                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     var isSearchActive by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -593,7 +603,8 @@ fun FileList(
                     onExtract = { onExtractClick(file) },
                     onLock = { onLockClick(file) },
                     onMove = { onMoveClick(file) },
-                    onCopy = { onCopyClick(file) }
+                    onCopy = { onCopyClick(file) },
+                    onPathClick = onPathClick
                 )
             } else {
                 FileGridItem(
@@ -609,7 +620,8 @@ fun FileList(
                     onExtract = { onExtractClick(file) },
                     onLock = { onLockClick(file) },
                     onMove = { onMoveClick(file) },
-                    onCopy = { onCopyClick(file) }
+                    onCopy = { onCopyClick(file) },
+                    onPathClick = onPathClick
                 )
             }
         }
@@ -631,8 +643,8 @@ fun FileItem(
     onExtract: () -> Unit,
     onLock: () -> Unit,
     onMove: () -> Unit,
-    onCopy: () -> Unit
-)
+    onCopy: () -> Unit,
+    onPathClick: (String) -> Unit)
 {
     Surface(
         color = if (isSelected) NeonSecondary.copy(alpha = 0.3f)
@@ -702,7 +714,7 @@ fun FileItem(
                     ) {
                         DropdownMenuItem(
                             text = { Text("File Info", fontWeight = FontWeight.SemiBold) },
-                            onClick = { 
+                            onClick = {
                                 showFileMenu = false
                             },
                             leadingIcon = { Icon(painter = painterResource(id = R.drawable.info_circle_icon),
@@ -769,9 +781,9 @@ fun FileItem(
                         }
                         DropdownMenuItem(
                             text = { Text("Select", fontWeight = FontWeight.SemiBold) },
-                            onClick = { 
+                            onClick = {
                                 onLongClick()
-                                showFileMenu = false 
+                                showFileMenu = false
                             },
                             leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
                                 contentDescription = null, tint = NeonSecondary,
@@ -779,9 +791,9 @@ fun FileItem(
                         )
                         DropdownMenuItem(
                             text = { Text("Favorite", fontWeight = FontWeight.SemiBold) },
-                            onClick = { 
+                            onClick = {
                                 onFavorite()
-                                showFileMenu = false 
+                                showFileMenu = false
                             },
                             leadingIcon = { Icon(Icons.Rounded.Favorite,
                                 contentDescription = null,
@@ -790,9 +802,9 @@ fun FileItem(
                         )
                         DropdownMenuItem(
                             text = { Text("Lock (Vault)", fontWeight = FontWeight.SemiBold) },
-                            onClick = { 
+                            onClick = {
                                 onLock()
-                                showFileMenu = false 
+                                showFileMenu = false
                             },
                             leadingIcon = { Icon(painter = painterResource(id = R.drawable.lock_line_icon),
                                 contentDescription = null, tint = NeonPrimary,
@@ -800,9 +812,9 @@ fun FileItem(
                         )
                         DropdownMenuItem(
                             text = { Text("Share", fontWeight = FontWeight.SemiBold) },
-                            onClick = { 
+                            onClick = {
                                 onShare()
-                                showFileMenu = false 
+                                showFileMenu = false
                             },
                             leadingIcon = { Icon(painter = painterResource(id = R.drawable.share_icon),
                                 contentDescription = null, tint = NeonSecondary,
@@ -811,9 +823,9 @@ fun FileItem(
                         DropdownMenuItem(
                             text = { Text("Open with",
                                 fontWeight = FontWeight.SemiBold) },
-                            onClick = { 
+                            onClick = {
                                 onOpenWith()
-                                showFileMenu = false 
+                                showFileMenu = false
                             },
                             leadingIcon = { Icon(painter = painterResource(id = R.drawable.shortcut_icon),
                                 contentDescription = null, tint = NeonSecondary,
@@ -841,7 +853,8 @@ fun FileGridItem(
     onExtract: () -> Unit,
     onLock: () -> Unit,
     onMove: () -> Unit,
-    onCopy: () -> Unit
+    onCopy: () -> Unit,
+    onPathClick: (String) -> Unit
 ) {
     Surface(
         color = if (isSelected) NeonSecondary.copy(alpha = 0.1f)
@@ -949,9 +962,9 @@ fun FileGridItem(
                             )
                             DropdownMenuItem(
                                 text = { Text("Select", fontWeight = FontWeight.SemiBold) },
-                                onClick = { 
+                                onClick = {
                                     onLongClick()
-                                    showFileMenu = false 
+                                    showFileMenu = false
                                 },
                                 leadingIcon = { Icon(painterResource(R.drawable.check_mark_circle_line_icon),
                                     contentDescription = null, tint = NeonSecondary,
@@ -1477,7 +1490,8 @@ fun ExplorerPreviewLight() {
                         onExtract = {},
                         onLock = {},
                         onMove = {},
-                        onCopy = {}
+                        onCopy = {},
+                        onPathClick = {}
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     FileItem(
@@ -1496,7 +1510,8 @@ fun ExplorerPreviewLight() {
                         onExtract = {},
                         onLock = {},
                         onMove = {},
-                        onCopy = {}
+                        onCopy = {},
+                        onPathClick = {}
                     )
                 }
             }
@@ -1535,7 +1550,8 @@ fun ExplorerPreviewDark() {
                         onExtract = {},
                         onLock = {},
                         onMove = {},
-                        onCopy = {}
+                        onCopy = {},
+                        onPathClick = {}
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     FileItem(
@@ -1553,7 +1569,8 @@ fun ExplorerPreviewDark() {
                         onExtract = {},
                         onLock = {},
                         onMove = {},
-                        onCopy = {}
+                        onCopy = {},
+                        onPathClick = {}
                     )
                 }
             }

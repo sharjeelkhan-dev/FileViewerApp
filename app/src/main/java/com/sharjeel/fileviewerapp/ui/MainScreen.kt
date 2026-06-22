@@ -399,7 +399,11 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                     filePath = key.filePath,
                                     fileType = key.fileType,
                                     viewModel = viewerViewModel,
-                                    onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) }
+                                    onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) },
+                                    onShowInFolder = { folderPath ->
+                                        if (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
+                                        backstack.add(NavRoute.Explorer(title = java.io.File(folderPath).name, path = folderPath))
+                                    }
                                 )
                             }
                             is NavRoute.Vault -> NavEntry(route) {

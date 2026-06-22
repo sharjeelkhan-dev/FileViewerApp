@@ -7,6 +7,8 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.annotation.OptIn as AOptIn
 import kotlin.OptIn as KOptIn
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -45,15 +47,27 @@ import kotlin.time.Duration.Companion.milliseconds
 
 @AOptIn(UnstableApi::class)
 @Composable
-fun AudioViewer(filePath: String, isVisible: Boolean) {
+fun AudioViewer(
+    filePath: String,
+    isVisible: Boolean,
+    isActive: Boolean,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    onTap: () -> Unit
+) {
     val context = LocalContext.current
-    val exoPlayer = remember {
+    val exoPlayer = remember(filePath) { // Keyed by filePath to recreate when swiping
         ExoPlayer.Builder(context).build().apply {
             val mediaItem = MediaItem.fromUri(Uri.fromFile(File(filePath)))
             setMediaItem(mediaItem)
             prepare()
-            playWhenReady = true
+            playWhenReady = false // Managed by isActive
         }
+    }
+
+    // Sync playWhenReady with isActive
+    LaunchedEffect(isActive) {
+        exoPlayer.playWhenReady = isActive
     }
     var isPlaying by remember { mutableStateOf(value = true) }
     var currentPosition by remember { mutableLongStateOf(0L) }
@@ -98,24 +112,34 @@ fun AudioViewer(filePath: String, isVisible: Boolean) {
             exoPlayer.release()
         }
     }
-    AudioViewerContent(
-        albumArt = albumArt,
-        isPlaying = isPlaying,
-        currentPosition = currentPosition,
-        duration = duration,
-        isVisible = isVisible,
-        onSeek = { 
-            currentPosition = it.toLong()
-            exoPlayer.seekTo(it.toLong())
-        },
-        onTogglePlay = { 
-            if (isPlaying) exoPlayer.pause() else exoPlayer.play()
-        },
-        onPrevious = { exoPlayer.seekToPrevious() },
-        onNext = { exoPlayer.seekToNext() },
-        onReplay15s = { exoPlayer.seekTo(currentPosition - 15000) },
-        onForward15s = { exoPlayer.seekTo(currentPosition + 15000) },
-    )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onTap() }
+    ) {
+        AudioViewerContent(
+            albumArt = albumArt,
+            isPlaying = isPlaying,
+            currentPosition = currentPosition,
+            duration = duration,
+            isVisible = isVisible,
+            isActive = isActive,
+            onSeek = { 
+                currentPosition = it.toLong()
+                exoPlayer.seekTo(it.toLong())
+            },
+            onTogglePlay = { 
+                if (isPlaying) exoPlayer.pause() else exoPlayer.play()
+            },
+            onPrevious = onPrevious,
+            onNext = onNext,
+            onReplay15s = { exoPlayer.seekTo(currentPosition - 15000) },
+            onForward15s = { exoPlayer.seekTo(currentPosition + 15000) },
+        )
+    }
 }
 @SuppressLint("DefaultLocale")
 private fun formatTime(millis: Long): String {
@@ -131,6 +155,7 @@ fun AudioViewerContent(
     currentPosition: Long,
     duration: Long,
     isVisible: Boolean,
+    isActive: Boolean,
     onSeek: (Float) -> Unit,
     onTogglePlay: () -> Unit,
     onPrevious: () -> Unit,
@@ -305,6 +330,7 @@ fun AudioViewerPreview() {
             currentPosition = 45000L,
             duration = 180000L,
             isVisible = true,
+            isActive = true,
             onSeek = {},
             onTogglePlay = {},
             onPrevious = {},

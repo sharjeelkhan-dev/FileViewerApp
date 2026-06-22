@@ -9,6 +9,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Star
@@ -33,6 +35,7 @@ fun FileViewerScreen(
     fileType: String,
     viewModel: ViewerViewModel,
     onBackClick: () -> Unit,
+    onShowInFolder: (String) -> Unit,
 ) {
     val isFavorite by viewModel.isFavorite.collectAsState()
     val filePlaylist by viewModel.filePlaylist.collectAsState()
@@ -65,7 +68,8 @@ fun FileViewerScreen(
         currentFileIndex = currentFileIndex,
         onBackClick = onBackClick,
         onToggleFavorite = { viewModel.toggleFavorite(fileModel) },
-        onUpdateFileIndex = { viewModel.updateFileIndex(it) }
+        onUpdateFileIndex = { viewModel.updateFileIndex(it) },
+        onShowInFolder = onShowInFolder
     )
 }
 
@@ -80,6 +84,7 @@ private fun FileViewerContent(
     onBackClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     onUpdateFileIndex: (Int) -> Unit,
+    onShowInFolder: (String) -> Unit,
 ) {
     // Determine content based on currently active file in the pager
     val currentFile = if (currentFileIndex != -1 && currentFileIndex < filePlaylist.size) {
@@ -96,6 +101,7 @@ private fun FileViewerContent(
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
     var controlsVisible by remember { mutableStateOf(true) }
+    var showMenu by remember { mutableStateOf(false) }
     val isAudio = effectiveFileType in listOf("mp3", "wav", "flac", "opus", "ogg")
     val isVideo = effectiveFileType in listOf("mp4", "mkv", "avi", "webm", "3gp")
     val isImage = effectiveFileType in listOf("jpg", "png", "webp", "gif", "jpeg")
@@ -149,13 +155,58 @@ private fun FileViewerContent(
                                     modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp)
                                 )
                             }
-                            IconButton(onClick = { /* More logic */ }, modifier = if (isLandscape)
+                            IconButton(onClick = { showMenu = true }, modifier = if (isLandscape)
                                 Modifier.size(40.dp) else Modifier.size(48.dp)) {
                                 Icon(
                                     imageVector = Icons.Rounded.MoreVert,
                                     contentDescription = "More",
                                     tint = Color.White
                                 )
+
+                                DropdownMenu(
+                                    expanded = showMenu,
+                                    onDismissRequest = { showMenu = false },
+                                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Share") },
+                                        onClick = {
+                                            showMenu = false
+                                            com.sharjeel.fileviewerapp.util.FileUtils.shareFile(context, effectiveFilePath)
+                                        },
+                                        leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Open with") },
+                                        onClick = {
+                                            showMenu = false
+                                            com.sharjeel.fileviewerapp.util.FileUtils.openWithExternalApp(context, effectiveFilePath)
+                                        },
+                                        leadingIcon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Show in Folder") },
+                                        onClick = {
+                                            showMenu = false
+                                            onShowInFolder(File(effectiveFilePath).parent ?: "")
+                                        },
+                                        leadingIcon = { Icon(Icons.Rounded.Folder, contentDescription = null) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(if (isFavorite) "Remove from Favorites" else "Add to Favorites") },
+                                        onClick = {
+                                            showMenu = false
+                                            onToggleFavorite()
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                                                contentDescription = null,
+                                                tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    )
+                                }
                             }
                         } else {
                             IconButton(onClick = onToggleFavorite) {
@@ -222,7 +273,9 @@ private fun FileViewerContent(
                             controlsVisible = controlsVisible,
                             isActive = true,
                             onZoomChanged = {},
-                            onToggleControls = { controlsVisible = !controlsVisible }
+                            onToggleControls = { controlsVisible = !controlsVisible },
+                            onNext = {},
+                            onPrevious = {}
                         )
                     }
                 }
@@ -246,7 +299,8 @@ fun FileViewerScreenPreview() {
             currentFileIndex = 0,
             onBackClick = {},
             onToggleFavorite = {},
-            onUpdateFileIndex = {}
+            onUpdateFileIndex = {},
+            onShowInFolder = {}
         )
     }
 }

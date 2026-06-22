@@ -13,11 +13,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.sharjeel.fileviewerapp.domain.model.FileModel
+import kotlinx.coroutines.launch
 
 
 @Composable
@@ -35,6 +37,7 @@ fun UniversalFilePager(
         initialPage = initialIndex.coerceIn(filePlaylist.indices),
         pageCount = { filePlaylist.size },
     )
+    val scope = rememberCoroutineScope()
 
     var isCurrentPageZoomed by remember { mutableStateOf(false) }
 
@@ -50,8 +53,8 @@ fun UniversalFilePager(
             modifier = Modifier.fillMaxSize(),
             // Pager only enables scrolling when content is NOT zoomed
             userScrollEnabled = !isCurrentPageZoomed,
-            // Beyond bounds count ensures adjacent pages are ready for single-hand flick
-            beyondViewportPageCount = 1
+            // Beyond bounds count set to 0 to save resources for high-res videos
+            beyondViewportPageCount = 0
         ) { page ->
 
             FileContentRenderer(
@@ -63,7 +66,17 @@ fun UniversalFilePager(
                         isCurrentPageZoomed = zoomed
                     }
                 },
-                onToggleControls = onToggleControls
+                onToggleControls = onToggleControls,
+                onNext = {
+                    if (pagerState.currentPage < filePlaylist.size - 1) {
+                        scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                    }
+                },
+                onPrevious = {
+                    if (pagerState.currentPage > 0) {
+                        scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+                    }
+                }
             )
         }
     }
@@ -75,7 +88,9 @@ fun FileContentRenderer(
     controlsVisible: Boolean,
     isActive: Boolean,
     onZoomChanged: (Boolean) -> Unit,
-    onToggleControls: () -> Unit
+    onToggleControls: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit
 ) {
     val context = LocalContext.current
     val extension = remember(file.extension) { file.extension.lowercase() }
@@ -100,8 +115,19 @@ fun FileContentRenderer(
                 filePath = file.path,
                 isVisible = controlsVisible,
                 isActive = isActive,
-                onNext = {},
-                onPrevious = {},
+                onNext = onNext,
+                onPrevious = onPrevious,
+                onTap = onToggleControls
+            )
+        }
+
+        "mp3", "wav", "flac", "opus", "ogg" -> {
+            AudioViewer(
+                filePath = file.path,
+                isVisible = controlsVisible,
+                isActive = isActive,
+                onNext = onNext,
+                onPrevious = onPrevious,
                 onTap = onToggleControls
             )
         }

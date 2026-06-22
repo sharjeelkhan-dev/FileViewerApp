@@ -29,10 +29,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.SeekParameters
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.PlayerView
 import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
@@ -56,13 +62,42 @@ fun VideoViewer(
 {
     val context = LocalContext.current
     val exoPlayer = remember(filePath) {
-        ExoPlayer.Builder(context)
-            .setRenderersFactory(
-                androidx.media3.exoplayer.DefaultRenderersFactory(context)
-                    .setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
-                    .setEnableDecoderFallback(true)
+        val renderersFactory = DefaultRenderersFactory(context)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            .setEnableDecoderFallback(true)
+            .forceEnableMediaCodecAsynchronousQueueing() // Critical for 4K/60fps to prevent blocking the playback thread
+
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                45_000, // Higher min buffer for 4K
+                60_000, // Max buffer
+                2_000,  // Buffer for playback
+                5_000   // Buffer for playback after rebuffer
             )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
+        val trackSelector = DefaultTrackSelector(context).apply {
+            parameters = buildUponParameters()
+                .setTunnelingEnabled(true) // Reduces CPU usage and improves A/V sync on supported hardware
+                .build()
+        }
+
+        ExoPlayer.Builder(context)
+            .setRenderersFactory(renderersFactory)
+            .setLoadControl(loadControl)
+            .setTrackSelector(trackSelector)
             .build().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(C.USAGE_MEDIA)
+                        .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                        .build(),
+                    true
+                )
+                setSeekParameters(SeekParameters.CLOSEST_SYNC)
+                setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT)
+
                 val mediaItem = MediaItem.fromUri(Uri.fromFile(File(filePath)))
                 setMediaItem(mediaItem)
                 prepare()
