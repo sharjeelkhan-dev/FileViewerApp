@@ -252,6 +252,7 @@ fun VaultScreen(
                                 onOpenWithClick = { FileUtils.openWithExternalApp(context, it.path) },
                                 onFavoriteClick = { },
                                 onExtractClick = { },
+                                onExtractToClick = { },
                                 onLockClick = { viewModel.removeFromVault(it) },
                                 onPathClick = { },
                                 onMoveClick = { },

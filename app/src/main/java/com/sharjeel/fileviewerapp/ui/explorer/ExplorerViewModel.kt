@@ -40,6 +40,9 @@ class ExplorerViewModel @Inject constructor(
     private val _viewMode = MutableStateFlow(ViewMode.SMALL)
     val viewMode: StateFlow<ViewMode> = _viewMode.asStateFlow()
 
+    private val _pickingFolderForArchive = MutableStateFlow<FileModel?>(null)
+    val pickingFolderForArchive: StateFlow<FileModel?> = _pickingFolderForArchive.asStateFlow()
+
     val uiState: StateFlow<ExplorerUiState> = combine(
         _rawFiles, 
         _searchQuery,
@@ -94,6 +97,7 @@ class ExplorerViewModel @Inject constructor(
     }
 
     fun loadCategory(category: FileCategory) {
+        _currentPath.value = ""
         viewModelScope.launch {
             _currentCategory.value = category
             repository.getFilesByCategory(category).collect { files ->
@@ -109,10 +113,6 @@ class ExplorerViewModel @Inject constructor(
     fun refresh() {
         val category = _currentCategory.value
         val currentPath = _currentPath.value
-        
-        // If we are in a special view like Recent, Favorites, or Vault, reload that.
-        // We can detect this by checking if the path ends with specific markers or checking _rawFiles source
-        // but for now, the most reliable way is checking what the current title suggests or just re-running last command.
         
         when {
             category != null -> loadCategory(category)
@@ -182,29 +182,67 @@ class ExplorerViewModel @Inject constructor(
         }
     }
 
-    fun extractArchive(path: String) {
+    fun startPickingFolder(archive: FileModel) {
+        _pickingFolderForArchive.value = archive
+    }
+
+    fun stopPickingFolder() {
+        _pickingFolderForArchive.value = null
+    }
+
+    fun extractToCurrentFolder() {
+        val archive = _pickingFolderForArchive.value ?: return
+        val current = _currentPath.value
+        extractArchive(null, archive.path, current)
+        stopPickingFolder()
+    }
+
+    private var appContext: android.content.Context? = null
+    fun setContext(context: android.content.Context) {
+        this.appContext = context.applicationContext
+    }
+
+    fun extractArchive(context: android.content.Context?, path: String, customDestination: String? = null) {
         viewModelScope.launch {
             val file = File(path)
-            val destination = File(file.parentFile, file.nameWithoutExtension)
+            val destDir = if (customDestination != null) {
+                File(customDestination)
+            } else {
+                File(file.parentFile, file.nameWithoutExtension)
+            }
             
-            _events.send(ExplorerEvent.ShowMessage("Extracting..."))
+            val targetContext = context ?: appContext
+            if (targetContext == null) {
+                _events.send(ExplorerEvent.ShowMessage("System error: Missing context"))
+                return@launch
+            }
+            
+            _events.send(ExplorerEvent.ShowMessage("Extracting ${file.name}..."))
             
             val success = if (file.extension.lowercase() == "zip") {
-                com.sharjeel.fileviewerapp.util.ArchiveUtils.extractZip(file, destination)
+                com.sharjeel.fileviewerapp.util.ArchiveUtils.extractZip(file, destDir, targetContext) { msg ->
+                    viewModelScope.launch { _events.send(ExplorerEvent.ShowMessage(msg)) }
+                }
             } else {
-                com.sharjeel.fileviewerapp.util.ArchiveUtils.extractRar(file, destination)
+                com.sharjeel.fileviewerapp.util.ArchiveUtils.extractRar(file, destDir, targetContext) { msg ->
+                    viewModelScope.launch { _events.send(ExplorerEvent.ShowMessage(msg)) }
+                }
             }
             
             if (success) {
-                _events.send(ExplorerEvent.ShowMessage("Extracted successfully to ${destination.name}"))
-                refresh()
-            } else {
-                _events.send(ExplorerEvent.ShowMessage("Extraction failed"))
+                _events.send(ExplorerEvent.ShowMessage("Extracted successfully to ${destDir.name}"))
+                // Request navigation to the new folder
+                if (destDir.exists() && destDir.isDirectory) {
+                    _events.send(ExplorerEvent.NavigateToFolder(destDir.absolutePath, destDir.name))
+                } else {
+                    refresh()
+                }
             }
         }
     }
 
     fun loadRecent() {
+        _currentPath.value = ""
         viewModelScope.launch {
             _currentCategory.value = FileCategory.RECENT
             repository.getRecentFiles().collect { files ->
@@ -214,6 +252,7 @@ class ExplorerViewModel @Inject constructor(
     }
 
     fun loadFavorites() {
+        _currentPath.value = ""
         viewModelScope.launch {
             _currentCategory.value = FileCategory.FAVORITES
             repository.getFavoriteFiles().collect { files ->
@@ -225,6 +264,7 @@ class ExplorerViewModel @Inject constructor(
 
 sealed interface ExplorerEvent {
     data class ShowMessage(val message: String) : ExplorerEvent
+    data class NavigateToFolder(val path: String, val title: String) : ExplorerEvent
 }
 
 sealed interface ExplorerUiState {

@@ -126,6 +126,7 @@ fun TrashScreen(
                             onOpenWithClick = { },
                             onFavoriteClick = { },
                             onExtractClick = { },
+                            onExtractToClick = { },
                             onLockClick = { },
                             onPathClick = { },
                             onMoveClick = { },

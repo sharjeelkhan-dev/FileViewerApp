@@ -1,8 +1,12 @@
 package com.sharjeel.fileviewerapp.ui.explorer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import androidx.activity.compose.BackHandler
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -49,9 +53,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 import java.io.File
-
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExplorerScreen(
     title: String,
@@ -66,13 +67,35 @@ fun ExplorerScreen(
     val sortType by viewModel.sortType.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
     val viewMode by viewModel.viewMode.collectAsState()
+    val pickingArchive by viewModel.pickingFolderForArchive.collectAsState()
     val context = LocalContext.current
+
+    var archiveToExtractTo by remember { mutableStateOf<FileModel?>(null) }
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let {
+            archiveToExtractTo?.let { archive ->
+                val path = com.sharjeel.fileviewerapp.util.FileUtils.getFolderPathFromUri(it)
+                if (path != null) {
+                    viewModel.extractArchive(context, archive.path, path)
+                } else {
+                    android.widget.Toast.makeText(context, "Could not resolve destination path. Please pick a location in Internal Storage.", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+        archiveToExtractTo = null
+    }
 
     LaunchedEffect(viewModel.events) {
         viewModel.events.collectLatest { event ->
             when (event) {
                 is ExplorerEvent.ShowMessage -> {
-                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, event.message,
+                        android.widget.Toast.LENGTH_SHORT).show()
+                }
+                is ExplorerEvent.NavigateToFolder -> {
+                    viewModel.loadFiles(event.path)
                 }
             }
         }
@@ -118,12 +141,15 @@ fun ExplorerScreen(
         )
     }
 
-    BackHandler(enabled = selectedFiles.isNotEmpty() || isSearchActive) {
-        if (selectedFiles.isNotEmpty()) {
+    BackHandler(enabled = selectedFiles.isNotEmpty() || isSearchActive || pickingArchive != null) {
+        if (selectedFiles.isNotEmpty())
+        {
             viewModel.clearSelection()
         } else if (isSearchActive) {
             isSearchActive = false
             viewModel.setSearchQuery("")
+        } else if (pickingArchive != null) {
+            viewModel.stopPickingFolder()
         }
     }
     Scaffold(
@@ -195,9 +221,27 @@ fun ExplorerScreen(
                             onShareClick = { FileUtils.shareFile(context, it.path) },
                             onOpenWithClick = { FileUtils.openWithExternalApp(context, it.path) },
                             onFavoriteClick = { viewModel.toggleFavorite(it) },
-                            onExtractClick = { viewModel.extractArchive(it.path) },
+                            onExtractClick = { viewModel.extractArchive(context, it.path) },
+                            onExtractToClick = { archiveToExtractTo = it; folderPickerLauncher.launch(null) },
                             onLockClick = { viewModel.moveToVault(it) },
-                            onPathClick = { viewModel.loadFiles(it) },
+                            onPathClick = { path ->
+                                if (path == "CATEGORY_ROOT") {
+                                    // Reset to category view
+                                    when (title) {
+                                        "Downloads" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.DOWNLOADS)
+                                        "Images" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.IMAGES)
+                                        "Videos" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.VIDEOS)
+                                        "Audio" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.AUDIO)
+                                        "Docs" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.DOCUMENTS)
+                                        "Archives" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.ARCHIVES)
+                                        "Recent" -> viewModel.loadRecent()
+                                        "Favorites" -> viewModel.loadFavorites()
+                                        else -> viewModel.loadFiles(android.os.Environment.getExternalStorageDirectory().absolutePath)
+                                    }
+                                } else {
+                                    viewModel.loadFiles(path)
+                                }
+                            },
                             onMoveClick = { android.widget.Toast.makeText(context, "Move feature coming soon", android.widget.Toast.LENGTH_SHORT).show() },
                             onCopyClick = { android.widget.Toast.makeText(context, "Copy feature coming soon", android.widget.Toast.LENGTH_SHORT).show() },
                             bottomPadding = bottomPad
@@ -258,17 +302,28 @@ fun SearchTopBar(
 }
 
 @Composable
-fun Breadcrumbs(currentPath: String, onPathClick: (String) -> Unit) {
+fun Breadcrumbs(currentPath: String, title: String, onPathClick: (String) -> Unit) {
     val isPreview = LocalInspectionMode.current
     val rootPath = remember {
         if (isPreview) "/storage/emulated/0"
         else android.os.Environment.getExternalStorageDirectory().absolutePath
     }
-    val relativePath = currentPath.removePrefix(rootPath).trimStart('/')
-    val segments = if (relativePath.isEmpty()) emptyList() else relativePath.split('/')
-    
+
     val scrollState = rememberScrollState()
+
+    // Determine the root label and whether we are in a physical path
+    val isInsideInternalStorage = currentPath.startsWith(rootPath)
     
+    // If title is not a physical path indicator, use it as the root label
+    val isStorageTitle = title.equals("Storage", ignoreCase = true) || 
+                         title.equals("Internal Storage", ignoreCase = true)
+    
+    val rootLabel = if (isStorageTitle || !isInsideInternalStorage) title else title
+    
+    // Actually, if we are in a category (like Archives), we want the category name as root.
+    // When navigating into folders, we still want that category name as root.
+    val effectiveRootLabel = if (isStorageTitle) "Internal Storage" else title.uppercase()
+
     Row(
         modifier = Modifier
             .padding(horizontal = 16.dp).offset(y = (-5).dp)
@@ -281,33 +336,39 @@ fun Breadcrumbs(currentPath: String, onPathClick: (String) -> Unit) {
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = if (MaterialTheme.colorScheme.surface
-                .luminance() > 0.5f) Color(0xFFF3E5F5)
+                    .luminance() > 0.5f) Color(0xFFF3E5F5)
             else MaterialTheme.colorScheme.secondaryContainer,
             onClick = { onPathClick(rootPath) }
         ) {
             Icon(
                 painter = painterResource(id = R.drawable.house_window_icon),
-                contentDescription = null, 
+                contentDescription = null,
                 modifier = Modifier.padding(10.dp).size(20.dp),
                 tint = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f)
                     Color(0xFF7B1FA2) else MaterialTheme.colorScheme.onSecondaryContainer
             )
         }
         Icon(
-            Icons.Rounded.ChevronRight, 
-            contentDescription = null, 
+            Icons.Rounded.ChevronRight,
+            contentDescription = null,
             modifier = Modifier.size(16.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
 
-        // Internal Storage Label
+        // Dynamic Root Label
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f)
                 Color(0xFFE0F7FA) else MaterialTheme.colorScheme.tertiaryContainer,
-            onClick = { onPathClick(rootPath) }
+            onClick = { 
+                if (isInsideInternalStorage && !isStorageTitle) {
+                    onPathClick("CATEGORY_ROOT")
+                } else {
+                    onPathClick(rootPath)
+                }
+            }
         ) {
             Text(
-                "Internal Storage",
+                effectiveRootLabel,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
@@ -316,29 +377,34 @@ fun Breadcrumbs(currentPath: String, onPathClick: (String) -> Unit) {
             )
         }
 
-        // Path Segments
-        var cumulativePath = rootPath
-        segments.forEach { segment ->
-            Icon(
-                Icons.Rounded.ChevronRight, 
-                contentDescription = null, 
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-            )
-            cumulativePath += "/$segment"
-            val finalPath = cumulativePath
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                onClick = { onPathClick(finalPath) }
-            ) {
-                Text(
-                    segment,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+        // Path Segments (Only if inside Internal Storage)
+        if (isInsideInternalStorage) {
+            val relativePath = currentPath.removePrefix(rootPath).trimStart('/')
+            val segments = if (relativePath.isEmpty()) emptyList() else relativePath.split('/')
+            
+            var cumulativePath = rootPath
+            segments.forEach { segment ->
+                Icon(
+                    Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                 )
+                cumulativePath += "/$segment"
+                val finalPath = cumulativePath
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    onClick = { onPathClick(finalPath) }
+                ) {
+                    Text(
+                        segment,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
@@ -392,7 +458,6 @@ fun SortBar(
         }
     }
 }
-
 @Composable
 fun FileList(
     title: String,
@@ -423,6 +488,7 @@ fun FileList(
     onOpenWithClick: (FileModel) -> Unit,
     onFavoriteClick: (FileModel) -> Unit,
     onExtractClick: (FileModel) -> Unit,
+    onExtractToClick: (FileModel) -> Unit,
     onLockClick: (FileModel) -> Unit,
     onPathClick: (String) -> Unit,
     onMoveClick: (FileModel) -> Unit,
@@ -569,7 +635,7 @@ fun FileList(
                 }
                 
                 if (showBreadcrumbs) {
-                    Breadcrumbs(currentPath, onPathClick)
+                    Breadcrumbs(currentPath, title, onPathClick)
                 }
                 
                 SortBar(
@@ -601,6 +667,7 @@ fun FileList(
                     onOpenWith = { onOpenWithClick(file) },
                     onFavorite = { onFavoriteClick(file) },
                     onExtract = { onExtractClick(file) },
+                    onExtractTo = { onExtractToClick(file) },
                     onLock = { onLockClick(file) },
                     onMove = { onMoveClick(file) },
                     onCopy = { onCopyClick(file) },
@@ -618,6 +685,7 @@ fun FileList(
                     onOpenWith = { onOpenWithClick(file) },
                     onFavorite = { onFavoriteClick(file) },
                     onExtract = { onExtractClick(file) },
+                    onExtractTo = { onExtractToClick(file) },
                     onLock = { onLockClick(file) },
                     onMove = { onMoveClick(file) },
                     onCopy = { onCopyClick(file) },
@@ -627,7 +695,6 @@ fun FileList(
         }
     }
 }
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FileItem(
@@ -641,6 +708,7 @@ fun FileItem(
     onOpenWith: () -> Unit,
     onFavorite: () -> Unit,
     onExtract: () -> Unit,
+    onExtractTo: () -> Unit,
     onLock: () -> Unit,
     onMove: () -> Unit,
     onCopy: () -> Unit,
@@ -709,128 +777,114 @@ fun FileItem(
                     DropdownMenu(
                         expanded = showFileMenu,
                         onDismissRequest = { showFileMenu = false },
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-                        shape = RoundedCornerShape(24.dp)
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.widthIn(min = 200.dp)
                     ) {
                         DropdownMenuItem(
-                            text = { Text("File Info", fontWeight = FontWeight.SemiBold) },
-                            onClick = {
-                                showFileMenu = false
+                            text = { Text("Share", fontWeight = FontWeight.SemiBold) },
+                            onClick = { 
+                                onShare()
+                                showFileMenu = false 
                             },
-                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.info_circle_icon),
-
-                                contentDescription = null,
-                                tint = NeonPrimary,
-                                modifier = Modifier.size(20.dp)) }
+                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.share_icon),
+                                contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp)) }
                         )
                         DropdownMenuItem(
-                            text = { Text("Rename", fontWeight = FontWeight.SemiBold) },
+                            text = { Text("Open with", fontWeight = FontWeight.SemiBold) },
+                            onClick = { 
+                                onOpenWith()
+                                showFileMenu = false 
+                            },
+                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.shortcut_icon),
+                                contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp)) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Show in Folder", fontWeight = FontWeight.SemiBold) },
+                            onClick = { 
+                                onPathClick(File(file.path).parent ?: "")
+                                showFileMenu = false 
+                            },
+                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.open_folder_outline_icon),
+                                contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp)) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Add to Favorites", fontWeight = FontWeight.SemiBold) },
+                            onClick = { 
+                                onFavorite()
+                                showFileMenu = false 
+                            },
+                            leadingIcon = { Icon(Icons.Rounded.StarBorder,
+                                contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp)) }
+                        )
+                        
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                        DropdownMenuItem(
+                            text = { Text("Rename", fontWeight = FontWeight.Medium) },
                             onClick = { 
                                 onRename()
                                 showFileMenu = false 
                             },
-                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.brush_paintbrush_icon),
-                                contentDescription = null,
-                                tint = NeonPrimary,
-                                modifier = Modifier.size(20.dp)) }
+                            leadingIcon = { Icon(painterResource(R.drawable.brush_paintbrush_icon),
+                                contentDescription = null, tint = NeonPrimary, modifier = Modifier.size(20.dp)) }
                         )
                         DropdownMenuItem(
-                            text = { Text("Move", fontWeight = FontWeight.SemiBold) },
+                            text = { Text("Move", fontWeight = FontWeight.Medium) },
                             onClick = { 
                                 onMove()
                                 showFileMenu = false 
                             },
                             leadingIcon = { Icon(Icons.Rounded.MoveUp,
-                                contentDescription = null, tint = NeonPrimary,
-                                modifier = Modifier.size(20.dp)) }
+                                contentDescription = null, tint = NeonPrimary, modifier = Modifier.size(20.dp)) }
                         )
                         DropdownMenuItem(
-                            text = { Text("Copy", fontWeight = FontWeight.SemiBold) },
+                            text = { Text("Copy", fontWeight = FontWeight.Medium) },
                             onClick = { 
                                 onCopy()
                                 showFileMenu = false 
                             },
-                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.copy_outline_icon),
-                                contentDescription = null, tint = NeonPrimary,
-                                modifier = Modifier.size(20.dp)) }
+                            leadingIcon = { Icon(painterResource(R.drawable.copy_outline_icon),
+                                contentDescription = null, tint = NeonPrimary, modifier = Modifier.size(20.dp)) }
                         )
                         DropdownMenuItem(
-                            text = { Text("Delete", fontWeight = FontWeight.SemiBold) },
+                            text = { Text("Delete", fontWeight = FontWeight.Medium) },
                             onClick = { 
                                 onDelete()
                                 showFileMenu = false 
                             },
-                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.recycle_bin_line_icon),
-                                contentDescription = null,
-                                tint = Color(0xFFEF5350),
-                                modifier = Modifier.size(20.dp)) }
+                            leadingIcon = { Icon(painterResource(R.drawable.recycle_bin_line_icon),
+                                contentDescription = null, tint = Color(0xFFEF5350), modifier = Modifier.size(20.dp)) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Lock (Vault)", fontWeight = FontWeight.Medium) },
+                            onClick = { 
+                                onLock()
+                                showFileMenu = false 
+                            },
+                            leadingIcon = { Icon(painterResource(R.drawable.lock_line_icon),
+                                contentDescription = null, tint = NeonSecondary, modifier = Modifier.size(20.dp)) }
                         )
                         if (file.extension.lowercase() in listOf("zip", "rar")) {
                             DropdownMenuItem(
-                                text = { Text("Extract Here",
-                                    fontWeight = FontWeight.SemiBold) },
+                                text = { Text("Extract Here", fontWeight = FontWeight.Medium) },
                                 onClick = { 
                                     onExtract()
                                     showFileMenu = false 
                                 },
-                                leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
-                                    contentDescription = null,
-                                    tint = NeonPrimary,
-                                    modifier = Modifier.size(20.dp)) }
+                                leadingIcon = { Icon(painterResource(R.drawable.check_mark_circle_line_icon),
+                                    contentDescription = null, tint = NeonPrimary, modifier = Modifier.size(20.dp)) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Extract to...", fontWeight = FontWeight.Medium) },
+                                onClick = { 
+                                    onExtractTo()
+                                    showFileMenu = false 
+                                },
+                                leadingIcon = { Icon(painterResource(R.drawable.open_folder_outline_icon),
+                                    contentDescription = null, tint = NeonPrimary, modifier = Modifier.size(20.dp)) }
                             )
                         }
-                        DropdownMenuItem(
-                            text = { Text("Select", fontWeight = FontWeight.SemiBold) },
-                            onClick = {
-                                onLongClick()
-                                showFileMenu = false
-                            },
-                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
-                                contentDescription = null, tint = NeonSecondary,
-                                modifier = Modifier.size(20.dp)) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Favorite", fontWeight = FontWeight.SemiBold) },
-                            onClick = {
-                                onFavorite()
-                                showFileMenu = false
-                            },
-                            leadingIcon = { Icon(Icons.Rounded.Favorite,
-                                contentDescription = null,
-                                tint = Color(0xFFFF4081),
-                                modifier = Modifier.size(20.dp)) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Lock (Vault)", fontWeight = FontWeight.SemiBold) },
-                            onClick = {
-                                onLock()
-                                showFileMenu = false
-                            },
-                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.lock_line_icon),
-                                contentDescription = null, tint = NeonPrimary,
-                                modifier = Modifier.size(20.dp)) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Share", fontWeight = FontWeight.SemiBold) },
-                            onClick = {
-                                onShare()
-                                showFileMenu = false
-                            },
-                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.share_icon),
-                                contentDescription = null, tint = NeonSecondary,
-                                modifier = Modifier.size(20.dp)) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Open with",
-                                fontWeight = FontWeight.SemiBold) },
-                            onClick = {
-                                onOpenWith()
-                                showFileMenu = false
-                            },
-                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.shortcut_icon),
-                                contentDescription = null, tint = NeonSecondary,
-                                modifier = Modifier.size(20.dp)) }
-                        )
                     }
                 }
             }
@@ -851,6 +905,7 @@ fun FileGridItem(
     onOpenWith: () -> Unit,
     onFavorite: () -> Unit,
     onExtract: () -> Unit,
+    onExtractTo: () -> Unit,
     onLock: () -> Unit,
     onMove: () -> Unit,
     onCopy: () -> Unit,
@@ -910,28 +965,66 @@ fun FileGridItem(
                         DropdownMenu(
                             expanded = showFileMenu,
                             onDismissRequest = { showFileMenu = false },
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-                            shape = RoundedCornerShape(24.dp)
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier.widthIn(min = 200.dp)
                         ) {
                             DropdownMenuItem(
-                                text = { Text("File Info", fontWeight = FontWeight.SemiBold) },
-                                onClick = { showFileMenu = false },
-                                leadingIcon = { Icon(painterResource(R.drawable.info_circle_icon),
-                                    contentDescription = null, tint = NeonPrimary,
+                                text = { Text("Share", fontWeight = FontWeight.SemiBold) },
+                                onClick = { 
+                                    onShare()
+                                    showFileMenu = false 
+                                },
+                                leadingIcon = { Icon(painter = painterResource(id = R.drawable.share_icon),
+                                    contentDescription = null, tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(20.dp)) }
                             )
                             DropdownMenuItem(
-                                text = { Text("Rename", fontWeight = FontWeight.SemiBold) },
+                                text = { Text("Open with", fontWeight = FontWeight.SemiBold) },
+                                onClick = { 
+                                    onOpenWith()
+                                    showFileMenu = false 
+                                },
+                                leadingIcon = { Icon(painter = painterResource(id = R.drawable.shortcut_icon),
+                                    contentDescription = null, tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp)) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Show in Folder", fontWeight = FontWeight.SemiBold) },
+                                onClick = { 
+                                    onPathClick(File(file.path).parent ?: "")
+                                    showFileMenu = false 
+                                },
+                                leadingIcon = { Icon(painter = painterResource(id = R.drawable.open_folder_outline_icon),
+                                    contentDescription = null, tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp)) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Add to Favorites", fontWeight = FontWeight.SemiBold) },
+                                onClick = { 
+                                    onFavorite()
+                                    showFileMenu = false 
+                                },
+                                leadingIcon = { Icon(Icons.Rounded.StarBorder,
+                                    contentDescription = null, tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp)) }
+                            )
+
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), 
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            DropdownMenuItem(
+                                text = { Text("Rename", fontWeight = FontWeight.Medium) },
                                 onClick = { 
                                     onRename()
                                     showFileMenu = false 
                                 },
-                                leadingIcon = { Icon(painterResource(R.drawable.brush_paintbrush_icon),
+                                leadingIcon = { Icon(painter = painterResource(id = R.drawable.brush_paintbrush_icon),
                                     contentDescription = null, tint = NeonPrimary,
                                     modifier = Modifier.size(20.dp)) }
                             )
                             DropdownMenuItem(
-                                text = { Text("Move", fontWeight = FontWeight.SemiBold) },
+                                text = { Text("Move", fontWeight = FontWeight.Medium) },
                                 onClick = { 
                                     onMove()
                                     showFileMenu = false 
@@ -941,7 +1034,7 @@ fun FileGridItem(
                                     modifier = Modifier.size(20.dp)) }
                             )
                             DropdownMenuItem(
-                                text = { Text("Copy", fontWeight = FontWeight.SemiBold) },
+                                text = { Text("Copy", fontWeight = FontWeight.Medium) },
                                 onClick = { 
                                     onCopy()
                                     showFileMenu = false 
@@ -951,7 +1044,7 @@ fun FileGridItem(
                                     modifier = Modifier.size(20.dp)) }
                             )
                             DropdownMenuItem(
-                                text = { Text("Delete", fontWeight = FontWeight.SemiBold) },
+                                text = { Text("Delete", fontWeight = FontWeight.Medium) },
                                 onClick = { 
                                     onDelete()
                                     showFileMenu = false 
@@ -961,15 +1054,37 @@ fun FileGridItem(
                                     modifier = Modifier.size(20.dp)) }
                             )
                             DropdownMenuItem(
-                                text = { Text("Select", fontWeight = FontWeight.SemiBold) },
-                                onClick = {
-                                    onLongClick()
-                                    showFileMenu = false
+                                text = { Text("Lock (Vault)", fontWeight = FontWeight.Medium) },
+                                onClick = { 
+                                    onLock()
+                                    showFileMenu = false 
                                 },
-                                leadingIcon = { Icon(painterResource(R.drawable.check_mark_circle_line_icon),
-                                    contentDescription = null, tint = NeonSecondary,
+                                leadingIcon = { Icon(painterResource(R.drawable.lock_line_icon),
+                                    contentDescription = null, tint = NeonPrimary,
                                     modifier = Modifier.size(20.dp)) }
                             )
+                            if (file.extension.lowercase() in listOf("zip", "rar")) {
+                                DropdownMenuItem(
+                                    text = { Text("Extract Here", fontWeight = FontWeight.Medium) },
+                                    onClick = { 
+                                        onExtract()
+                                        showFileMenu = false 
+                                    },
+                                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
+                                        contentDescription = null, tint = NeonPrimary,
+                                        modifier = Modifier.size(20.dp)) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Extract to...", fontWeight = FontWeight.Medium) },
+                                    onClick = { 
+                                        onExtractTo()
+                                        showFileMenu = false 
+                                    },
+                                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.open_folder_outline_icon),
+                                        contentDescription = null, tint = NeonPrimary,
+                                        modifier = Modifier.size(20.dp)) }
+                                )
+                            }
                         }
                     }
                 }
@@ -1032,7 +1147,6 @@ fun RenameDialog(
         containerColor = MaterialTheme.colorScheme.surface
     )
 }
-
 @Composable
 fun FileThumbnail(file: FileModel) {
     val isVideo = FileUtils.isVideoFile(file.path)
@@ -1100,6 +1214,7 @@ fun FileThumbnail(file: FileModel) {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 @Composable
 fun PdfThumbnail(path: String, modifier: Modifier) {
     val bitmap by produceState<Bitmap?>(initialValue = null, path) {
@@ -1227,6 +1342,7 @@ fun ExplorerPreviewFull() {
                     onOpenWithClick = {},
                     onFavoriteClick = {},
                     onExtractClick = {},
+                    onExtractToClick = {},
                     onLockClick = {},
                     onPathClick = {},
                     onMoveClick = {},
@@ -1466,7 +1582,7 @@ fun ExplorerPreviewLight() {
             .background(MaterialTheme.colorScheme.background))
         {
             Column {
-                Breadcrumbs("Downloads", onPathClick = {})
+                Breadcrumbs("Downloads", "Downloads", onPathClick = {})
                 SortBar(
                     currentType = SortType.NAME,
                     currentOrder = SortOrder.ASCENDING,
@@ -1488,6 +1604,7 @@ fun ExplorerPreviewLight() {
                         onOpenWith = {},
                         onFavorite = {},
                         onExtract = {},
+                        onExtractTo = {},
                         onLock = {},
                         onMove = {},
                         onCopy = {},
@@ -1508,6 +1625,7 @@ fun ExplorerPreviewLight() {
                         onOpenWith = {},
                         onFavorite = {},
                         onExtract = {},
+                        onExtractTo = {},
                         onLock = {},
                         onMove = {},
                         onCopy = {},
@@ -1526,7 +1644,7 @@ fun ExplorerPreviewDark() {
         Box(modifier = Modifier.fillMaxSize()
             .background(MaterialTheme.colorScheme.background)) {
             Column {
-                Breadcrumbs("Camera", onPathClick = {})
+                Breadcrumbs("Camera", "Camera", onPathClick = {})
                 SortBar(
                     currentType = SortType.NAME,
                     currentOrder = SortOrder.ASCENDING,
@@ -1548,6 +1666,7 @@ fun ExplorerPreviewDark() {
                         onOpenWith = {},
                         onFavorite = {},
                         onExtract = {},
+                        onExtractTo = {},
                         onLock = {},
                         onMove = {},
                         onCopy = {},
@@ -1567,6 +1686,7 @@ fun ExplorerPreviewDark() {
                         onOpenWith = {},
                         onFavorite = {},
                         onExtract = {},
+                        onExtractTo = {},
                         onLock = {},
                         onMove = {},
                         onCopy = {},

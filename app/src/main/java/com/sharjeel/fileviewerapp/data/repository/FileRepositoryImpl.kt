@@ -105,8 +105,11 @@ class FileRepositoryImpl @Inject constructor(
         
         return root.walkTopDown()
             .onEnter { !it.name.startsWith(".") }
-            .filter { it.isFile && extensions.contains(it.extension.lowercase()) }
-            .map { FileModel.fromFile(it, countItems = false) }
+            .filter { 
+                (it.isFile && extensions.contains(it.extension.lowercase())) ||
+                (it.isDirectory && !it.name.startsWith("."))
+            }
+            .map { FileModel.fromFile(it, countItems = it.isDirectory) }
             .toList()
     }
 

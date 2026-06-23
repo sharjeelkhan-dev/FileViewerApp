@@ -3,6 +3,7 @@ package com.sharjeel.fileviewerapp.util
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
 import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
 import java.io.File
@@ -59,6 +60,23 @@ object FileUtils {
             }
         }
         return null
+    }
+
+    fun getFolderPathFromUri(uri: Uri): String? {
+        val path = uri.path ?: return null
+        return if (path.contains("primary:")) {
+            val subPath = path.substringAfter("primary:")
+            Environment.getExternalStorageDirectory().absolutePath + "/" + subPath
+        } else {
+            // Try to resolve generic document tree paths
+            if (path.startsWith("/tree/")) {
+                val treeId = path.substringAfter("/tree/").substringBefore(":")
+                if (treeId == "primary") {
+                    val subPath = path.substringAfter(":")
+                    Environment.getExternalStorageDirectory().absolutePath + "/" + subPath
+                } else null
+            } else null
+        }
     }
 
     fun formatFileSize(size: Long): String {

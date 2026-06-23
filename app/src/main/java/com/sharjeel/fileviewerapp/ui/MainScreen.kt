@@ -358,22 +358,29 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                 
                                 // Sync ViewModel with route parameters
                                 LaunchedEffect(key.title, key.path) {
-                                    when (key.title) {
-                                        "Storage" -> key.path?.let { explorerViewModel.loadFiles(it) }
-                                        "Downloads" -> explorerViewModel.loadCategory(FileCategory.DOWNLOADS)
-                                        "Recent" -> explorerViewModel.loadRecent()
-                                        "Favorites" -> explorerViewModel.loadFavorites()
-                                        "Images" -> explorerViewModel.loadCategory(FileCategory.IMAGES)
-                                        "Videos" -> explorerViewModel.loadCategory(FileCategory.VIDEOS)
-                                        "Audio" -> explorerViewModel.loadCategory(FileCategory.AUDIO)
-                                        "Docs" -> explorerViewModel.loadCategory(FileCategory.DOCUMENTS)
-                                        "Archives" -> explorerViewModel.loadCategory(FileCategory.ARCHIVES)
-                                        else -> key.path?.let { explorerViewModel.loadFiles(it) }
+                                    if (key.path != null) {
+                                        // If a specific path is provided, ALWAYS load that directory.
+                                        // This handles sub-folder navigation from within categories like "Archives".
+                                        explorerViewModel.loadFiles(key.path!!)
+                                    } else {
+                                        // If path is null, load the global category view
+                                        when (key.title) {
+                                            "Storage" -> explorerViewModel.loadFiles(Environment.getExternalStorageDirectory().absolutePath)
+                                            "Downloads" -> explorerViewModel.loadCategory(FileCategory.DOWNLOADS)
+                                            "Recent" -> explorerViewModel.loadRecent()
+                                            "Favorites" -> explorerViewModel.loadFavorites()
+                                            "Images" -> explorerViewModel.loadCategory(FileCategory.IMAGES)
+                                            "Videos" -> explorerViewModel.loadCategory(FileCategory.VIDEOS)
+                                            "Audio" -> explorerViewModel.loadCategory(FileCategory.AUDIO)
+                                            "Docs" -> explorerViewModel.loadCategory(FileCategory.DOCUMENTS)
+                                            "Archives" -> explorerViewModel.loadCategory(FileCategory.ARCHIVES)
+                                            else -> {} // Should not happen for null path
+                                        }
                                     }
                                 }
 
                                 ExplorerScreen(
-                                    title = key.title,
+                                    title = if (backstack.last() is NavRoute.Explorer) (backstack.last() as NavRoute.Explorer).title else key.title,
                                     viewModel = explorerViewModel,
                                     onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) },
                                     onFileClick = { file ->
