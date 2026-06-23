@@ -1,7 +1,6 @@
 package com.sharjeel.fileviewerapp.data.repository
 
 import android.content.Context
-import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import com.sharjeel.fileviewerapp.data.local.dao.FileDao
@@ -13,7 +12,11 @@ import com.sharjeel.fileviewerapp.domain.repository.FileCategory
 import com.sharjeel.fileviewerapp.domain.repository.FileRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
