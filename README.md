@@ -44,9 +44,8 @@ Built with modern tools and a stunning **Neon & Glassmorphism** aesthetic.
 ### 🎬 Project Showcase
 
 | Home Screen | File Explorer | Secure Vault |
-
-<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/fba66495-7b21-4e11-ae4a-f7c9645c2b6f" />
-<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/de291b41-832e-43a6-b54e-120a593572ff" />
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/948bcd18-822b-4309-9e69-78a26e30fd9d" />
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/363073f7-95b1-4183-8147-5ae1da6b5194" />
 <img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/e52bf06c-89dd-4a75-ba8e-68b4505802eb" />
 <img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/2558837f-c370-4a0b-8c23-8357cd12ea28" />
 <img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/0184296a-007b-4040-9b6f-e9e0786c95a8" />
