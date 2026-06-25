@@ -43,6 +43,12 @@ class ExplorerViewModel @Inject constructor(
     private val _pickingFolderForArchive = MutableStateFlow<FileModel?>(null)
     val pickingFolderForArchive: StateFlow<FileModel?> = _pickingFolderForArchive.asStateFlow()
 
+    private val _isMoving = MutableStateFlow<List<String>>(emptyList())
+    val isMoving = _isMoving.asStateFlow()
+
+    private val _isCopying = MutableStateFlow<List<String>>(emptyList())
+    val isCopying = _isCopying.asStateFlow()
+
     val uiState: StateFlow<ExplorerUiState> = combine(
         _rawFiles, 
         _searchQuery,
@@ -172,6 +178,56 @@ class ExplorerViewModel @Inject constructor(
                 refresh()
             }
         }
+    }
+
+    fun startMove(paths: List<String>) {
+        _isCopying.value = emptyList()
+        _isMoving.value = paths
+        _events.trySend(ExplorerEvent.ShowMessage("Selected ${paths.size} items to move"))
+    }
+
+    fun startCopy(paths: List<String>) {
+        _isMoving.value = emptyList()
+        _isCopying.value = paths
+        _events.trySend(ExplorerEvent.ShowMessage("Selected ${paths.size} items to copy"))
+    }
+
+    fun paste() {
+        val targetDir = _currentPath.value
+        if (targetDir.isBlank()) {
+            _events.trySend(ExplorerEvent.ShowMessage("Cannot paste here"))
+            return
+        }
+
+        viewModelScope.launch {
+            val moving = _isMoving.value
+            val copying = _isCopying.value
+
+            if (moving.isNotEmpty()) {
+                moving.forEach { source ->
+                    val sourceFile = File(source)
+                    val destFile = File(targetDir, sourceFile.name)
+                    repository.moveFile(source, destFile.absolutePath)
+                }
+                _isMoving.value = emptyList()
+                _events.send(ExplorerEvent.ShowMessage("Moved successfully"))
+            } else if (copying.isNotEmpty()) {
+                copying.forEach { source ->
+                    val sourceFile = File(source)
+                    val destFile = File(targetDir, sourceFile.name)
+                    // Note: Copy implementation would be needed in repository
+                    // repository.copyFile(source, destFile.absolutePath)
+                    _events.send(ExplorerEvent.ShowMessage("Copy feature implementation pending in repository"))
+                }
+                _isCopying.value = emptyList()
+            }
+            refresh()
+        }
+    }
+
+    fun cancelOperation() {
+        _isMoving.value = emptyList()
+        _isCopying.value = emptyList()
     }
 
     fun loadVault() {

@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -27,7 +29,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +43,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sharjeel.fileviewerapp.R
+import com.sharjeel.fileviewerapp.ui.components.AppScaffold
 import com.sharjeel.fileviewerapp.ui.theme.AccentArchives
 import com.sharjeel.fileviewerapp.ui.theme.AccentAudio
 import com.sharjeel.fileviewerapp.ui.theme.AccentDocuments
@@ -60,33 +62,33 @@ fun HomeScreen(
     onPlaceClick: (String) -> Unit = {},
     onStorageClick: () -> Unit = {}
 ) {
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background
-    ) { innerPadding ->
+    AppScaffold { _ ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
-            // Scrollable Header
+            // Scrollable Header (Yeh internally status bar ke niche apne content ko fit rakhega)
             HomeHeader(onMenuClick)
-            
+
             StorageDashboardCard(onStorageClick)
-            
+
             Spacer(modifier = Modifier.height(32.dp))
-            
+
             SectionHeader("QUICK ACCESS")
             PlacesGrid(onPlaceClick)
-            
+
             Spacer(modifier = Modifier.height(32.dp))
-            
+
             SectionHeader("CATEGORIES")
             CategoriesGrid(onCategoryClick)
-            
-            // Bottom spacer to account for system navigation bar
-            Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding() + 24.dp))
+
+            // Extra padding at bottom for better aesthetic spacing
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // FIXED: Sirf list ke aakhir mein space chhori taake navigation pill content ko hide na kare
+            Spacer(modifier = Modifier.navigationBarsPadding())
         }
     }
 }
@@ -96,7 +98,7 @@ fun HomeHeader(onMenuClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .statusBarsPadding()
+            .statusBarsPadding() // Correct behavior: Yeh sirf icons/text ko status bar se safe zone mein layega
             .padding(vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
@@ -109,7 +111,6 @@ fun HomeHeader(onMenuClick: () -> Unit) {
                 modifier = Modifier.size(28.dp)
             )
         }
-        
         Text(
             "FILE VIEWER",
             style = MaterialTheme.typography.titleLarge,
@@ -117,7 +118,6 @@ fun HomeHeader(onMenuClick: () -> Unit) {
             letterSpacing = 2.sp,
             color = MaterialTheme.colorScheme.onBackground
         )
-        
         // Spacer to balance the Menu icon for center-aligned title look
         Spacer(modifier = Modifier.size(48.dp))
     }
@@ -126,7 +126,7 @@ fun HomeHeader(onMenuClick: () -> Unit) {
 @Composable
 fun StorageDashboardCard(onClick: () -> Unit) {
     val isDark = isSystemInDarkTheme()
-    
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -153,7 +153,7 @@ fun StorageDashboardCard(onClick: () -> Unit) {
                         )
                     )
             )
-            
+
             Row(
                 modifier = Modifier
                     .padding(24.dp)
@@ -175,19 +175,19 @@ fun StorageDashboardCard(onClick: () -> Unit) {
                     )
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            "65%", 
+                            "65%",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = NeonSecondary
                         )
                         Text(
-                            "USED", 
+                            "USED",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.width(24.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -201,7 +201,6 @@ fun StorageDashboardCard(onClick: () -> Unit) {
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = NeonPrimary.copy(alpha = 0.15f),
@@ -219,6 +218,7 @@ fun StorageDashboardCard(onClick: () -> Unit) {
                 Icon(
                     Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                     contentDescription = null,
+                    modifier = Modifier.offset(y = (-8).dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -346,8 +346,8 @@ fun CategoryCard(item: CategoryItem, modifier: Modifier, onClick: (String) -> Un
             }
             Spacer(modifier = Modifier.width(16.dp))
             Text(
-                item.name, 
-                style = MaterialTheme.typography.titleMedium, 
+                item.name,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )

@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sharjeel.fileviewerapp.ui.components.AppScaffold
 import com.sharjeel.fileviewerapp.ui.theme.GlassSurface
 import com.sharjeel.fileviewerapp.ui.theme.NeonPrimary
 import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
@@ -32,11 +33,11 @@ fun SettingsScreen(
 ) {
     val isDark = isSystemInDarkTheme()
     
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
+    AppScaffold(
         topBar = {
-            // FIXED TOP BAR (Outside the scrollable Column)
+            // FIXED TOP BAR
             CenterAlignedTopAppBar(
+                modifier = Modifier.statusBarsPadding(), // Immersive protection
                 title = { 
                     Text(
                         "SETTINGS",
@@ -61,12 +62,11 @@ fun SettingsScreen(
                 windowInsets = TopAppBarDefaults.windowInsets
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { innerPadding ->
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { _ ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding()) // Respect TopBar height
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
@@ -175,7 +175,7 @@ fun SettingsScreen(
                 )
             }
             
-            Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding() + 40.dp))
+            Spacer(modifier = Modifier.height(40.dp))
         }
     }
 }

@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.ui.explorer.*
+import com.sharjeel.fileviewerapp.ui.components.AppScaffold
 import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,13 +66,10 @@ fun TrashScreen(
         }
     }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
+    AppScaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
-    ) { innerPadding ->
+    ) { _ ->
         Box(modifier = Modifier.fillMaxSize()) {
-            val bottomPad = innerPadding.calculateBottomPadding()
             when (val state = uiState) {
                 is ExplorerUiState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -85,7 +83,9 @@ fun TrashScreen(
                     if (filteredFiles.isEmpty() && !isSearchActive) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Rounded.DeleteOutline, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                                Icon(Icons.Rounded.DeleteOutline, contentDescription = null,
+                                    modifier = Modifier.size(64.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text("No files in trash", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -131,7 +131,7 @@ fun TrashScreen(
                             onPathClick = { },
                             onMoveClick = { },
                             onCopyClick = { },
-                            bottomPadding = bottomPad,
+                            bottomPadding = 0.dp,
                             onRestoreSelectedClick = { viewModel.restoreSelected() },
                             onRestoreAllClick = { viewModel.restoreAll() },
                             isEmptyTrashEnabled = true,

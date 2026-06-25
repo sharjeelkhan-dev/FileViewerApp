@@ -23,6 +23,7 @@ import com.sharjeel.fileviewerapp.ui.explorer.FileList
 import com.sharjeel.fileviewerapp.ui.explorer.RenameDialog
 import com.sharjeel.fileviewerapp.ui.explorer.SortBottomSheet
 import com.sharjeel.fileviewerapp.ui.explorer.ViewOptionsBottomSheet
+import com.sharjeel.fileviewerapp.ui.components.AppScaffold
 import com.sharjeel.fileviewerapp.ui.theme.GlassSurface
 import com.sharjeel.fileviewerapp.ui.theme.NeonPrimary
 import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
@@ -88,16 +89,13 @@ fun VaultScreen(
         )
     }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
+    AppScaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
-    ) { innerPadding ->
+    ) { _ ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            val bottomPad = innerPadding.calculateBottomPadding()
             if (!isUnlocked) {
                 Column(
                     modifier = Modifier
@@ -257,7 +255,7 @@ fun VaultScreen(
                                 onPathClick = { },
                                 onMoveClick = { },
                                 onCopyClick = { },
-                                bottomPadding = bottomPad,
+                                bottomPadding = 0.dp,
                             )
                         }
                     }

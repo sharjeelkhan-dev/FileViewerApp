@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.domain.model.FileModel
+import com.sharjeel.fileviewerapp.ui.components.AppScaffold
 import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
 import com.sharjeel.fileviewerapp.ui.theme.NeonPrimary
 import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
@@ -58,7 +59,8 @@ fun ExplorerScreen(
     title: String,
     viewModel: ExplorerViewModel,
     onBackClick: () -> Unit,
-    onFileClick: (FileModel) -> Unit
+    onFileClick: (FileModel) -> Unit,
+    onPathClick: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedFiles by viewModel.selectedFiles.collectAsState()
@@ -69,6 +71,8 @@ fun ExplorerScreen(
     val viewMode by viewModel.viewMode.collectAsState()
     val pickingArchive by viewModel.pickingFolderForArchive.collectAsState()
     val context = LocalContext.current
+    val isMoving by viewModel.isMoving.collectAsState()
+    val isCopying by viewModel.isCopying.collectAsState()
 
     var archiveToExtractTo by remember { mutableStateOf<FileModel?>(null) }
     val folderPickerLauncher = rememberLauncherForActivityResult(
@@ -152,16 +156,13 @@ fun ExplorerScreen(
             viewModel.stopPickingFolder()
         }
     }
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
+    AppScaffold(
         containerColor = MaterialTheme.colorScheme.background, // Themed background
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
-    ) { innerPadding ->
+    ) { _ ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            val bottomPad = innerPadding.calculateBottomPadding()
             when (val state = uiState) {
                 is ExplorerUiState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -226,25 +227,36 @@ fun ExplorerScreen(
                             onLockClick = { viewModel.moveToVault(it) },
                             onPathClick = { path ->
                                 if (path == "CATEGORY_ROOT") {
-                                    // Reset to category view
-                                    when (title) {
-                                        "Downloads" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.DOWNLOADS)
-                                        "Images" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.IMAGES)
-                                        "Videos" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.VIDEOS)
-                                        "Audio" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.AUDIO)
-                                        "Docs" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.DOCUMENTS)
-                                        "Archives" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.ARCHIVES)
-                                        "Recent" -> viewModel.loadRecent()
-                                        "Favorites" -> viewModel.loadFavorites()
-                                        else -> viewModel.loadFiles(android.os.Environment.getExternalStorageDirectory().absolutePath)
-                                    }
+                                    // Let MainScreen handle Home Screen navigation
+                                    onPathClick(path)
                                 } else {
-                                    viewModel.loadFiles(path)
+                                    // Reload current category or navigate to physical path locally
+                                    val rootPath = android.os.Environment.getExternalStorageDirectory().absolutePath
+                                    if (path == rootPath) {
+                                        // Tapping Root in category view should reload category
+                                        when (title) {
+                                            "Downloads" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.DOWNLOADS)
+                                            "Images" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.IMAGES)
+                                            "Videos" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.VIDEOS)
+                                            "Audio" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.AUDIO)
+                                            "Docs" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.DOCUMENTS)
+                                            "Archives" -> viewModel.loadCategory(com.sharjeel.fileviewerapp.domain.repository.FileCategory.ARCHIVES)
+                                            "Recent" -> viewModel.loadRecent()
+                                            "Favorites" -> viewModel.loadFavorites()
+                                            else -> viewModel.loadFiles(rootPath)
+                                        }
+                                    } else {
+                                        viewModel.loadFiles(path)
+                                    }
                                 }
                             },
-                            onMoveClick = { android.widget.Toast.makeText(context, "Move feature coming soon", android.widget.Toast.LENGTH_SHORT).show() },
-                            onCopyClick = { android.widget.Toast.makeText(context, "Copy feature coming soon", android.widget.Toast.LENGTH_SHORT).show() },
-                            bottomPadding = bottomPad
+                            onMoveClick = { viewModel.startMove(listOf(it.path)) },
+                            onCopyClick = { viewModel.startCopy(listOf(it.path)) },
+                            bottomPadding = 0.dp,
+                            isMoving = isMoving,
+                            isCopying = isCopying,
+                            onPasteClick = { viewModel.paste() },
+                            onCancelClick = { viewModel.cancelOperation() }
                         )
                     }
                 }
@@ -338,7 +350,7 @@ fun Breadcrumbs(currentPath: String, title: String, onPathClick: (String) -> Uni
             color = if (MaterialTheme.colorScheme.surface
                     .luminance() > 0.5f) Color(0xFFF3E5F5)
             else MaterialTheme.colorScheme.secondaryContainer,
-            onClick = { onPathClick(rootPath) }
+            onClick = { onPathClick("CATEGORY_ROOT") } // Go back to Home Screen
         ) {
             Icon(
                 painter = painterResource(id = R.drawable.house_window_icon),
@@ -460,6 +472,7 @@ fun SortBar(
 }
 @Composable
 fun FileList(
+    modifier: Modifier = Modifier,
     title: String,
     currentPath: String,
     files: List<FileModel>,
@@ -494,6 +507,10 @@ fun FileList(
     onMoveClick: (FileModel) -> Unit,
     onCopyClick: (FileModel) -> Unit,
     bottomPadding: androidx.compose.ui.unit.Dp,
+    isMoving: List<String> = emptyList(),
+    isCopying: List<String> = emptyList(),
+    onPasteClick: () -> Unit = {},
+    onCancelClick: () -> Unit = {},
     onRestoreSelectedClick: (() -> Unit)? = null,
     onRestoreAllClick: (() -> Unit)? = null,
     isEmptyTrashEnabled: Boolean = false,
@@ -508,10 +525,10 @@ fun FileList(
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(columns),
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             top = 0.dp, 
-            bottom = bottomPadding + 24.dp
+            bottom = bottomPadding
         ),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -585,6 +602,26 @@ fun FileList(
                                 containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
                                 shape = RoundedCornerShape(16.dp)
                             ) {
+                                if (isMoving.isNotEmpty() || isCopying.isNotEmpty()) {
+                                    DropdownMenuItem(
+                                        text = { Text("Paste Here", fontWeight = FontWeight.Bold) },
+                                        onClick = { 
+                                            onDismissMenu()
+                                            onPasteClick()
+                                        },
+                                        leadingIcon = { Icon(Icons.Rounded.ContentPaste, contentDescription = null, tint = NeonPrimary) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Cancel") },
+                                        onClick = { 
+                                            onDismissMenu()
+                                            onCancelClick()
+                                        },
+                                        leadingIcon = { Icon(Icons.Rounded.Cancel, contentDescription = null, tint = Color.Gray) }
+                                    )
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                                }
+
                                 DropdownMenuItem(
                                     text = { Text("Refresh") },
                                     onClick = { 

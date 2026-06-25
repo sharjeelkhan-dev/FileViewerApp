@@ -25,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.domain.model.FileModel
 import androidx.compose.ui.tooling.preview.Preview
+import com.sharjeel.fileviewerapp.ui.components.AppScaffold
+import com.sharjeel.fileviewerapp.ui.components.AppScaffold
+import com.sharjeel.fileviewerapp.ui.components.AppScaffold
 import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
 import java.io.File
 
@@ -108,8 +111,7 @@ private fun FileViewerContent(
     val isPdf = effectiveFileType == "pdf"
     val isMedia = isAudio || isVideo || isImage || isPdf
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
+    AppScaffold(
         topBar = {
             AnimatedVisibility(
                 visible = controlsVisible || !isMedia,
@@ -237,8 +239,7 @@ private fun FileViewerContent(
             }
         },
         containerColor = if (isMedia) Color.Black else MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
-    ) { innerPadding ->
+    ) { _ ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -252,10 +253,6 @@ private fun FileViewerContent(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(
-                            top = if (!isMedia) innerPadding.calculateTopPadding() else 0.dp,
-                            bottom = if (!isMedia) innerPadding.calculateBottomPadding() else 0.dp
-                        )
                 ) {
                     if (filePlaylist.isNotEmpty()) {
                         UniversalFilePager(
