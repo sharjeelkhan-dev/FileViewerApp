@@ -225,7 +225,6 @@ fun StorageDashboardCard(onClick: () -> Unit) {
         }
     }
 }
-
 @Composable
 fun SectionHeader(title: String) {
     Text(
@@ -237,7 +236,6 @@ fun SectionHeader(title: String) {
         modifier = Modifier.padding(bottom = 16.dp)
     )
 }
-
 @Composable
 fun PlacesGrid(onPlaceClick: (String) -> Unit) {
     val places = listOf(
@@ -262,7 +260,6 @@ fun PlacesGrid(onPlaceClick: (String) -> Unit) {
         }
     }
 }
-
 @Composable
 fun PlaceCard(place: PlaceItem, modifier: Modifier, onPlaceClick: (String) -> Unit)
 {
@@ -296,7 +293,6 @@ fun PlaceCard(place: PlaceItem, modifier: Modifier, onPlaceClick: (String) -> Un
         )
     }
 }
-
 @Composable
 fun CategoriesGrid(onCategoryClick: (String) -> Unit) {
     val categories = listOf(
@@ -354,7 +350,6 @@ fun CategoryCard(item: CategoryItem, modifier: Modifier, onClick: (String) -> Un
         }
     }
 }
-
 data class PlaceItem(val name: String, val icon: Painter, val color: Color)
 data class CategoryItem(val name: String, val icon: Painter, val color: Color)
 
@@ -365,7 +360,6 @@ fun HomeScreenPreviewLight() {
         HomeScreen()
     }
 }
-
 @Preview(showBackground = true, name = "Dark Mode")
 @Composable
 fun HomeScreenPreviewDark() {
