@@ -18,27 +18,9 @@
 <table width="100%">
   <!-- Row 1 -->
   <tr>
-    <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/948bcd18-822b-4309-9e69-78a26e30fd9d" width="100%" alt="Screen 1" /></td>
     <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/363073f7-95b1-4183-8147-5ae1da6b5194" width="100%" alt="Screen 2" /></td>
-    <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/e52bf06c-89dd-4a75-ba8e-68b4505802eb" width="100%" alt="Screen 3" /></td>
-  </tr>
-  <!-- Row 2 -->
-  <tr>
-    <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/2558837f-c370-4a0b-8c23-8357cd12ea28" width="100%" alt="Screen 4" /></td>
     <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/0184296a-007b-4040-9b6f-e9e0786c95a8" width="100%" alt="Screen 5" /></td>
-    <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/86885a65-c24f-4906-8dbd-135dc7fe31f5" width="100%" alt="Screen 6" /></td>
-  </tr>
-  <!-- Row 3 -->
-  <tr>
-    <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/443d3b4a-00cf-4542-9754-759d1b972fcd" width="100%" alt="Screen 7" /></td>
-    <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/bf897bbe-7072-458d-b3cd-062824839ff6" width="100%" alt="Screen 8" /></td>
     <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/e84d3437-9b78-435c-acbf-09af1c5f4904" width="100%" alt="Screen 9" /></td>
-  </tr>
-  <!-- Row 4 -->
-  <tr>
-    <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/e187ed0d-b9ef-4172-aaa9-4dfb8a993414" width="100%" alt="Screen 10" /></td>
-    <td width="33.3%" align="center"></td>
-    <td width="33.3%" align="center"></td>
   </tr>
 </table>
 </details>
