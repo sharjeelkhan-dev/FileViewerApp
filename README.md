@@ -1,5 +1,5 @@
 ### 📂 File Viewer App
-![Status](https://img.shields.io/badge/Private_Code-181717?style=for-the-badge&logo=github&logoColor=white) ![Security](https://img.shields.io/badge/Encrypted_Vault-607D8B?style=for-the-badge&logo=android&logoColor=white) ![Media](https://img.shields.io/badge/Media3_ExoPlayer-E64A19?style=for-the-badge&logo=youtube&logoColor=white)
+![Status](https://img.shields.io/badge/Code-181717?style=for-the-badge&logo=github&logoColor=white) ![Security](https://img.shields.io/badge/Encrypted_Vault-607D8B?style=for-the-badge&logo=android&logoColor=white) ![Media](https://img.shields.io/badge/Media3_ExoPlayer-E64A19?style=for-the-badge&logo=youtube&logoColor=white)
 
 > A premium, high-performance file management and viewing experience for Android, built with modern tools and a stunning Neon & Glassmorphism aesthetic.
 
