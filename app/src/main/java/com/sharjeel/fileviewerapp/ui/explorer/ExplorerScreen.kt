@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.domain.model.FileModel
@@ -75,6 +76,35 @@ fun ExplorerScreen(
     val isCopying by viewModel.isCopying.collectAsState()
 
     var archiveToExtractTo by remember { mutableStateOf<FileModel?>(null) }
+    val aiViewModel: com.sharjeel.fileviewerapp.ui.ai.AIViewModel = hiltViewModel()
+    val aiUiState by aiViewModel.uiState.collectAsState()
+
+    if (aiUiState is com.sharjeel.fileviewerapp.ui.ai.AIUiState.NamingSuggestion) {
+        val suggestion = aiUiState as com.sharjeel.fileviewerapp.ui.ai.AIUiState.NamingSuggestion
+        NamingSuggestionDialog(
+            originalName = File(suggestion.filePath).name,
+            suggestedName = suggestion.name,
+            suggestedCategory = suggestion.category,
+            onDismiss = { aiViewModel.resetState() },
+            onConfirm = { newName ->
+                viewModel.renameFile(suggestion.filePath, newName)
+                aiViewModel.resetState()
+            }
+        )
+    }
+
+    if (aiUiState is com.sharjeel.fileviewerapp.ui.ai.AIUiState.Loading) {
+        AlertDialog(
+            onDismissRequest = { },
+            confirmButton = { },
+            title = { Text("AI is thinking...") },
+            text = {
+                Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = NeonPrimary)
+                }
+            }
+        )
+    }
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
@@ -252,6 +282,8 @@ fun ExplorerScreen(
                             },
                             onMoveClick = { viewModel.startMove(listOf(it.path)) },
                             onCopyClick = { viewModel.startCopy(listOf(it.path)) },
+                            onAISearchClick = { viewModel.aiSearch(it) },
+                            onAIRename = { aiViewModel.autoRename(it) },
                             bottomPadding = 0.dp,
                             isMoving = isMoving,
                             isCopying = isCopying,
@@ -275,7 +307,8 @@ fun ExplorerScreen(
 fun SearchTopBar(
     query: String,
     onQueryChange: (String) -> Unit,
-    onCloseClick: () -> Unit
+    onCloseClick: () -> Unit,
+    onAISearch: (String) -> Unit = {}
 ) {
     TopAppBar(
         title = {
@@ -303,6 +336,12 @@ fun SearchTopBar(
         },
         actions = {
             if (query.isNotEmpty()) {
+                IconButton(onClick = { onAISearch(query) }) {
+                    Icon(painter = painterResource(id = R.drawable.brush_paintbrush_icon),
+                        contentDescription = "AI Search",
+                        tint = NeonPrimary,
+                        modifier = Modifier.size(20.dp))
+                }
                 IconButton(onClick = { onQueryChange("") }) {
                     Icon(Icons.Rounded.Clear,
                         contentDescription = "Clear")
@@ -329,8 +368,6 @@ fun Breadcrumbs(currentPath: String, title: String, onPathClick: (String) -> Uni
     // If title is not a physical path indicator, use it as the root label
     val isStorageTitle = title.equals("Storage", ignoreCase = true) || 
                          title.equals("Internal Storage", ignoreCase = true)
-    
-    val rootLabel = if (isStorageTitle || !isInsideInternalStorage) title else title
     
     // Actually, if we are in a category (like Archives), we want the category name as root.
     // When navigating into folders, we still want that category name as root.
@@ -493,6 +530,7 @@ fun FileList(
     onRefreshClick: () -> Unit,
     onSelectAllClick: () -> Unit,
     onDeleteSelectedClick: () -> Unit,
+    onAISearchClick: (String) -> Unit,
     onFileClick: (FileModel) -> Unit,
     onFileLongClick: (FileModel) -> Unit,
     onDeleteClick: (FileModel) -> Unit,
@@ -506,6 +544,7 @@ fun FileList(
     onPathClick: (String) -> Unit,
     onMoveClick: (FileModel) -> Unit,
     onCopyClick: (FileModel) -> Unit,
+    onAIRename: (String) -> Unit,
     bottomPadding: androidx.compose.ui.unit.Dp,
     isMoving: List<String> = emptyList(),
     isCopying: List<String> = emptyList(),
@@ -539,7 +578,8 @@ fun FileList(
                     SearchTopBar(
                         query = searchQuery,
                         onQueryChange = onSearchQueryChange,
-                        onCloseClick = { onSearchToggle(false); onSearchQueryChange("") }
+                        onCloseClick = { onSearchToggle(false); onSearchQueryChange("") },
+                        onAISearch = onAISearchClick
                     )
                 } else {
                     Row(
@@ -708,7 +748,8 @@ fun FileList(
                     onLock = { onLockClick(file) },
                     onMove = { onMoveClick(file) },
                     onCopy = { onCopyClick(file) },
-                    onPathClick = onPathClick
+                    onPathClick = onPathClick,
+                    onAIRename = onAIRename
                 )
             } else {
                 FileGridItem(
@@ -726,7 +767,8 @@ fun FileList(
                     onLock = { onLockClick(file) },
                     onMove = { onMoveClick(file) },
                     onCopy = { onCopyClick(file) },
-                    onPathClick = onPathClick
+                    onPathClick = onPathClick,
+                    onAIRename = onAIRename
                 )
             }
         }
@@ -749,8 +791,9 @@ fun FileItem(
     onLock: () -> Unit,
     onMove: () -> Unit,
     onCopy: () -> Unit,
-    onPathClick: (String) -> Unit)
-{
+    onPathClick: (String) -> Unit,
+    onAIRename: (String) -> Unit
+) {
     Surface(
         color = if (isSelected) NeonSecondary.copy(alpha = 0.3f)
         else MaterialTheme.colorScheme.surface,
@@ -858,6 +901,16 @@ fun FileItem(
                         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                         DropdownMenuItem(
+                            text = { Text("AI Auto-Rename", color = NeonPrimary, fontWeight = FontWeight.Bold) },
+                            onClick = { 
+                                onAIRename(file.path)
+                                showFileMenu = false 
+                            },
+                            leadingIcon = { Icon(painter = painterResource(id = R.drawable.brush_paintbrush_icon),
+                                contentDescription = null, tint = NeonPrimary, modifier = Modifier.size(20.dp)) }
+                        )
+
+                        DropdownMenuItem(
                             text = { Text("Rename", fontWeight = FontWeight.Medium) },
                             onClick = { 
                                 onRename()
@@ -946,7 +999,8 @@ fun FileGridItem(
     onLock: () -> Unit,
     onMove: () -> Unit,
     onCopy: () -> Unit,
-    onPathClick: (String) -> Unit
+    onPathClick: (String) -> Unit,
+    onAIRename: (String) -> Unit
 ) {
     Surface(
         color = if (isSelected) NeonSecondary.copy(alpha = 0.1f)
@@ -1049,6 +1103,17 @@ fun FileGridItem(
 
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), 
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            DropdownMenuItem(
+                                text = { Text("AI Auto-Rename", color = NeonPrimary, fontWeight = FontWeight.Bold) },
+                                onClick = { 
+                                    onAIRename(file.path)
+                                    showFileMenu = false 
+                                },
+                                leadingIcon = { Icon(painter = painterResource(id = R.drawable.brush_paintbrush_icon),
+                                    contentDescription = null, tint = NeonPrimary,
+                                    modifier = Modifier.size(20.dp)) }
+                            )
 
                             DropdownMenuItem(
                                 text = { Text("Rename", fontWeight = FontWeight.Medium) },
@@ -1184,6 +1249,54 @@ fun RenameDialog(
         containerColor = MaterialTheme.colorScheme.surface
     )
 }
+@Composable
+fun NamingSuggestionDialog(
+    originalName: String,
+    suggestedName: String,
+    suggestedCategory: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("AI Naming Suggestion", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text("AI suggests renaming '$originalName' to:")
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    color = NeonPrimary.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Suggested Name:", style = MaterialTheme.typography.labelSmall)
+                        Text(suggestedName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Detected Category:", style = MaterialTheme.typography.labelSmall)
+                        Text(suggestedCategory, style = MaterialTheme.typography.bodyMedium, color = NeonPrimary)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(suggestedName) },
+                colors = ButtonDefaults.buttonColors(containerColor = NeonPrimary)
+            ) {
+                Text("Use Suggestion", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surface
+    )
+}
+
 @Composable
 fun FileThumbnail(file: FileModel) {
     val isVideo = FileUtils.isVideoFile(file.path)
@@ -1371,6 +1484,7 @@ fun ExplorerPreviewFull() {
                     onRefreshClick = {},
                     onSelectAllClick = {},
                     onDeleteSelectedClick = {},
+                    onAISearchClick = {},
                     onFileClick = {},
                     onFileLongClick = {},
                     onDeleteClick = {},
@@ -1384,6 +1498,7 @@ fun ExplorerPreviewFull() {
                     onPathClick = {},
                     onMoveClick = {},
                     onCopyClick = {},
+                    onAIRename = {},
                     bottomPadding = 0.dp
                 )
             }
@@ -1645,7 +1760,8 @@ fun ExplorerPreviewLight() {
                         onLock = {},
                         onMove = {},
                         onCopy = {},
-                        onPathClick = {}
+                        onPathClick = {},
+                        onAIRename = {}
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     FileItem(
@@ -1666,7 +1782,8 @@ fun ExplorerPreviewLight() {
                         onLock = {},
                         onMove = {},
                         onCopy = {},
-                        onPathClick = {}
+                        onPathClick = {},
+                        onAIRename = {}
                     )
                 }
             }
@@ -1707,7 +1824,8 @@ fun ExplorerPreviewDark() {
                         onLock = {},
                         onMove = {},
                         onCopy = {},
-                        onPathClick = {}
+                        onPathClick = {},
+                        onAIRename = {}
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     FileItem(
@@ -1727,7 +1845,8 @@ fun ExplorerPreviewDark() {
                         onLock = {},
                         onMove = {},
                         onCopy = {},
-                        onPathClick = {}
+                        onPathClick = {},
+                        onAIRename = {}
                     )
                 }
             }

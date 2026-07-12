@@ -51,9 +51,13 @@ media3 = "1.10.1"
 biometric = "1.2.0-alpha05"
 material3Adaptive = "1.1.2"
 poiAndroid = "3.17"
+googleServices = "4.4.2"
+firebaseBom = "34.15.0"
+firebaseCrashlyticsPlugin = "3.0.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+firebase-appcheck-playintegrity = { module = "com.google.firebase:firebase-appcheck-playintegrity" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
@@ -117,6 +121,16 @@ androidx-compose-material3-adaptive-layout = { group = "androidx.compose.materia
 androidx-compose-material3-adaptive-navigation = { group = "androidx.compose.material3.adaptive", name = "adaptive-navigation", version.ref = "material3Adaptive" }
 androidx-compose-material3-adaptive-navigation-suite = { group = "androidx.compose.material3", name = "material3-adaptive-navigation-suite" }
 poi-android = { group = "com.github.SUPERCILEX.poi-android", name = "poi", version.ref = "poiAndroid" }
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
+firebase-storage = { group = "com.google.firebase", name = "firebase-storage" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
+firebase-ai = { group = "com.google.firebase", name = "firebase-ai" }
+firebase-appcheck = { group = "com.google.firebase", name = "firebase-appcheck" }
+firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -124,4 +138,6 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 google-devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "googleDevtoolsKsp" }
 jetbrains-kotlin-plugin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "jetbrainsKotlinPluginSerialization" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
 

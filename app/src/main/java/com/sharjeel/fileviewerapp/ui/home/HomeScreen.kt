@@ -7,24 +7,24 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +58,7 @@ import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
 @Composable
 fun HomeScreen(
     onMenuClick: () -> Unit = {},
+    onAIClick: () -> Unit = {},
     onCategoryClick: (String) -> Unit = {},
     onPlaceClick: (String) -> Unit = {},
     onStorageClick: () -> Unit = {}
@@ -70,7 +71,7 @@ fun HomeScreen(
                 .padding(horizontal = 20.dp)
         ) {
             // Scrollable Header (Yeh internally status bar ke niche apne content ko fit rakhega)
-            HomeHeader(onMenuClick)
+            HomeHeader(onMenuClick, onAIClick)
 
             StorageDashboardCard(onStorageClick)
 
@@ -84,17 +85,15 @@ fun HomeScreen(
             SectionHeader("CATEGORIES")
             CategoriesGrid(onCategoryClick)
 
-            // Extra padding at bottom for better aesthetic spacing
             Spacer(modifier = Modifier.height(24.dp))
 
-            // FIXED: Sirf list ke aakhir mein space chhori taake navigation pill content ko hide na kare
             Spacer(modifier = Modifier.navigationBarsPadding())
         }
     }
 }
 
 @Composable
-fun HomeHeader(onMenuClick: () -> Unit) {
+fun HomeHeader(onMenuClick: () -> Unit, onAIClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -118,109 +117,132 @@ fun HomeHeader(onMenuClick: () -> Unit) {
             letterSpacing = 2.sp,
             color = MaterialTheme.colorScheme.onBackground
         )
-        // Spacer to balance the Menu icon for center-aligned title look
-        Spacer(modifier = Modifier.size(48.dp))
+        IconButton(onClick = onAIClick) {
+            Icon(
+                imageVector = Icons.Rounded.AutoAwesome,
+                contentDescription = "AI Assistant",
+                tint = NeonPrimary,
+                modifier = Modifier.size(28.dp)
+            )
+        }
     }
 }
 
 @Composable
 fun StorageDashboardCard(onClick: () -> Unit) {
     val isDark = isSystemInDarkTheme()
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val secondaryColor = MaterialTheme.colorScheme.secondary
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp),
+            .height(210.dp),
         onClick = onClick,
         shape = RoundedCornerShape(32.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) GlassSurface else MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Gradient Background
+            // Subtle Background Gradient
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
-                        Brush.linearGradient(
-                            colors = if (isDark) {
-                                listOf(NeonPrimary.copy(alpha = 0.2f), Color.Transparent)
-                            } else {
-                                listOf(NeonPrimary.copy(alpha = 0.05f), Color.Transparent)
-                            }
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                primaryColor.copy(alpha = if (isDark) 0.15f else 0.08f),
+                                Color.Transparent
+                            )
                         )
                     )
             )
 
-            Row(
+            Column(
                 modifier = Modifier
                     .padding(24.dp)
                     .fillMaxSize(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Progress Indicator
-                Box(
-                    modifier = Modifier.size(100.dp),
-                    contentAlignment = Alignment.Center
+                // Top Row: Folder Icon and decoration
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
                 ) {
-                    CircularProgressIndicator(
-                        progress = { 0.65f },
-                        modifier = Modifier.fillMaxSize(),
-                        strokeWidth = 10.dp,
-                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                        color = NeonSecondary,
-                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-                    )
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            "65%",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = NeonSecondary
-                        )
-                        Text(
-                            "USED",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Surface(
+                        modifier = Modifier.size(60.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFFFFCA28).copy(alpha = 0.15f) // Light amber background
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(R.drawable.folder_icon),
+                                contentDescription = null,
+                                tint = Color(0xFFFFCA28), // Standard folder yellow color
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.width(24.dp))
-                Column(modifier = Modifier.weight(1f)) {
+                // Middle section: Title
+                Column(modifier = Modifier.padding(vertical = 8.dp)) {
                     Text(
-                        "Internal Storage",
-                        style = MaterialTheme.typography.headlineSmall,
+                        text = "Internal Storage",
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        letterSpacing = 0.5.sp
                     )
-                    Text(
-                        "47 GB Free of 128 GB",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = NeonPrimary.copy(alpha = 0.15f),
-                        onClick = onClick
+                }
+
+                // Bottom section: Progress bar and stats
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // Modern Linear Progress with Round Caps
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .background(
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                CircleShape
+                            )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.65f) // Representing 65% used
+                                .fillMaxHeight()
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(primaryColor, secondaryColor)
+                                    ),
+                                    CircleShape,
+                                )
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "MANAGE",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            text = "Used: 81 GB",
                             style = MaterialTheme.typography.labelLarge,
-                            color = NeonPrimary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "128 GB",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
-                Icon(
-                    Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                    contentDescription = null,
-                    modifier = Modifier.offset(y = (-8).dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }
@@ -241,7 +263,7 @@ fun PlacesGrid(onPlaceClick: (String) -> Unit) {
     val places = listOf(
         PlaceItem("Downloads", painterResource(R.drawable.import_icon), NeonPrimary),
         PlaceItem("Recent", painterResource(R.drawable.rotate_left_arrow_icon), NeonSecondary),
-        PlaceItem("Favorites", painterResource(R.drawable.photo_collage_icon), Color(0xFFFF4081)),
+        PlaceItem("Favorites", painterResource(R.drawable.heart_black_icon), Color(0xFFFF4081)),
         PlaceItem("Vault", painterResource(R.drawable.shield_lock_line_icon), Color(0xFF69F0AE)),
         PlaceItem("Trash", painterResource(R.drawable.recycle_bin_line_icon), Color(0xFFEF5350))
     )
@@ -272,7 +294,6 @@ fun PlaceCard(place: PlaceItem, modifier: Modifier, onPlaceClick: (String) -> Un
             onClick = { onPlaceClick(place.name) },
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, place.color.copy(alpha = 0.3f)),
             shadowElevation = 4.dp
         ) {
             Box(contentAlignment = Alignment.Center) {

@@ -1,44 +1,21 @@
 package com.sharjeel.fileviewerapp.ui
 
 import android.os.Environment
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.SdStorage
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.NavigationDrawerItemDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.runtime.toMutableStateList
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -64,8 +41,11 @@ import com.sharjeel.fileviewerapp.ui.viewer.FileViewerScreen
 import com.sharjeel.fileviewerapp.ui.viewer.ViewerViewModel
 import com.sharjeel.fileviewerapp.util.PermissionHandler
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import androidx.compose.runtime.toMutableStateList
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -95,10 +75,45 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
     val viewerViewModel: ViewerViewModel = hiltViewModel()
     val trashViewModel: com.sharjeel.fileviewerapp.ui.trash.TrashViewModel = hiltViewModel()
     val vaultViewModel: com.sharjeel.fileviewerapp.ui.vault.VaultViewModel = hiltViewModel()
+    val aiViewModel: com.sharjeel.fileviewerapp.ui.ai.AIViewModel = hiltViewModel()
 
     val explorerFiles by explorerViewModel.uiState.collectAsState()
     val trashFiles by trashViewModel.uiState.collectAsState()
     val vaultFiles by vaultViewModel.uiState.collectAsState()
+    val aiUiState by aiViewModel.uiState.collectAsState()
+
+    var showAIPrompt by remember { mutableStateOf(false) }
+
+    LaunchedEffect(aiUiState) {
+        if (aiUiState is com.sharjeel.fileviewerapp.ui.ai.AIUiState.AppAction) {
+            val action = (aiUiState as com.sharjeel.fileviewerapp.ui.ai.AIUiState.AppAction).action
+            when {
+                action.startsWith("NAVIGATE:") -> {
+                    val destination = action.removePrefix("NAVIGATE:")
+                    backstack.clear()
+                    backstack.add(NavRoute.Home)
+                    when (destination) {
+                        "HOME" -> { /* Already cleared to home */ }
+                        "STORAGE" -> backstack.add(NavRoute.Explorer(title = "Storage", path = Environment.getExternalStorageDirectory().absolutePath))
+                        "DOWNLOADS" -> backstack.add(NavRoute.Explorer(title = "Downloads"))
+                        "RECENT" -> backstack.add(NavRoute.Explorer(title = "Recent"))
+                        "FAVORITES" -> backstack.add(NavRoute.Explorer(title = "Favorites"))
+                        "VAULT" -> backstack.add(NavRoute.Vault)
+                        "TRASH" -> backstack.add(NavRoute.Trash)
+                        "SETTINGS" -> backstack.add(NavRoute.Settings)
+                    }
+                }
+                action.startsWith("SEARCH:") -> {
+                    val query = action.removePrefix("SEARCH:")
+                    backstack.clear()
+                    backstack.add(NavRoute.Home)
+                    backstack.add(NavRoute.Explorer(title = "Search Results"))
+                    explorerViewModel.setSearchQuery(query)
+                }
+            }
+            aiViewModel.resetState()
+        }
+    }
 
     PermissionHandler {
         // Permissions granted
@@ -303,6 +318,80 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                 }
             }
         ) {
+            if (showAIPrompt) {
+                BasicAlertDialog(
+                    onDismissRequest = { 
+                        showAIPrompt = false
+                        aiViewModel.resetState()
+                    },
+                    modifier = Modifier.padding(24.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(28.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 8.dp
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                "Gemini Assistant",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            var userPrompt by remember { mutableStateOf("") }
+                            
+                            OutlinedTextField(
+                                value = userPrompt,
+                                onValueChange = { userPrompt = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("How can I help you today?") },
+                                shape = RoundedCornerShape(16.dp),
+                                enabled = aiUiState !is com.sharjeel.fileviewerapp.ui.ai.AIUiState.Loading
+                            )
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            if (aiUiState is com.sharjeel.fileviewerapp.ui.ai.AIUiState.Loading) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text((aiUiState as com.sharjeel.fileviewerapp.ui.ai.AIUiState.Loading).message)
+                            } else if (aiUiState is com.sharjeel.fileviewerapp.ui.ai.AIUiState.Error) {
+                                Text((aiUiState as com.sharjeel.fileviewerapp.ui.ai.AIUiState.Error).message, color = MaterialTheme.colorScheme.error)
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                TextButton(onClick = { 
+                                    showAIPrompt = false 
+                                    aiViewModel.resetState()
+                                }) {
+                                    Text("Cancel")
+                                }
+                                Button(
+                                    onClick = { 
+                                        if (userPrompt.isNotBlank()) {
+                                            aiViewModel.executeGlobalCommand(userPrompt)
+                                        }
+                                    },
+                                    enabled = userPrompt.isNotBlank() && aiUiState !is com.sharjeel.fileviewerapp.ui.ai.AIUiState.Loading,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Execute")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             AppScaffold(
                 containerColor = MaterialTheme.colorScheme.background
             ) { _ ->
@@ -316,6 +405,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                             is NavRoute.Home -> NavEntry(route) {
                                 HomeScreen(
                                     onMenuClick = { scope.launch { drawerState.open() } },
+                                    onAIClick = { showAIPrompt = true },
                                     onStorageClick = {
                                         val path = Environment.getExternalStorageDirectory().absolutePath
                                         backstack.add(NavRoute.Explorer(title = "Storage", path = path))
@@ -447,5 +537,3 @@ fun DrawerHeader() {
         )
     }
 }
-
-// Previews remain unchanged...

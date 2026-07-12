@@ -13,6 +13,7 @@ fun AppScaffold(
     modifier: Modifier = Modifier,
     topBar: @Composable () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
+    floatingActionButton: @Composable () -> Unit = {},
     containerColor: Color = MaterialTheme.colorScheme.background,
     content: @Composable (PaddingValues) -> Unit
 ) {
@@ -20,6 +21,7 @@ fun AppScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = topBar,
         bottomBar = bottomBar,
+        floatingActionButton = floatingActionButton,
         containerColor = containerColor,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->

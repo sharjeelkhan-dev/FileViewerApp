@@ -14,15 +14,22 @@ import com.sharjeel.fileviewerapp.util.FileUtils
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.view.WindowCompat
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.analytics
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     private var initialRoute by mutableStateOf<NavRoute>(NavRoute.Home)
+    private lateinit var firebaseAnalytics: FirebaseAnalytics
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize Firebase Analytics
+        firebaseAnalytics = Firebase.analytics
+        firebaseAnalytics.logEvent(FirebaseAnalytics.Event.APP_OPEN, null)
 
         // Edge-to-edge layout framework enable karein
         enableEdgeToEdge()

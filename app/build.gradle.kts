@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.google.devtools.ksp)
     alias(libs.plugins.jetbrains.kotlin.plugin.serialization)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 android {
@@ -96,6 +98,21 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.poi.android)
     implementation("com.github.junrar:junrar:7.6.0")
+
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.storage)
+    implementation(libs.firebase.messaging)
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.ai)
+    implementation(libs.firebase.appcheck)
+    implementation(libs.firebase.appcheck.debug)
+    implementation(libs.firebase.appcheck.playintegrity)
+
+
     testImplementation(libs.androidx.core)
     testImplementation(libs.androidx.junit)
     testImplementation(libs.junit)

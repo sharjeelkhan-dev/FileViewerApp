@@ -23,6 +23,7 @@ import com.sharjeel.fileviewerapp.ui.explorer.FileList
 import com.sharjeel.fileviewerapp.ui.explorer.RenameDialog
 import com.sharjeel.fileviewerapp.ui.explorer.SortBottomSheet
 import com.sharjeel.fileviewerapp.ui.explorer.ViewOptionsBottomSheet
+import com.sharjeel.fileviewerapp.ui.explorer.NamingSuggestionDialog
 import com.sharjeel.fileviewerapp.ui.components.AppScaffold
 import com.sharjeel.fileviewerapp.ui.theme.GlassSurface
 import com.sharjeel.fileviewerapp.ui.theme.NeonPrimary
@@ -45,6 +46,23 @@ fun VaultScreen(
     val sortType by viewModel.sortType.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
     
+    val aiViewModel: com.sharjeel.fileviewerapp.ui.ai.AIViewModel = hiltViewModel()
+    val aiUiState by aiViewModel.uiState.collectAsState()
+
+    if (aiUiState is com.sharjeel.fileviewerapp.ui.ai.AIUiState.NamingSuggestion) {
+        val suggestion = aiUiState as com.sharjeel.fileviewerapp.ui.ai.AIUiState.NamingSuggestion
+        NamingSuggestionDialog(
+            originalName = java.io.File(suggestion.filePath).name,
+            suggestedName = suggestion.name,
+            suggestedCategory = suggestion.category,
+            onDismiss = { aiViewModel.resetState() },
+            onConfirm = { newName: String ->
+                viewModel.renameFile(suggestion.filePath, newName)
+                aiViewModel.resetState()
+            }
+        )
+    }
+
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var fileToRename by remember { mutableStateOf<FileModel?>(null) }
     var showSortSheet by remember { mutableStateOf(false) }
@@ -255,6 +273,8 @@ fun VaultScreen(
                                 onPathClick = { },
                                 onMoveClick = { },
                                 onCopyClick = { },
+                                onAISearchClick = { },
+                                onAIRename = { aiViewModel.autoRename(it) },
                                 bottomPadding = 0.dp,
                             )
                         }

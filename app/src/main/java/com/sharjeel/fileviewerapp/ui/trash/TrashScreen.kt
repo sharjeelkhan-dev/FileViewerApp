@@ -14,6 +14,7 @@ import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.ui.explorer.*
 import com.sharjeel.fileviewerapp.ui.components.AppScaffold
 import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,6 +28,23 @@ fun TrashScreen(
     val viewMode by viewModel.viewMode.collectAsState()
     val sortType by viewModel.sortType.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
+
+    val aiViewModel: com.sharjeel.fileviewerapp.ui.ai.AIViewModel = hiltViewModel()
+    val aiUiState by aiViewModel.uiState.collectAsState()
+
+    if (aiUiState is com.sharjeel.fileviewerapp.ui.ai.AIUiState.NamingSuggestion) {
+        val suggestion = aiUiState as com.sharjeel.fileviewerapp.ui.ai.AIUiState.NamingSuggestion
+        NamingSuggestionDialog(
+            originalName = File(suggestion.filePath).name,
+            suggestedName = suggestion.name,
+            suggestedCategory = suggestion.category,
+            onDismiss = { aiViewModel.resetState() },
+            onConfirm = { _: String ->
+                // Custom rename logic for trash if needed, or just normal rename
+                aiViewModel.resetState()
+            }
+        )
+    }
 
     var showMenu by remember { mutableStateOf(false) }
     var showSortSheet by remember { mutableStateOf(false) }
@@ -131,6 +149,8 @@ fun TrashScreen(
                             onPathClick = { },
                             onMoveClick = { },
                             onCopyClick = { },
+                            onAISearchClick = { },
+                            onAIRename = { aiViewModel.autoRename(it) },
                             bottomPadding = 0.dp,
                             onRestoreSelectedClick = { viewModel.restoreSelected() },
                             onRestoreAllClick = { viewModel.restoreAll() },

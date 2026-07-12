@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.domain.repository.FileCategory
 import com.sharjeel.fileviewerapp.domain.repository.FileRepository
+import com.sharjeel.fileviewerapp.util.AIService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import javax.inject.Inject
@@ -21,7 +22,8 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class ExplorerViewModel @Inject constructor(
-    private val repository: FileRepository
+    private val repository: FileRepository,
+    private val aiService: AIService
 ) : ViewModel() {
 
     private val _events = Channel<ExplorerEvent>()
@@ -114,6 +116,33 @@ class ExplorerViewModel @Inject constructor(
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
+        // If it's a complex natural language query, we could trigger AI filtering here
+    }
+
+    fun aiSearch(query: String) {
+        viewModelScope.launch {
+            val currentState = uiState.value
+            if (currentState !is ExplorerUiState.Success) return@launch
+            
+            _events.send(ExplorerEvent.ShowMessage("AI is searching..."))
+            
+            val fileNames = currentState.files.joinToString("\n") { it.name }
+            val prompt = "From this list of files, which ones best match the query: '$query'? Return only the filenames that match, separated by newlines. If none match, return 'NONE'.\n\nFiles:\n$fileNames"
+            
+            try {
+                // Using provideGenerativeModel from di concept
+                val response = aiService.chatWithDocument(fileNames, prompt)
+                response.collect { result ->
+                    if (result != null && result.trim().uppercase() != "NONE") {
+                        val matchingNames = result.lines().map { it.trim() }
+                        _rawFiles.value = currentState.files.filter { it.name in matchingNames }
+                        _events.send(ExplorerEvent.ShowMessage("AI found matches"))
+                    }
+                }
+            } catch (e: Exception) {
+                _events.send(ExplorerEvent.ShowMessage("AI Search failed"))
+            }
+        }
     }
 
     fun refresh() {
