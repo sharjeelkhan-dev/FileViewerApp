@@ -1,24 +1,63 @@
 package com.sharjeel.fileviewerapp.ui
 
 import android.os.Environment
-import androidx.compose.foundation.layout.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
-import androidx.compose.runtime.*
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,8 +71,6 @@ import com.sharjeel.fileviewerapp.ui.explorer.ExplorerViewModel
 import com.sharjeel.fileviewerapp.ui.home.HomeScreen
 import com.sharjeel.fileviewerapp.ui.navigation.NavRoute
 import com.sharjeel.fileviewerapp.ui.settings.SettingsScreen
-import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
-import com.sharjeel.fileviewerapp.ui.theme.GlassSurface
 import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
 import com.sharjeel.fileviewerapp.ui.trash.TrashScreen
 import com.sharjeel.fileviewerapp.ui.vault.VaultScreen
@@ -41,9 +78,7 @@ import com.sharjeel.fileviewerapp.ui.viewer.FileViewerScreen
 import com.sharjeel.fileviewerapp.ui.viewer.ViewerViewModel
 import com.sharjeel.fileviewerapp.util.PermissionHandler
 import kotlinx.coroutines.launch
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import androidx.compose.runtime.toMutableStateList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,7 +154,6 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
         // Permissions granted
     }
 
-    // Set to None to prevent side margins/rails in landscape, achieving true full-screen expansion
     val navSuiteType = NavigationSuiteType.None
 
     NavigationSuiteScaffold(
@@ -399,7 +433,19 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     NavDisplay(
                         backStack = backstack,
-                        onBack = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) }
+                        onBack = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) },
+                        transitionSpec = {
+                            (slideInHorizontally(initialOffsetX = { it }) + fadeIn()) togetherWith
+                                    (slideOutHorizontally(targetOffsetX = { -it }) + fadeOut())
+                        },
+                        popTransitionSpec = {
+                            (slideInHorizontally(initialOffsetX = { -it }) + fadeIn()) togetherWith
+                                    (slideOutHorizontally(targetOffsetX = { it }) + fadeOut())
+                        },
+                        predictivePopTransitionSpec = {
+                            (slideInHorizontally(initialOffsetX = { -it }) + fadeIn()) togetherWith
+                                    (slideOutHorizontally(targetOffsetX = { it }) + fadeOut())
+                        }
                     ) { route ->
                         when (route) {
                             is NavRoute.Home -> NavEntry(route) {
