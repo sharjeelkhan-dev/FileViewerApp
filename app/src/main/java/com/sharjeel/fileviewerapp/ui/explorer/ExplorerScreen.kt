@@ -1439,7 +1439,8 @@ fun ExplorerPreviewFull() {
                                 letterSpacing = 1.sp,
                                 color = MaterialTheme.colorScheme.onBackground) },
                             navigationIcon = {
-                                IconButton(onClick = {}) {
+                                IconButton(onClick = {})
+                                {
                                     Icon(
                                         Icons.AutoMirrored.Rounded.ArrowBack, 
                                         contentDescription = "Back",
