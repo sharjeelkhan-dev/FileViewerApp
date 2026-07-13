@@ -19,7 +19,11 @@
 <table width="100%">
   <!-- Row 1 -->
   <tr>
-    <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/363073f7-95b1-4183-8147-5ae1da6b5194" width="100%" alt="Screen 2" /></td>
+    <td width="33.3%" align="center">
+      <img src="https://github.com/user-attachments/assets/82606a97-ce28-4131-8164-315217ac2a7b"
+           width="100"
+           alt="Screen 1" />
+    </td>
     <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/0184296a-007b-4040-9b6f-e9e0786c95a8" width="100%" alt="Screen 5" /></td>
     <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/e84d3437-9b78-435c-acbf-09af1c5f4904" width="100%" alt="Screen 9" /></td>
   </tr>
@@ -48,3 +52,6 @@ The ecosystem follows standard **Clean Architecture** patterns to decoupled feat
 1. **Clone the repository**:
    ```bash
    git clone [https://github.com/sharjeelkhan111213-coder/fileviewerapp.git](https://github.com/sharjeelkhan111213-coder/fileviewerapp.git)
+
+
+<img width="720" height="1600" alt="image" src="https://github.com/user-attachments/assets/82606a97-ce28-4131-8164-315217ac2a7b" />
