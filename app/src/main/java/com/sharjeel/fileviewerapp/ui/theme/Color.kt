@@ -2,23 +2,33 @@ package com.sharjeel.fileviewerapp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary vibrant palette (Neon)
-val NeonPrimary = Color(0xFF6200EE)
-val NeonSecondary = Color(0xFF03DAC6)
+// ==========================================
+// CORE BRAND PALETTE (Clean Corporate Scale)
+// ==========================================
 
-// Dark glassmorphism palette
-val GlassBackground = Color(0xFF121212)
-val GlassSurface = Color(0xFF1E1E1E)
-val GlassSurfaceVariant = Color(0xFF2C2C2C)
+val BrandPrimary = Color(0xFF0284C7)
+val BrandSecondary = Color(0xFF0D9488)
 
-// Light premium palette
-val LightBackground = Color(0xFFF8F9FA)
+// ==========================================
+// SURFACE ARCHITECTURE TOKENS
+// ==========================================
+
+// Dark Mode Neutral Clean Slate Surfaces (No Pitch Black / No Messy Gradients)
+val DarkBackground = Color(0xFF0F172A)
+val DarkSurface = Color(0xFF1E293B)
+val DarkSurfaceVariant = Color(0xFF334155)
+
+// Light Mode Premium Crisp Surfaces
+val LightBackground = Color(0xFFF8FAFC)
 val LightSurface = Color(0xFFFFFFFF)
-val LightSurfaceVariant = Color(0xFFE9ECEF)
+val LightSurfaceVariant = Color(0xFFF1F5F9)
 
-// Accent Colors
-val AccentImages = Color(0xFFFFAB40) // Vibrant Orange
-val AccentVideos = Color(0xFFFF5252) // Vibrant Red
-val AccentAudio = Color(0xFF69F0AE) // Vibrant Green
-val AccentDocuments = Color(0xFF448AFF) // Vibrant Blue
-val AccentArchives = Color(0xFFBDBDBD) // Grey
+// ==========================================
+// FUNCTIONAL FILE-TYPE ACCENTS (Standardized M3 Tones)
+// ==========================================
+
+val AccentImages = Color(0xFFF97316)
+val AccentVideos = Color(0xFFEF4444)
+val AccentAudio = Color(0xFF10B981)
+val AccentDocuments = Color(0xFF3B82F6)
+val AccentArchives = Color(0xFF64748B)

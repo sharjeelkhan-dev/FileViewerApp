@@ -71,7 +71,6 @@ import com.sharjeel.fileviewerapp.ui.explorer.ExplorerViewModel
 import com.sharjeel.fileviewerapp.ui.home.HomeScreen
 import com.sharjeel.fileviewerapp.ui.navigation.NavRoute
 import com.sharjeel.fileviewerapp.ui.settings.SettingsScreen
-import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
 import com.sharjeel.fileviewerapp.ui.trash.TrashScreen
 import com.sharjeel.fileviewerapp.ui.vault.VaultScreen
 import com.sharjeel.fileviewerapp.ui.viewer.FileViewerScreen
@@ -191,14 +190,15 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                             Icon(
                                 painter = painterResource(R.drawable.house_window_icon),
                                 contentDescription = null,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                         colors = NavigationDrawerItemDefaults.colors(
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            selectedTextColor = NeonSecondary,
-                            selectedIconColor = NeonSecondary
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                         )
                     )
 
@@ -216,14 +216,15 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                             Icon(
                                 painter = painterResource(R.drawable.database_line_icon),
                                 contentDescription = null,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                         colors = NavigationDrawerItemDefaults.colors(
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            selectedTextColor = NeonSecondary,
-                            selectedIconColor = NeonSecondary
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                         )
                     )
 
@@ -240,14 +241,15 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                             Icon(
                                 painter = painterResource(R.drawable.import_icon),
                                 contentDescription = null,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                         colors = NavigationDrawerItemDefaults.colors(
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            selectedTextColor = NeonSecondary,
-                            selectedIconColor = NeonSecondary
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                         )
                     )
 
@@ -264,14 +266,15 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                             Icon(
                                 painter = painterResource(R.drawable.rotate_left_arrow_icon),
                                 contentDescription = null,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                         colors = NavigationDrawerItemDefaults.colors(
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            selectedTextColor = NeonSecondary,
-                            selectedIconColor = NeonSecondary
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                         )
                     )
 
@@ -288,14 +291,15 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                             Icon(
                                 painter = painterResource(R.drawable.photo_collage_icon),
                                 contentDescription = null,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                         colors = NavigationDrawerItemDefaults.colors(
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            selectedTextColor = NeonSecondary,
-                            selectedIconColor = NeonSecondary
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                         )
                     )
 
@@ -312,19 +316,22 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                             Icon(
                                 painter = painterResource(R.drawable.recycle_bin_line_icon),
                                 contentDescription = null,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                         colors = NavigationDrawerItemDefaults.colors(
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            selectedTextColor = NeonSecondary,
-                            selectedIconColor = NeonSecondary
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                         )
                     )
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 28.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 28.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+                    )
 
                     NavigationDrawerItem(
                         label = { Text("Settings") },
@@ -339,14 +346,15 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                             Icon(
                                 Icons.Rounded.Settings,
                                 contentDescription = null,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                         colors = NavigationDrawerItemDefaults.colors(
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            selectedTextColor = NeonSecondary,
-                            selectedIconColor = NeonSecondary
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                         )
                     )
                 }
@@ -354,16 +362,16 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
         ) {
             if (showAIPrompt) {
                 BasicAlertDialog(
-                    onDismissRequest = { 
+                    onDismissRequest = {
                         showAIPrompt = false
                         aiViewModel.resetState()
                     },
                     modifier = Modifier.padding(24.dp)
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(28.dp),
+                        shape = RoundedCornerShape(24.dp),
                         color = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 8.dp
+                        tonalElevation = 6.dp
                     ) {
                         Column(
                             modifier = Modifier.padding(24.dp),
@@ -371,52 +379,62 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                         ) {
                             Text(
                                 "Gemini Assistant",
-                                style = MaterialTheme.typography.titleLarge,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.height(16.dp))
-                            
+
                             var userPrompt by remember { mutableStateOf("") }
-                            
+
                             OutlinedTextField(
                                 value = userPrompt,
                                 onValueChange = { userPrompt = it },
                                 modifier = Modifier.fillMaxWidth(),
                                 placeholder = { Text("How can I help you today?") },
-                                shape = RoundedCornerShape(16.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 enabled = aiUiState !is com.sharjeel.fileviewerapp.ui.ai.AIUiState.Loading
                             )
-                            
-                            Spacer(modifier = Modifier.height(24.dp))
-                            
+
+                            Spacer(modifier = Modifier.height(20.dp))
+
                             if (aiUiState is com.sharjeel.fileviewerapp.ui.ai.AIUiState.Loading) {
-                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text((aiUiState as com.sharjeel.fileviewerapp.ui.ai.AIUiState.Loading).message)
+                                CircularProgressIndicator(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = (aiUiState as com.sharjeel.fileviewerapp.ui.ai.AIUiState.Loading).message,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
                             } else if (aiUiState is com.sharjeel.fileviewerapp.ui.ai.AIUiState.Error) {
-                                Text((aiUiState as com.sharjeel.fileviewerapp.ui.ai.AIUiState.Error).message, color = MaterialTheme.colorScheme.error)
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = (aiUiState as com.sharjeel.fileviewerapp.ui.ai.AIUiState.Error).message,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
                             }
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.End
                             ) {
-                                TextButton(onClick = { 
-                                    showAIPrompt = false 
+                                TextButton(onClick = {
+                                    showAIPrompt = false
                                     aiViewModel.resetState()
                                 }) {
                                     Text("Cancel")
                                 }
                                 Button(
-                                    onClick = { 
+                                    onClick = {
                                         if (userPrompt.isNotBlank()) {
                                             aiViewModel.executeGlobalCommand(userPrompt)
                                         }
                                     },
                                     enabled = userPrompt.isNotBlank() && aiUiState !is com.sharjeel.fileviewerapp.ui.ai.AIUiState.Loading,
-                                    shape = RoundedCornerShape(12.dp)
+                                    shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text("Execute")
                                 }
@@ -429,7 +447,6 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
             AppScaffold(
                 containerColor = MaterialTheme.colorScheme.background
             ) { _ ->
-                // Content fills entire screen area
                 Box(modifier = Modifier.fillMaxSize()) {
                     NavDisplay(
                         backStack = backstack,
@@ -495,10 +512,15 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                 ExplorerScreen(
                                     title = if (backstack.last() is NavRoute.Explorer) (backstack.last() as NavRoute.Explorer).title else key.title,
                                     viewModel = explorerViewModel,
-                                    onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) },
+                                    onBackClick = {
+                                        if (backstack.size > 1) {
+                                            backstack.removeAt(backstack.lastIndex)
+                                        }
+                                    },
                                     onFileClick = { file ->
                                         if (file.isDirectory) {
                                             backstack.add(NavRoute.Explorer(title = key.title, path = file.path))
+                                            explorerViewModel.loadFiles(file.path)
                                         } else {
                                             val state = explorerFiles
                                             if (state is com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState.Success) {
@@ -509,11 +531,19 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                     },
                                     onPathClick = { path ->
                                         if (path == "CATEGORY_ROOT") {
-                                            // Go back to Home Screen
-                                            if (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
+                                            if (backstack.size > 1) {
+                                                backstack.removeAt(backstack.lastIndex)
+                                                val previousPath = (backstack.last() as? NavRoute.Explorer)?.path ?: ""
+                                                explorerViewModel.loadFiles(previousPath)
+                                            }
                                         } else {
+                                            backstack.add(NavRoute.Explorer(title = key.title, path = path))
                                             explorerViewModel.loadFiles(path)
                                         }
+                                    },
+                                    onSortClick = {
+                                    },
+                                    onViewModeClick = {
                                     }
                                 )
                             }
@@ -576,10 +606,10 @@ fun DrawerHeader() {
     ) {
         Text(
             text = "FILE VIEWER",
-            style = MaterialTheme.typography.headlineSmall,
-            color = NeonSecondary,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary, // Fixed: Custom color replaced with theme primary
             fontWeight = FontWeight.Black,
-            letterSpacing = 1.sp
+            letterSpacing = 0.5.sp
         )
     }
 }

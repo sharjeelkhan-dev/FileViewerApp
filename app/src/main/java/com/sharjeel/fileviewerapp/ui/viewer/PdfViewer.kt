@@ -25,19 +25,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.createBitmap
-import com.sharjeel.fileviewerapp.ui.theme.NeonPrimary
-import com.sharjeel.fileviewerapp.ui.theme.GlassBackground
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/**
- * Professional PdfViewer with perfected Swipe and Zoom separation.
- * Uses GestureCoordinatedBox to ensure frictionless single-hand swiping at 1.0x scale.
- */
 @Composable
 fun PdfViewerScreen(
-    filePath: String, 
+    filePath: String,
     onZoomChanged: (Boolean) -> Unit = {},
     onTap: () -> Unit = {}
 ) {
@@ -70,13 +64,25 @@ fun PdfViewerScreen(
         }
     }
 
-    val bgColor = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) Color(0xFFF5F5F5) else GlassBackground
+    // Fixed: Replaced custom unresolved GlassBackground with safe material surface dynamic colors
+    val bgColor = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
+        Color(0xFFF5F5F5)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
         if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = NeonPrimary)
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center),
+                color = MaterialTheme.colorScheme.primary
+            )
         } else if (error != null) {
-            Text(text = "Error: $error", modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.error)
+            Text(
+                text = "Error: $error",
+                modifier = Modifier.align(Alignment.Center),
+                color = MaterialTheme.colorScheme.error
+            )
         } else {
             GestureCoordinatedBox(
                 onZoomChanged = onZoomChanged,
@@ -101,7 +107,7 @@ fun PdfViewerScreen(
                     }
                 }
             }
-            
+
             val firstVisibleItem by remember { derivedStateOf { listState.firstVisibleItemIndex } }
             Surface(
                 modifier = Modifier
@@ -168,7 +174,10 @@ fun PdfPageItem(renderer: PdfRenderer?, index: Int) {
                 .height(450.dp),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator(modifier = Modifier.size(32.dp), color = NeonPrimary)
+            CircularProgressIndicator(
+                modifier = Modifier.size(32.dp),
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 

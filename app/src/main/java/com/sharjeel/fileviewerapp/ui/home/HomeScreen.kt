@@ -1,7 +1,6 @@
 package com.sharjeel.fileviewerapp.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,9 +49,7 @@ import com.sharjeel.fileviewerapp.ui.theme.AccentDocuments
 import com.sharjeel.fileviewerapp.ui.theme.AccentImages
 import com.sharjeel.fileviewerapp.ui.theme.AccentVideos
 import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
-import com.sharjeel.fileviewerapp.ui.theme.GlassSurface
-import com.sharjeel.fileviewerapp.ui.theme.NeonPrimary
-import com.sharjeel.fileviewerapp.ui.theme.NeonSecondary
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,7 +67,7 @@ fun HomeScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
-            // Scrollable Header (Yeh internally status bar ke niche apne content ko fit rakhega)
+
             HomeHeader(onMenuClick, onAIClick)
 
             StorageDashboardCard(onStorageClick)
@@ -97,7 +94,7 @@ fun HomeHeader(onMenuClick: () -> Unit, onAIClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .statusBarsPadding() // Correct behavior: Yeh sirf icons/text ko status bar se safe zone mein layega
+            .statusBarsPadding()
             .padding(vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
@@ -121,7 +118,7 @@ fun HomeHeader(onMenuClick: () -> Unit, onAIClick: () -> Unit) {
             Icon(
                 imageVector = Icons.Rounded.AutoAwesome,
                 contentDescription = "AI Assistant",
-                tint = NeonPrimary,
+                tint = MaterialTheme.colorScheme.primary, // Fixed: Neon drop karke core dynamic brand accent use kiya
                 modifier = Modifier.size(28.dp)
             )
         }
@@ -130,7 +127,6 @@ fun HomeHeader(onMenuClick: () -> Unit, onAIClick: () -> Unit) {
 
 @Composable
 fun StorageDashboardCard(onClick: () -> Unit) {
-    val isDark = isSystemInDarkTheme()
     val primaryColor = MaterialTheme.colorScheme.primary
     val secondaryColor = MaterialTheme.colorScheme.secondary
 
@@ -139,21 +135,21 @@ fun StorageDashboardCard(onClick: () -> Unit) {
             .fillMaxWidth()
             .height(210.dp),
         onClick = onClick,
-        shape = RoundedCornerShape(32.dp),
+        shape = RoundedCornerShape(24.dp), // More standardized Material 3 curvature
         colors = CardDefaults.cardColors(
-            containerColor = if (isDark) GlassSurface else MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surface // Fixed: System surface tokens directly linked
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Subtle Background Gradient
+            // Balanced Tonal Gradient Surface Layer
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                primaryColor.copy(alpha = if (isDark) 0.15f else 0.08f),
+                                primaryColor.copy(alpha = 0.08f),
                                 Color.Transparent
                             )
                         )
@@ -166,54 +162,51 @@ fun StorageDashboardCard(onClick: () -> Unit) {
                     .fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Top Row: Folder Icon and decoration
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
                     Surface(
-                        modifier = Modifier.size(60.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color(0xFFFFCA28).copy(alpha = 0.15f) // Light amber background
+                        modifier = Modifier.size(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFFFFB300).copy(alpha = 0.12f) // Professional low-alpha warm container
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 painter = painterResource(R.drawable.folder_icon),
                                 contentDescription = null,
-                                tint = Color(0xFFFFCA28), // Standard folder yellow color
-                                modifier = Modifier.size(30.dp)
+                                tint = Color(0xFFFFB300), // Secure corporate standard folder amber tint
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                     }
                 }
 
-                // Middle section: Title
-                Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
                     Text(
                         text = "Internal Storage",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        letterSpacing = 0.5.sp
+                        letterSpacing = 0.2.sp
                     )
                 }
 
-                // Bottom section: Progress bar and stats
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // Modern Linear Progress with Round Caps
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Refactored Progress Track
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(8.dp)
+                            .height(6.dp)
                             .background(
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
                                 CircleShape
                             )
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(0.65f) // Representing 65% used
+                                .fillMaxWidth(0.65f) // 65% Allocation Bar
                                 .fillMaxHeight()
                                 .background(
                                     Brush.horizontalGradient(
@@ -231,15 +224,15 @@ fun StorageDashboardCard(onClick: () -> Unit) {
                     ) {
                         Text(
                             text = "Used: 81 GB",
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             text = "128 GB",
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
@@ -247,25 +240,31 @@ fun StorageDashboardCard(onClick: () -> Unit) {
         }
     }
 }
+
 @Composable
 fun SectionHeader(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.Black,
-        letterSpacing = 1.5.sp,
-        color = NeonSecondary,
-        modifier = Modifier.padding(bottom = 16.dp)
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.2.sp,
+        color = MaterialTheme.colorScheme.secondary, // Fixed: Sync with professional teal accent token
+        modifier = Modifier.padding(bottom = 12.dp)
     )
 }
+
 @Composable
 fun PlacesGrid(onPlaceClick: (String) -> Unit) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val secondaryColor = MaterialTheme.colorScheme.secondary
+
+    // Balanced M3 compliant operational colors (No extreme wild colors)
     val places = listOf(
-        PlaceItem("Downloads", painterResource(R.drawable.import_icon), NeonPrimary),
-        PlaceItem("Recent", painterResource(R.drawable.rotate_left_arrow_icon), NeonSecondary),
-        PlaceItem("Favorites", painterResource(R.drawable.heart_black_icon), Color(0xFFFF4081)),
-        PlaceItem("Vault", painterResource(R.drawable.shield_lock_line_icon), Color(0xFF69F0AE)),
-        PlaceItem("Trash", painterResource(R.drawable.recycle_bin_line_icon), Color(0xFFEF5350))
+        PlaceItem("Downloads", painterResource(R.drawable.import_icon), primaryColor),
+        PlaceItem("Recent", painterResource(R.drawable.rotate_left_arrow_icon), secondaryColor),
+        PlaceItem("Favorites", painterResource(R.drawable.heart_black_icon), Color(0xFFE11D48)),
+        PlaceItem("Vault", painterResource(R.drawable.shield_lock_line_icon), Color(0xFF059669)),
+        PlaceItem("Trash", painterResource(R.drawable.recycle_bin_line_icon), Color(0xFFDC2626))
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -282,38 +281,39 @@ fun PlacesGrid(onPlaceClick: (String) -> Unit) {
         }
     }
 }
+
 @Composable
-fun PlaceCard(place: PlaceItem, modifier: Modifier, onPlaceClick: (String) -> Unit)
-{
+fun PlaceCard(place: PlaceItem, modifier: Modifier, onPlaceClick: (String) -> Unit) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Surface(
-            modifier = Modifier.size(64.dp),
+            modifier = Modifier.size(60.dp),
             onClick = { onPlaceClick(place.name) },
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 4.dp
+            shadowElevation = 1.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     place.icon,
                     contentDescription = null,
                     tint = place.color,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             place.name,
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onBackground
         )
     }
 }
+
 @Composable
 fun CategoriesGrid(onCategoryClick: (String) -> Unit) {
     val categories = listOf(
@@ -324,14 +324,12 @@ fun CategoriesGrid(onCategoryClick: (String) -> Unit) {
         CategoryItem("Archives", painterResource(R.drawable.archive_line_icon), AccentArchives)
     )
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         for (i in categories.indices step 2) {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                CategoryCard(categories[i], Modifier.weight(1f),
-                    onCategoryClick)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                CategoryCard(categories[i], Modifier.weight(1f), onCategoryClick)
                 if (i + 1 < categories.size) {
-                    CategoryCard(categories[i+1], Modifier.weight(1f),
-                        onCategoryClick)
+                    CategoryCard(categories[i+1], Modifier.weight(1f), onCategoryClick)
                 } else {
                     Box(modifier = Modifier.weight(1f))
                 }
@@ -343,34 +341,38 @@ fun CategoriesGrid(onCategoryClick: (String) -> Unit) {
 @Composable
 fun CategoryCard(item: CategoryItem, modifier: Modifier, onClick: (String) -> Unit) {
     Surface(
-        modifier = modifier.height(80.dp),
-        shape = RoundedCornerShape(24.dp),
+        modifier = modifier.height(72.dp),
+        shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         onClick = { onClick(item.name) },
-        shadowElevation = 2.dp
+        shadowElevation = 1.dp
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier
-                    .size(48.dp),
+                modifier = Modifier.size(40.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(item.icon,
-                    contentDescription = null, tint = item.color)
+                Icon(
+                    item.icon,
+                    contentDescription = null,
+                    tint = item.color,
+                    modifier = Modifier.size(24.dp)
+                )
             }
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
                 item.name,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
 }
+
 data class PlaceItem(val name: String, val icon: Painter, val color: Color)
 data class CategoryItem(val name: String, val icon: Painter, val color: Color)
 
@@ -381,6 +383,7 @@ fun HomeScreenPreviewLight() {
         HomeScreen()
     }
 }
+
 @Preview(showBackground = true, name = "Dark Mode")
 @Composable
 fun HomeScreenPreviewDark() {

@@ -11,65 +11,73 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+// ==========================================
+// MATERIAL DESIGN 3 COLOR SCHEMES
+// ==========================================
+
 private val DarkColorScheme = darkColorScheme(
-    primary = NeonSecondary,
-    onPrimary = Color.Black,
-    primaryContainer = NeonSecondary.copy(alpha = 0.2f),
-    onPrimaryContainer = Color.White,
+    primary = BrandPrimary,
+    onPrimary = Color.White,
+    primaryContainer = BrandPrimary.copy(alpha = 0.2f),
+    onPrimaryContainer = Color(0xFF7DD3FC),
 
-    secondary = NeonPrimary,
+    secondary = BrandSecondary,
     onSecondary = Color.White,
-    secondaryContainer = NeonPrimary.copy(alpha = 0.2f),
-    onSecondaryContainer = Color.White,
+    secondaryContainer = BrandSecondary.copy(alpha = 0.2f),
+    onSecondaryContainer = Color(0xFF99F6E4),
 
-    background = GlassBackground,
-    onBackground = Color.White,
+    background = DarkBackground,
+    onBackground = Color(0xFFF8FAFC),
 
-    surface = GlassSurface,
-    onSurface = Color.White,
+    surface = DarkSurface,
+    onSurface = Color(0xFFF8FAFC),
 
-    surfaceVariant = GlassSurfaceVariant,
-    onSurfaceVariant = Color.White.copy(alpha = 0.7f),
+    surfaceVariant = DarkSurfaceVariant,
+    onSurfaceVariant = Color(0xFF94A3B8),
 
-    outline = Color.White.copy(alpha = 0.12f),
-    error = Color(0xFFCF6679),
-    onError = Color.Black,
+    outline = Color(0xFF475569),
+    error = Color(0xFFEF4444),
+    onError = Color.White,
 
-    tertiary = Color(0xFF80DEEA),
-    onTertiary = Color.Black,
-    tertiaryContainer = Color(0xFF006064).copy(alpha = 0.3f),
-    onTertiaryContainer = Color(0xFF80DEEA)
+    tertiary = Color(0xFF38BDF8),
+    onTertiary = Color(0xFF0F172A),
+    tertiaryContainer = Color(0xFF0C4A6E),
+    onTertiaryContainer = Color(0xFFBAE6FD)
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = NeonPrimary,
+    primary = BrandPrimary,
     onPrimary = Color.White,
-    primaryContainer = NeonPrimary.copy(alpha = 0.1f),
-    onPrimaryContainer = NeonPrimary,
+    primaryContainer = Color(0xFFE0F2FE),
+    onPrimaryContainer = BrandPrimary,
 
-    secondary = NeonSecondary,
-    onSecondary = Color.Black,
-    secondaryContainer = NeonSecondary.copy(alpha = 0.1f),
-    onSecondaryContainer = NeonSecondary,
+    secondary = BrandSecondary,
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFCCFBF1),
+    onSecondaryContainer = BrandSecondary,
 
     background = LightBackground,
-    onBackground = Color(0xFF1A1C1E),
+    onBackground = Color(0xFF0F172A),
 
     surface = LightSurface,
-    onSurface = Color(0xFF1A1C1E),
+    onSurface = Color(0xFF0F172A),
 
     surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = Color(0xFF44474E),
+    onSurfaceVariant = Color(0xFF64748B),
 
-    outline = Color(0xFF74777F),
-    error = Color(0xFFBA1A1A),
+    outline = Color(0xFFCBD5E1),
+    error = Color(0xFFDC2626),
     onError = Color.White,
 
-    tertiary = Color(0xFF00ACC1),
+    tertiary = Color(0xFF0284C7),
     onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFE0F7FA),
-    onTertiaryContainer = Color(0xFF00ACC1)
+    tertiaryContainer = Color(0xFFE0F2FE),
+    onTertiaryContainer = Color(0xFF0369A1)
 )
+
+// ==========================================
+// THEME COMPOSABLE FUNCTION
+// ==========================================
 
 @Composable
 fun FileViewerAppTheme(
@@ -86,16 +94,12 @@ fun FileViewerAppTheme(
         else -> LightColorScheme
     }
 
-    // FIXED: Window architecture level par edge-to-edge enforcement aur icon alignment
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-
-            // Framework ko instruction dena ke content window system bars ke piche layout draw kare
             WindowCompat.setDecorFitsSystemWindows(window, false)
 
-            // Icons visibility control (Light background par dark icons, Dark background par light icons)
             val insetsController = WindowCompat.getInsetsController(window, view)
             insetsController.isAppearanceLightStatusBars = !darkTheme
             insetsController.isAppearanceLightNavigationBars = !darkTheme
@@ -104,7 +108,7 @@ fun FileViewerAppTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = Typography, // Make sure typography variable is imported correctly
         content = content
     )
 }

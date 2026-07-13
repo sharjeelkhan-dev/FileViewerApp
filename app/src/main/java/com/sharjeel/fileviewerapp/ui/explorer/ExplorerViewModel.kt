@@ -244,8 +244,7 @@ class ExplorerViewModel @Inject constructor(
                 copying.forEach { source ->
                     val sourceFile = File(source)
                     val destFile = File(targetDir, sourceFile.name)
-                    // Note: Copy implementation would be needed in repository
-                    // repository.copyFile(source, destFile.absolutePath)
+
                     _events.send(ExplorerEvent.ShowMessage("Copy feature implementation pending in repository"))
                 }
                 _isCopying.value = emptyList()
@@ -271,6 +270,9 @@ class ExplorerViewModel @Inject constructor(
         _pickingFolderForArchive.value = archive
     }
 
+    fun selectAllPaths(paths: List<String>) {
+        _selectedFiles.value = paths.toSet()
+    }
     fun stopPickingFolder() {
         _pickingFolderForArchive.value = null
     }
@@ -360,4 +362,4 @@ sealed interface ExplorerUiState {
 
 enum class SortType { NAME, TYPE, SIZE, DATE }
 enum class SortOrder { ASCENDING, DESCENDING }
-enum class ViewMode { SMALL, MEDIUM, LARGE }
+enum class ViewMode { SMALL, MEDIUM, LARGE, LIST }

@@ -32,7 +32,6 @@ import com.sharjeel.fileviewerapp.ui.ai.AIViewModel
 import com.sharjeel.fileviewerapp.ui.ai.AIUiState
 import com.sharjeel.fileviewerapp.ui.components.AppScaffold
 import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
-import com.sharjeel.fileviewerapp.ui.theme.NeonPrimary
 import java.io.File
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.lazy.LazyColumn
@@ -55,7 +54,6 @@ fun FileViewerScreen(
     val aiUiState by aiViewModel.uiState.collectAsState()
     val aiMessages by aiViewModel.chatMessages.collectAsState()
 
-    // ... rest of logic
     val currentFile = if ((currentFileIndex != -1) && (currentFileIndex < filePlaylist.size)) {
         filePlaylist[currentFileIndex]
     } else null
@@ -109,7 +107,6 @@ private fun FileViewerContent(
     onSummarize: () -> Unit,
     onAskAI: (String) -> Unit
 ) {
-    // ... rest of code
     val currentFile = if ((currentFileIndex != -1) && (currentFileIndex < filePlaylist.size)) {
         filePlaylist[currentFileIndex]
     } else null
@@ -151,7 +148,7 @@ private fun FileViewerContent(
                     "AI Smart Assistant",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = NeonPrimary
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -182,7 +179,7 @@ private fun FileViewerContent(
 
                     items(aiMessages) { msg ->
                         Surface(
-                            color = if (msg.isUser) NeonPrimary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            color = if (msg.isUser) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.align(if (msg.isUser) Alignment.End else Alignment.Start)
                         ) {
@@ -203,13 +200,13 @@ private fun FileViewerContent(
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("Ask about this document...") },
                     trailingIcon = {
-                        IconButton(onClick = { 
+                        IconButton(onClick = {
                             if (userQuestion.isNotBlank()) {
                                 onAskAI(userQuestion)
                                 userQuestion = ""
                             }
                         }) {
-                            Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = null, tint = NeonPrimary)
+                            Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         }
                     },
                     shape = RoundedCornerShape(16.dp)
@@ -305,26 +302,26 @@ private fun FileViewerContent(
                                         )
                                     }
                                 )
-                                
+
                                 if (isPdf || effectiveFileType == "txt") {
                                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                    
+
                                     DropdownMenuItem(
-                                        text = { Text("AI Summarize", color = NeonPrimary, fontWeight = FontWeight.Bold) },
+                                        text = { Text("AI Summarize", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) },
                                         onClick = {
                                             showMenu = false
                                             onSummarize()
                                             showAISummary = true
                                         },
-                                        leadingIcon = { Icon(painterResource(R.drawable.brush_paintbrush_icon), contentDescription = null, tint = NeonPrimary, modifier = Modifier.size(24.dp)) }
+                                        leadingIcon = { Icon(painterResource(R.drawable.brush_paintbrush_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Chat with AI", color = NeonPrimary) },
+                                        text = { Text("Chat with AI", color = MaterialTheme.colorScheme.primary) },
                                         onClick = {
                                             showMenu = false
                                             showAISummary = true
                                         },
-                                        leadingIcon = { Icon(painter = painterResource(R.drawable.rotate_left_arrow_icon), contentDescription = null, tint = NeonPrimary, modifier = Modifier.size(24.dp)) }
+                                        leadingIcon = { Icon(painter = painterResource(R.drawable.rotate_left_arrow_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) }
                                     )
                                 }
                             }
@@ -342,10 +339,11 @@ private fun FileViewerContent(
             }
         },
         containerColor = if (isMedia) Color.Black else MaterialTheme.colorScheme.background,
-    ) { _ ->
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(paddingValues)
                 .background(if (isMedia) Color.Black else MaterialTheme.colorScheme.background)
         ) {
             Box(
@@ -367,7 +365,6 @@ private fun FileViewerContent(
                             onIndexChanged = onUpdateFileIndex
                         )
                     } else {
-                        // Immediate rendering while playlist loads
                         FileContentRenderer(
                             file = fileModel,
                             controlsVisible = controlsVisible,
