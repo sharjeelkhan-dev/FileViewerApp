@@ -44,6 +44,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.zip.ZipFile
 import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Element
+import org.w3c.dom.Node
 
 data class PptxSlide(
     val index: Int,
@@ -53,7 +55,7 @@ data class PptxSlide(
 data class PptxElement(
     val text: String,
     val color: Color = Color.Black,
-    val fontSize: Int = 16,
+    val fontSize: Int = 14,
     val isBold: Boolean = false,
     val xPercent: Float = 0f,
     val yPercent: Float = 0f,
@@ -79,11 +81,12 @@ fun PptxViewer(filePath: String) {
         isLoading = false
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF121212))) {
+    // Fixed: Background converted to dynamic surface token to prevent high-contrast jarring borders
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp
+            tonalElevation = 4.dp
         ) {
             Row(
                 modifier = Modifier.padding(16.dp),
@@ -92,7 +95,7 @@ fun PptxViewer(filePath: String) {
             ) {
                 Column {
                     Text("Original Design View", style = MaterialTheme.typography.titleMedium)
-                    Text("High-fidelity local rendering", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text("High-fidelity local rendering", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Button(
                     onClick = { openPptxWithExternalApp(context, filePath) },
@@ -111,9 +114,9 @@ fun PptxViewer(filePath: String) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(32.dp)
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                items(slides) { slide ->
+                items(slides, key = { slide -> slide.index }) { slide ->
                     SlideView(slide)
                 }
             }
@@ -123,21 +126,19 @@ fun PptxViewer(filePath: String) {
 
 @Composable
 fun SlideView(slide: PptxSlide) {
-    // Standard 16:9 Slide
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(16f / 9f),
         shape = RoundedCornerShape(8.dp),
-        shadowElevation = 12.dp,
-        color = Color.White,
-        border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFEEEEEE))
+        shadowElevation = 6.dp,
+        color = Color.White, // Kept white to mimic exact presentation slide surface
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFE0E0E0))
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val slideWidth = maxWidth
             val slideHeight = maxHeight
 
-            // Draw text elements
             slide.elements.forEach { element ->
                 val xOffset = slideWidth * element.xPercent
                 val yOffset = slideHeight * element.yPercent
@@ -152,7 +153,7 @@ fun SlideView(slide: PptxSlide) {
                         text = element.text,
                         color = element.color,
                         fontSize = element.fontSize.sp,
-                        lineHeight = (element.fontSize * 1.15f).sp,
+                        lineHeight = (element.fontSize * 1.2f).sp,
                         fontWeight = if (element.isBold) FontWeight.Bold else FontWeight.Normal,
                         textAlign = TextAlign.Start,
                         modifier = Modifier.padding(horizontal = 4.dp)
@@ -165,21 +166,31 @@ fun SlideView(slide: PptxSlide) {
 
 private fun parsePptxSlides(filePath: String): List<PptxSlide> {
     val file = File(filePath)
+    if (!file.exists()) return emptyList()
+
     val result = mutableListOf<PptxSlide>()
-    
+
     try {
         ZipFile(file).use { zip ->
-            // 0. Detect Slide Size from presentation.xml
             var refW = 9144000f
             var refH = 5143500f
-            
+
+            // Safe Parsing Factory instantiation
+            val dbf = DocumentBuilderFactory.newInstance().apply {
+                isNamespaceAware = true
+            }
+            val db = dbf.newDocumentBuilder()
+
             zip.getEntry("ppt/presentation.xml")?.let { entry ->
-                val dbf = DocumentBuilderFactory.newInstance()
-                val db = dbf.newDocumentBuilder()
-                val doc = db.parse(zip.getInputStream(entry))
-                val sldSz = doc.getElementsByTagNameNS("*", "sldSz").item(0) as? org.w3c.dom.Element
-                sldSz?.getAttribute("cx")?.toFloatOrNull()?.let { refW = it }
-                sldSz?.getAttribute("cy")?.toFloatOrNull()?.let { refH = it }
+                zip.getInputStream(entry).use { stream ->
+                    val doc = db.parse(stream)
+                    val sldSzList = doc.getElementsByTagNameNS("*", "sldSz")
+                    if (sldSzList.length > 0 && sldSzList.item(0).nodeType == Node.ELEMENT_NODE) {
+                        val sldSz = sldSzList.item(0) as Element
+                        sldSz.getAttribute("cx")?.toFloatOrNull()?.let { refW = it }
+                        sldSz.getAttribute("cy")?.toFloatOrNull()?.let { refH = it }
+                    }
+                }
             }
 
             val entries = zip.entries().asSequence()
@@ -190,32 +201,34 @@ private fun parsePptxSlides(filePath: String): List<PptxSlide> {
                 }
                 .toList()
 
-            val dbf = DocumentBuilderFactory.newInstance()
-            dbf.isNamespaceAware = true
-            val db = dbf.newDocumentBuilder()
-
             entries.forEachIndexed { index, entry ->
                 val elements = mutableListOf<PptxElement>()
-                val doc = db.parse(zip.getInputStream(entry))
-                
-                // Get all shapes (sp)
+
+                // Explicit nested streaming closure
+                val doc = zip.getInputStream(entry).use { stream -> db.parse(stream) }
                 val shapes = doc.getElementsByTagNameNS("*", "sp")
+
                 for (i in 0 until shapes.length) {
-                    val shape = shapes.item(i) as org.w3c.dom.Element
-                    
-                    // 1. Get Geometry (xfrm)
-                    val off = shape.getElementsByTagNameNS("*", "off").item(0) as? org.w3c.dom.Element
-                    val ext = shape.getElementsByTagNameNS("*", "ext").item(0) as? org.w3c.dom.Element
-                    
-                    if (off == null || ext == null) continue
+                    val shapeNode = shapes.item(i)
+                    if (shapeNode.nodeType != Node.ELEMENT_NODE) continue
+                    val shape = shapeNode as Element
+
+                    val offList = shape.getElementsByTagNameNS("*", "off")
+                    val extList = shape.getElementsByTagNameNS("*", "ext")
+
+                    if (offList.length == 0 || extList.length == 0) continue
+                    if (offList.item(0).nodeType != Node.ELEMENT_NODE || extList.item(0).nodeType != Node.ELEMENT_NODE) continue
+
+                    val off = offList.item(0) as Element
+                    val ext = extList.item(0) as Element
 
                     val x = off.getAttribute("x").toFloatOrNull() ?: 0f
                     val y = off.getAttribute("y").toFloatOrNull() ?: 0f
                     val w = ext.getAttribute("cx").toFloatOrNull() ?: 0f
-                    
-                    // 2. Get Text Body (txBody)
-                    val txBody = shape.getElementsByTagNameNS("*", "txBody").item(0) as? org.w3c.dom.Element
-                    if (txBody == null) continue
+
+                    val txBodyList = shape.getElementsByTagNameNS("*", "txBody")
+                    if (txBodyList.length == 0 || txBodyList.item(0).nodeType != Node.ELEMENT_NODE) continue
+                    val txBody = txBodyList.item(0) as Element
 
                     val paragraphs = txBody.getElementsByTagNameNS("*", "p")
                     val shapeText = StringBuilder()
@@ -223,31 +236,35 @@ private fun parsePptxSlides(filePath: String): List<PptxSlide> {
                     var isBold = false
 
                     for (j in 0 until paragraphs.length) {
-                        val p = paragraphs.item(j) as org.w3c.dom.Element
-                        val textRuns = p.getElementsByTagNameNS("*", "r")
-                        
-                        for (k in 0 until textRuns.length) {
-                            val r = textRuns.item(k) as org.w3c.dom.Element
-                            
-                            // Text
-                            val tNode = r.getElementsByTagNameNS("*", "t").item(0)
-                            tNode?.let { shapeText.append(it.textContent) }
+                        val pNode = paragraphs.item(j)
+                        if (pNode.nodeType != Node.ELEMENT_NODE) continue
+                        val p = pNode as Element
 
-                            // Style
-                            val rPr = r.getElementsByTagNameNS("*", "rPr").item(0) as? org.w3c.dom.Element
-                            rPr?.let {
-                                val sz = it.getAttribute("sz").toIntOrNull()
+                        val textRuns = p.getElementsByTagNameNS("*", "r")
+                        for (k in 0 until textRuns.length) {
+                            val rNode = textRuns.item(k)
+                            if (rNode.nodeType != Node.ELEMENT_NODE) continue
+                            val r = rNode as Element
+
+                            val tNodeList = r.getElementsByTagNameNS("*", "t")
+                            if (tNodeList.length > 0) {
+                                shapeText.append(tNodeList.item(0).textContent)
+                            }
+
+                            val rPrList = r.getElementsByTagNameNS("*", "rPr")
+                            if (rPrList.length > 0 && rPrList.item(0).nodeType == Node.ELEMENT_NODE) {
+                                val rPr = rPrList.item(0) as Element
+                                val sz = rPr.getAttribute("sz").toIntOrNull()
                                 if (sz != null) {
-                                    // 100 sz units = 1 pt
                                     val pt = sz / 100
                                     if (pt > maxFontSize) maxFontSize = pt
                                 }
-                                if (it.getAttribute("b") == "1") isBold = true
+                                if (rPr.getAttribute("b") == "1") isBold = true
                             }
                         }
                         if (j < paragraphs.length - 1) shapeText.append("\n")
                     }
-                    
+
                     val finalContent = shapeText.toString().trim()
                     if (finalContent.isNotBlank()) {
                         elements.add(PptxElement(
@@ -256,7 +273,7 @@ private fun parsePptxSlides(filePath: String): List<PptxSlide> {
                             yPercent = (y / refH).coerceIn(0f, 1f),
                             widthPercent = (w / refW).coerceIn(0.05f, 1f),
                             fontSize = maxFontSize,
-                            isBold = isBold || maxFontSize >= 24 // Common title size
+                            isBold = isBold || maxFontSize >= 24
                         ))
                     }
                 }

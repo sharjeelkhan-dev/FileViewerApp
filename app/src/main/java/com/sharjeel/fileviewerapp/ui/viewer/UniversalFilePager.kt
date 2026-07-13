@@ -1,26 +1,30 @@
 package com.sharjeel.fileviewerapp.ui.viewer
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.sharjeel.fileviewerapp.domain.model.FileModel
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-
 
 @Composable
 fun UniversalFilePager(
@@ -33,51 +37,87 @@ fun UniversalFilePager(
 ) {
     if (filePlaylist.isEmpty()) return
 
+    val targetInitialPage = remember(filePlaylist) {
+        initialIndex.coerceIn(filePlaylist.indices)
+    }
+
     val pagerState = rememberPagerState(
-        initialPage = initialIndex.coerceIn(filePlaylist.indices),
+        initialPage = targetInitialPage,
         pageCount = { filePlaylist.size },
     )
     val scope = rememberCoroutineScope()
-
     var isCurrentPageZoomed by remember { mutableStateOf(false) }
 
-    LaunchedEffect(pagerState.currentPage) {
-        onIndexChanged(pagerState.currentPage)
-        onFileChanged(filePlaylist[pagerState.currentPage])
-        isCurrentPageZoomed = false
+    LaunchedEffect(targetInitialPage) {
+        if (pagerState.currentPage != targetInitialPage) {
+            pagerState.scrollToPage(targetInitialPage)
+        }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }
+            .distinctUntilChanged()
+            .collect { page ->
+                onIndexChanged(page)
+                if (page in filePlaylist.indices) {
+                    onFileChanged(filePlaylist[page])
+                }
+                isCurrentPageZoomed = false
+            }
+    }
+
+    // 🎯 FIXED: derivedStateOf ka istemal kiya taake pager State change hote hi background composition breakdown ke bina update ho jaye
+    val isMediaOrPdf by remember(filePlaylist) {
+        derivedStateOf {
+            val currentPage = pagerState.currentPage
+            if (currentPage in filePlaylist.indices) {
+                val ext = filePlaylist[currentPage].extension.lowercase()
+                ext in listOf(
+                    "pdf", "mp3", "wav", "flac", "opus", "ogg",
+                    "mp4", "mkv", "avi", "webm", "3gp", "jpg", "png", "webp", "gif", "jpeg"
+                )
+            } else false
+        }
+    }
+
+    // 🎯 Use the themed background for all content types to match the new slate corporate palette
+    val pagerBackgroundColor = MaterialTheme.colorScheme.background
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(pagerBackgroundColor) // Fixed: Enforces precise dark mode state on the root wrapper
+    ) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
-            // Pager only enables scrolling when content is NOT zoomed
+            key = { index -> if (index in filePlaylist.indices) filePlaylist[index].path else index },
             userScrollEnabled = !isCurrentPageZoomed,
-            // Beyond bounds count set to 0 to save resources for high-res videos
             beyondViewportPageCount = 0
         ) { page ->
-
-            FileContentRenderer(
-                file = filePlaylist[page],
-                controlsVisible = controlsVisible,
-                isActive = pagerState.currentPage == page,
-                onZoomChanged = { zoomed ->
-                    if (pagerState.currentPage == page) {
-                        isCurrentPageZoomed = zoomed
+            if (page in filePlaylist.indices) {
+                FileContentRenderer(
+                    file = filePlaylist[page],
+                    controlsVisible = controlsVisible,
+                    isActive = pagerState.currentPage == page,
+                    onZoomChanged = { zoomed ->
+                        if (pagerState.currentPage == page) {
+                            isCurrentPageZoomed = zoomed
+                        }
+                    },
+                    onToggleControls = onToggleControls,
+                    onNext = {
+                        if (pagerState.currentPage < filePlaylist.size - 1) {
+                            scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                        }
+                    },
+                    onPrevious = {
+                        if (pagerState.currentPage > 0) {
+                            scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+                        }
                     }
-                },
-                onToggleControls = onToggleControls,
-                onNext = {
-                    if (pagerState.currentPage < filePlaylist.size - 1) {
-                        scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
-                    }
-                },
-                onPrevious = {
-                    if (pagerState.currentPage > 0) {
-                        scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
-                    }
-                }
-            )
+                )
+            }
         }
     }
 }
@@ -92,15 +132,16 @@ fun FileContentRenderer(
     onNext: () -> Unit,
     onPrevious: () -> Unit
 ) {
-    val context = LocalContext.current
-    val extension = remember(file.extension) { file.extension.lowercase() }
+    val extension = remember(file.path) { file.extension.lowercase() }
 
     when (extension) {
-        "pdf" -> PdfViewerScreen(
-            filePath = file.path,
-            onZoomChanged = onZoomChanged,
-            onTap = onToggleControls
-        )
+        "pdf" -> {
+            PdfViewerScreen(
+                filePath = file.path,
+                onZoomChanged = onZoomChanged,
+                onTap = onToggleControls
+            )
+        }
 
         "jpg", "png", "webp", "gif", "jpeg" -> {
             ImageViewer(
@@ -132,17 +173,27 @@ fun FileContentRenderer(
             )
         }
 
+        "txt", "log", "json", "xml", "kt", "java" -> {
+            TextViewer(filePath = file.path)
+        }
+
         else -> {
+            val interactionSource = remember { MutableInteractionSource() }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
                     .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
+                        interactionSource = interactionSource,
                         indication = null
                     ) { onToggleControls() },
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "Format support fallback view: ${file.name}", color = Color.White)
+                Text(
+                    text = "Unsupported Format: ${file.name}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
             }
         }
     }

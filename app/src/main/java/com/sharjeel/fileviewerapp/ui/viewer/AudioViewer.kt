@@ -56,20 +56,20 @@ fun AudioViewer(
     onTap: () -> Unit
 ) {
     val context = LocalContext.current
-    val exoPlayer = remember(filePath) { // Keyed by filePath to recreate when swiping
+    val exoPlayer = remember(filePath) {
         ExoPlayer.Builder(context).build().apply {
             val mediaItem = MediaItem.fromUri(Uri.fromFile(File(filePath)))
             setMediaItem(mediaItem)
             prepare()
-            playWhenReady = false // Managed by isActive
+            playWhenReady = false
         }
     }
 
-    // Sync playWhenReady with isActive
     LaunchedEffect(isActive) {
         exoPlayer.playWhenReady = isActive
     }
-    var isPlaying by remember { mutableStateOf(value = true) }
+
+    var isPlaying by remember { mutableStateOf(value = false) }
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
     var albumArt by remember { mutableStateOf<Bitmap?>(null) }
@@ -88,6 +88,7 @@ fun AudioViewer(
             retriever.release()
         }
     }
+
     LaunchedEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlayingChanged: Boolean) {
@@ -100,9 +101,11 @@ fun AudioViewer(
             }
         }
         exoPlayer.addListener(listener)
-        
+
         while (true) {
-            currentPosition = exoPlayer.currentPosition
+            if (exoPlayer.isPlaying) {
+                currentPosition = exoPlayer.currentPosition
+            }
             delay(1000.milliseconds)
         }
     }
@@ -112,6 +115,7 @@ fun AudioViewer(
             exoPlayer.release()
         }
     }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -127,11 +131,11 @@ fun AudioViewer(
             duration = duration,
             isVisible = isVisible,
             isActive = isActive,
-            onSeek = { 
+            onSeek = {
                 currentPosition = it.toLong()
                 exoPlayer.seekTo(it.toLong())
             },
-            onTogglePlay = { 
+            onTogglePlay = {
                 if (isPlaying) exoPlayer.pause() else exoPlayer.play()
             },
             onPrevious = onPrevious,
@@ -141,12 +145,14 @@ fun AudioViewer(
         )
     }
 }
+
 @SuppressLint("DefaultLocale")
 private fun formatTime(millis: Long): String {
     val minutes = TimeUnit.MILLISECONDS.toMinutes(millis)
     val seconds = TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(minutes)
     return String.format("%02d:%02d", minutes, seconds)
 }
+
 @KOptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioViewerContent(
@@ -163,13 +169,20 @@ fun AudioViewerContent(
     onReplay15s: () -> Unit,
     onForward15s: () -> Unit
 ) {
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // Blurred Background
+    // Dynamic Base Colors using MaterialTheme Tokens
+    val backgroundColor = MaterialTheme.colorScheme.surface
+    val onBackgroundColor = MaterialTheme.colorScheme.onSurface
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val surfaceVariantColor = MaterialTheme.colorScheme.surfaceVariant
+    val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Box(modifier = Modifier.fillMaxSize().background(backgroundColor)) {
+        // Blurred Adaptive Background
         if (albumArt != null) {
             Image(
                 bitmap = albumArt.asImageBitmap(),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize().blur(40.dp).alpha(0.5f),
+                modifier = Modifier.fillMaxSize().blur(40.dp).alpha(0.25f),
                 contentScale = ContentScale.Crop
             )
         }
@@ -179,13 +192,13 @@ fun AudioViewerContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Album Art
+            // Album Art Container
             Box(
                 modifier = Modifier
                     .size(280.dp)
-                    .offset(y = (-80).dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color.DarkGray),
+                    .offset(y = (-40).dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(surfaceVariantColor),
                 contentAlignment = Alignment.Center
             ) {
                 if (albumArt != null) {
@@ -199,13 +212,14 @@ fun AudioViewerContent(
                     Icon(
                         painter = painterResource(R.drawable.audio_tune_icon),
                         contentDescription = null,
-                        modifier = Modifier.size(100.dp),
-                        tint = Color.White.copy(alpha = 0.5f)
+                        modifier = Modifier.size(96.dp),
+                        tint = onSurfaceVariantColor.copy(alpha = 0.6f)
                     )
                 }
             }
         }
-        // Bottom Controls
+
+        // Bottom Controls Container
         AnimatedVisibility(
             visible = isVisible,
             enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
@@ -215,13 +229,13 @@ fun AudioViewerContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.Black)
-                    .padding(horizontal = 24.dp, vertical = 70.dp)
+                    .background(backgroundColor.copy(alpha = 0.95f))
+                    .padding(horizontal = 24.dp, vertical = 48.dp)
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Seek Bar
+                    // Adaptive Custom Slider
                     Slider(
                         value = currentPosition.toFloat(),
                         onValueChange = onSeek,
@@ -230,89 +244,101 @@ fun AudioViewerContent(
                         thumb = {
                             Box(
                                 modifier = Modifier
-                                    .size(20.dp)
-                                    .background(Color.White, CircleShape)
+                                    .size(16.dp)
+                                    .background(primaryColor, CircleShape)
                             )
                         },
                         track = { sliderState ->
-                            val fraction = (sliderState.value - sliderState.valueRange.start) / 
-                                         (sliderState.valueRange.endInclusive - sliderState.valueRange.start)
+                            val fraction = (sliderState.value - sliderState.valueRange.start) /
+                                    (sliderState.valueRange.endInclusive - sliderState.valueRange.start)
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(2.dp)
+                                    .height(4.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.2f))
+                                    .background(onBackgroundColor.copy(alpha = 0.2f))
                             ) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth(fraction)
                                         .fillMaxHeight()
-                                        .background(Color.White)
+                                        .background(primaryColor)
                                 )
                             }
                         }
                     )
 
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(formatTime(currentPosition),
-                            color = Color.White.copy(alpha = 0.7f),
-                            style = MaterialTheme.typography.labelMedium)
-                        Text(formatTime(duration),
-                            color = Color.White.copy(alpha = 0.7f),
-                            style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            text = formatTime(currentPosition),
+                            color = onBackgroundColor.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Text(
+                            text = formatTime(duration),
+                            color = onBackgroundColor.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.labelMedium
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                    // Controls
+                    // Media Control Interface
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(onClick = onPrevious) {
-                            Icon(painter = painterResource(id = R.drawable.step_backward_icon),
+                            Icon(
+                                painter = painterResource(id = R.drawable.step_backward_icon),
                                 contentDescription = "Previous",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp))
+                                tint = onBackgroundColor,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                         IconButton(onClick = onReplay15s) {
-                            Icon(Icons.Rounded.Replay10,
-                                contentDescription = "-15s",
-                                tint = Color.White,
-                                modifier = Modifier.size(32.dp))
+                            Icon(
+                                imageVector = Icons.Rounded.Replay10,
+                                contentDescription = "-10s",
+                                tint = onBackgroundColor,
+                                modifier = Modifier.size(32.dp)
+                            )
                         }
                         Surface(
                             onClick = onTogglePlay,
                             shape = CircleShape,
-                            color = Color.White,
-                            modifier = Modifier.size(72.dp)
+                            color = primaryColor,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(64.dp),
+                            shadowElevation = 4.dp
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    if (isPlaying) Icons.Filled.Pause
-                                    else Icons.Filled.PlayArrow,
+                                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                                     contentDescription = if (isPlaying) "Pause" else "Play",
-                                    tint = Color.Black,
-                                    modifier = Modifier.size(40.dp)
+                                    modifier = Modifier.size(36.dp)
                                 )
                             }
                         }
                         IconButton(onClick = onForward15s) {
-                            Icon(Icons.Rounded.Forward10,
-                                contentDescription = "+15s",
-                                tint = Color.White,
-                                modifier = Modifier.size(32.dp))
+                            Icon(
+                                imageVector = Icons.Rounded.Forward10,
+                                contentDescription = "+10s",
+                                tint = onBackgroundColor,
+                                modifier = Modifier.size(32.dp)
+                            )
                         }
-                        IconButton(onClick = { onNext() }) {
-                            Icon(painter = painterResource(id = R.drawable.step_forward_icon),
+                        IconButton(onClick = onNext) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.step_forward_icon),
                                 contentDescription = "Next",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp))
+                                tint = onBackgroundColor,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
                 }
@@ -320,10 +346,11 @@ fun AudioViewerContent(
         }
     }
 }
-@Preview(showBackground = true)
+
+@Preview(showBackground = true, name = "Audio Viewer Light Mode")
 @Composable
 fun AudioViewerPreview() {
-    FileViewerAppTheme {
+    FileViewerAppTheme(darkTheme = false) {
         AudioViewerContent(
             albumArt = null,
             isPlaying = true,

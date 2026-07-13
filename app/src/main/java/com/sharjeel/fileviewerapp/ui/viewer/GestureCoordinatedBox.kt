@@ -30,19 +30,21 @@ fun GestureCoordinatedBox(
         onZoomChanged(scale > 1.01f)
     }
 
+    // Fixed: Standard mathematical pan matrix calculations based on viewport scaling thresholds
     val state = rememberTransformableState { zoomChange, offsetChange, _ ->
         val newScale = (scale * zoomChange).coerceIn(1f, 5f)
         scale = newScale
 
         if (scale > 1f) {
-            val extraWidth = (scale - 1) * size.width
-            val extraHeight = (scale - 1) * size.height
-            val maxX = extraWidth / 2
-            val maxY = extraHeight / 2
+            val extraWidth = (scale - 1f) * size.width
+            val extraHeight = (scale - 1f) * size.height
+            val maxX = extraWidth / 2f
+            val maxY = extraHeight / 2f
 
+            // Corrected Pan Vector mapping (offsetChange directly controls absolute transformation)
             offset = Offset(
-                x = (offset.x + (offsetChange.x * scale)).coerceIn(-maxX, maxX),
-                y = (offset.y + (offsetChange.y * scale)).coerceIn(-maxY, maxY),
+                x = (offset.x + offsetChange.x).coerceIn(-maxX, maxX),
+                y = (offset.y + offsetChange.y).coerceIn(-maxY, maxY)
             )
         } else {
             offset = Offset.Zero
@@ -53,31 +55,22 @@ fun GestureCoordinatedBox(
         modifier = modifier
             .fillMaxSize()
             .onSizeChanged { size = it }
-                       .then(
-                if (scale > 1f) {
-                    Modifier
-                        .transformable(state = state, lockRotationOnZoomPan = true)
-                        .pointerInput(scale) {
-                            detectTapGestures(
-                                onTap = { onTap() },
-                                onDoubleTap = {
-                                    scale = 1f
-                                    offset = Offset.Zero
-                                }
-                            )
+            // Fixed: Standardized single modifier stream pipeline preventing pointer context re-allocation
+            .transformable(state = state, lockRotationOnZoomPan = true)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { onTap() },
+                    onDoubleTap = {
+                        if (scale > 1.01f) {
+                            scale = 1f
+                            offset = Offset.Zero
+                        } else {
+                            scale = 3f
+                            offset = Offset.Zero
                         }
-                } else {
-                    Modifier.pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = { onTap() },
-                            onDoubleTap = {
-                                scale = 3f
-                                offset = Offset.Zero
-                            }
-                        )
                     }
-                }
-            ),
+                )
+            },
         contentAlignment = Alignment.Center
     ) {
         content(scale, offset)

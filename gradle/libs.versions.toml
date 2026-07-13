@@ -54,6 +54,7 @@ poiAndroid = "3.17"
 googleServices = "4.4.2"
 firebaseBom = "34.15.0"
 firebaseCrashlyticsPlugin = "3.0.3"
+webkit = "1.16.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -131,6 +132,7 @@ firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashly
 firebase-ai = { group = "com.google.firebase", name = "firebase-ai" }
 firebase-appcheck = { group = "com.google.firebase", name = "firebase-appcheck" }
 firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug" }
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

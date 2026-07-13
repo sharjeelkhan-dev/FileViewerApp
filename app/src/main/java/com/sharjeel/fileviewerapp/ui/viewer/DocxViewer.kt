@@ -14,6 +14,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.zip.ZipFile
+import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Element
+import org.w3c.dom.Node
 
 @Composable
 fun DocxViewer(filePath: String) {
@@ -44,45 +47,51 @@ fun DocxViewer(filePath: String) {
 }
 
 /**
- * Simple docx text extractor using ZipFile (docx is a zip of XMLs).
- * We read word/document.xml and strip tags.
+ * Robust XML based DOCX text extractor matching textbook memory handling protocols.
+ * Safely handles paragraphs and text runs without risking type cast exceptions.
  */
 private fun extractTextFromDocx(filePath: String): String {
+    val file = File(filePath)
+    if (!file.exists()) return "Error: File does not exist."
+
     return try {
-        val file = File(filePath)
         ZipFile(file).use { zip ->
-            val entry = zip.getEntry("word/document.xml") ?: return "Not a valid DOCX file (missing word/document.xml)"
-            val inputStream = zip.getInputStream(entry)
-            val dbf = javax.xml.parsers.DocumentBuilderFactory.newInstance()
-            dbf.isNamespaceAware = true
-            val db = dbf.newDocumentBuilder()
-            val doc = db.parse(inputStream)
-            
-            val sb = StringBuilder()
-            val nodeList = doc.getElementsByTagNameNS("*", "t")
-            for (i in 0 until nodeList.length) {
-                sb.append(nodeList.item(i).textContent)
-                // Add a space if needed or handle paragraphs
-            }
-            
-            // Better approach: handle paragraphs (w:p)
-            val pList = doc.getElementsByTagNameNS("*", "p")
-            val result = StringBuilder()
-            for (i in 0 until pList.length) {
-                val p = pList.item(i)
-                val tList = (p as org.w3c.dom.Element).getElementsByTagNameNS("*", "t")
-                for (j in 0 until tList.length) {
-                    result.append(tList.item(j).textContent)
+            val entry = zip.getEntry("word/document.xml")
+                ?: return "Not a valid DOCX file (missing word/document.xml)"
+
+            // Stream explicit automatic closure inside use block
+            val result = zip.getInputStream(entry).use { inputStream ->
+                val factory = DocumentBuilderFactory.newInstance().apply {
+                    isNamespaceAware = true
                 }
-                result.append("\n\n")
+                val builder = factory.newDocumentBuilder()
+                val doc = builder.parse(inputStream)
+
+                val pList = doc.getElementsByTagNameNS("*", "p")
+                val sb = StringBuilder()
+
+                for (i in 0 until pList.length) {
+                    val pNode = pList.item(i)
+
+                    // Direct unsafe casting avoided via Element interface assertion check
+                    if (pNode.nodeType == Node.ELEMENT_NODE) {
+                        val pElement = pNode as Element
+                        val tList = pElement.getElementsByTagNameNS("*", "t")
+
+                        for (j in 0 until tList.length) {
+                            val textNode = tList.item(j)
+                            val textContent = textNode.textContent
+                            if (!textContent.isNullOrEmpty()) {
+                                sb.append(textContent)
+                            }
+                        }
+                        sb.append("\n\n")
+                    }
+                }
+                sb.toString().trim()
             }
-            
-            if (result.isBlank()) {
-                // Fallback to simple stripping if structured extraction failed
-                sb.toString()
-            } else {
-                result.toString().trim()
-            }
+
+            if (result.isBlank()) "Empty Document" else result
         }
     } catch (e: Exception) {
         "Error reading DOCX: ${e.localizedMessage}"

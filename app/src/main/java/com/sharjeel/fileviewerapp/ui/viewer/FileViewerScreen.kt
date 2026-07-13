@@ -1,10 +1,4 @@
 package com.sharjeel.fileviewerapp.ui.viewer
-
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.Alignment
@@ -27,11 +21,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.domain.model.FileModel
-import androidx.compose.ui.tooling.preview.Preview
 import com.sharjeel.fileviewerapp.ui.ai.AIViewModel
 import com.sharjeel.fileviewerapp.ui.ai.AIUiState
 import com.sharjeel.fileviewerapp.ui.components.AppScaffold
-import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
 import java.io.File
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.lazy.LazyColumn
@@ -61,13 +53,10 @@ fun FileViewerScreen(
     val effectiveFilePath = currentFile?.path ?: filePath
     val fileModel = remember(effectiveFilePath) { FileModel.fromFile(File(effectiveFilePath)) }
 
-    LaunchedEffect(filePath) {
-        viewModel.checkIfFavorite(filePath)
-        viewModel.addToRecent(fileModel)
-        viewModel.loadFolderPlaylist(filePath)
-    }
-
     LaunchedEffect(effectiveFilePath) {
+        if (filePlaylist.isEmpty()) {
+            viewModel.loadFolderPlaylist(filePath)
+        }
         viewModel.checkIfFavorite(effectiveFilePath)
         viewModel.addToRecent(fileModel)
     }
@@ -122,11 +111,12 @@ private fun FileViewerContent(
 
     var controlsVisible by remember { mutableStateOf(true) }
     var showMenu by remember { mutableStateOf(false) }
+
     val isAudio = effectiveFileType in listOf("mp3", "wav", "flac", "opus", "ogg")
     val isVideo = effectiveFileType in listOf("mp4", "mkv", "avi", "webm", "3gp")
     val isImage = effectiveFileType in listOf("jpg", "png", "webp", "gif", "jpeg")
     val isPdf = effectiveFileType == "pdf"
-    val isMedia = isAudio || isVideo || isImage || isPdf
+    val isMedia = isAudio || isVideo || isImage
 
     var showAISummary by remember { mutableStateOf(false) }
 
@@ -166,10 +156,10 @@ private fun FileViewerContent(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        when (val state = aiUiState) {
+                        when (aiUiState) {
                             is AIUiState.Loading -> CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                            is AIUiState.SummaryReady -> Text(state.summary, style = MaterialTheme.typography.bodyMedium)
-                            is AIUiState.Error -> Text(state.message, color = MaterialTheme.colorScheme.error)
+                            is AIUiState.SummaryReady -> Text(aiUiState.summary, style = MaterialTheme.typography.bodyMedium)
+                            is AIUiState.Error -> Text(aiUiState.message, color = MaterialTheme.colorScheme.error)
                             else -> Text("Generating summary...")
                         }
                         Spacer(modifier = Modifier.height(24.dp))
@@ -178,16 +168,21 @@ private fun FileViewerContent(
                     }
 
                     items(aiMessages) { msg ->
-                        Surface(
-                            color = if (msg.isUser) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.align(if (msg.isUser) Alignment.End else Alignment.Start)
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = if (msg.isUser) Alignment.CenterEnd else Alignment.CenterStart
                         ) {
-                            Text(
-                                msg.content,
-                                modifier = Modifier.padding(12.dp),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Surface(
+                                color = if (msg.isUser) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.fillMaxWidth(0.85f)
+                            ) {
+                                Text(
+                                    msg.content,
+                                    modifier = Modifier.padding(12.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         }
                     }
                 }
@@ -215,18 +210,22 @@ private fun FileViewerContent(
         }
     }
 
+    val scaffoldContainerColor = if (isMedia) {
+        Color.Black
+    } else {
+        MaterialTheme.colorScheme.background
+    }
+
+    val topAppBarContainerColor = if (isMedia) Color.Black else MaterialTheme.colorScheme.surface
+    val topAppBarContentColor = if (isMedia) Color.White else MaterialTheme.colorScheme.onSurface
+
     AppScaffold(
         topBar = {
-            AnimatedVisibility(
-                visible = controlsVisible || !isMedia,
-                enter = fadeIn() + slideInVertically(),
-                exit = fadeOut() + slideOutVertically()
-            ) {
+            if (controlsVisible || (!isMedia && !isPdf)) {
                 TopAppBar(
                     title = {
                         Text(
                             effectiveFileName,
-                            color = Color.White,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             style = if (isLandscape) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.titleMedium
@@ -238,25 +237,21 @@ private fun FileViewerContent(
                                 Icon(
                                     painter = painterResource(R.drawable.house_window_icon),
                                     contentDescription = "Home",
-                                    tint = Color.White,
                                     modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp)
                                 )
                             } else {
                                 Icon(
                                     Icons.AutoMirrored.Rounded.ArrowBack,
-                                    contentDescription = "Back",
-                                    tint = Color.White
+                                    contentDescription = "Back"
                                 )
                             }
                         }
                     },
                     actions = {
-                        IconButton(onClick = { showMenu = true }, modifier = if (isLandscape)
-                            Modifier.size(40.dp) else Modifier.size(48.dp)) {
+                        IconButton(onClick = { showMenu = true }, modifier = if (isLandscape) Modifier.size(40.dp) else Modifier.size(48.dp)) {
                             Icon(
                                 imageVector = Icons.Rounded.MoreVert,
-                                contentDescription = "More",
-                                tint = Color.White
+                                contentDescription = "More"
                             )
 
                             DropdownMenu(
@@ -328,23 +323,22 @@ private fun FileViewerContent(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Black.copy(alpha = 0.5f),
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White,
-                        actionIconContentColor = Color.White
+                        containerColor = topAppBarContainerColor,
+                        titleContentColor = topAppBarContentColor,
+                        navigationIconContentColor = topAppBarContentColor,
+                        actionIconContentColor = topAppBarContentColor
                     ),
-                    windowInsets = if (isLandscape) WindowInsets(0, 0, 0, 0)
-                    else TopAppBarDefaults.windowInsets
+                    windowInsets = if (isLandscape) WindowInsets(0, 0, 0, 0) else TopAppBarDefaults.windowInsets
                 )
             }
         },
-        containerColor = if (isMedia) Color.Black else MaterialTheme.colorScheme.background,
+        containerColor = scaffoldContainerColor,
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(if (isMedia) Color.Black else MaterialTheme.colorScheme.background)
+                .background(scaffoldContainerColor) 
         ) {
             Box(
                 modifier = Modifier
@@ -352,8 +346,7 @@ private fun FileViewerContent(
                     .fillMaxWidth()
             ) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     if (filePlaylist.isNotEmpty()) {
                         UniversalFilePager(
@@ -361,7 +354,7 @@ private fun FileViewerContent(
                             initialIndex = filePlaylist.indexOfFirst { it.path == effectiveFilePath }.coerceAtLeast(0),
                             controlsVisible = controlsVisible,
                             onToggleControls = { controlsVisible = !controlsVisible },
-                            onFileChanged = { /* Handled by effectiveFilePath LaunchEffect */ },
+                            onFileChanged = { /* Centralized handle check block */ },
                             onIndexChanged = onUpdateFileIndex
                         )
                     } else {
@@ -378,30 +371,5 @@ private fun FileViewerContent(
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun FileViewerScreenPreview() {
-    FileViewerAppTheme {
-        FileViewerContent(
-            filePath = "/path/img.jpg",
-            fileType = "jpg",
-            isFavorite = true,
-            filePlaylist = listOf(
-                FileModel("Vacation.jpg", "/path/img.jpg", 2 * 1024 * 1024L, System.currentTimeMillis(), false, extension = "jpg"),
-                FileModel("Contract.pdf", "/path/doc.pdf", 500 * 1024L, System.currentTimeMillis(), false, extension = "pdf")
-            ),
-            currentFileIndex = 0,
-            onBackClick = {},
-            onToggleFavorite = {},
-            onUpdateFileIndex = {},
-            onShowInFolder = {},
-            aiUiState = AIUiState.Idle,
-            aiMessages = emptyList(),
-            onSummarize = {},
-            onAskAI = {}
-        )
     }
 }
