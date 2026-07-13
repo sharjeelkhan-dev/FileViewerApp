@@ -1,4 +1,4 @@
-### 📂 File Viewer App
+### 📂 Smart File Viewer App
 ![Status](https://img.shields.io/badge/Code-181717?style=for-the-badge&logo=github&logoColor=white) ![Security](https://img.shields.io/badge/Encrypted_Vault-607D8B?style=for-the-badge&logo=android&logoColor=white) ![Media](https://img.shields.io/badge/Media3_ExoPlayer-E64A19?style=for-the-badge&logo=youtube&logoColor=white)
 
 > A premium, high-performance file management and viewing experience for Android, built with modern tools and a stunning Neon & Glassmorphism aesthetic.
@@ -6,10 +6,12 @@
 | Subsystem | Technical Execution Architecture |
 | :--- | :--- |
 | 🚀 **Smart Explorer** | Seamless navigation across Internal Storage, Downloads, and Recent structures with a blazing-fast query engine. |
+| 🧠 **Gemini Intelligence** | Context-aware AI bridge leveraging Gemini 3.5-Flash for real-time document summarization, natural language file querying, and automated data extraction. |
 | 🛡️ **Secure Vault** | Isolated filesystem layers wrapping biometric prompt access constraints (fingerprint/face unlock) to encrypt and hide sensitive states. |
 | 🎥 **All-in-One Viewer** | Immersive media rendering engine integrating Android Media3 (ExoPlayer) pipelines alongside custom high-fidelity PDF, image, and text layouts. |
 | 📄 **Document Support** | Low-latency IO processing engines managing native rendering extensions for plain Text, JSON, XML, and Office formats (Docx, Xlsx). |
 | 🎨 **Design Philosophy** | Complete edge-to-edge system interfaces engineered using frosted-glass canvas rules and vibrant neon palettes matching dynamic system dark modes. |
+
 | 🔧 **State Preservation** | Architecture configured over strict MVVM and Clean boundaries using Hilt DI and Room caching to preserve state across rotation vectors. |
 
 <details>
