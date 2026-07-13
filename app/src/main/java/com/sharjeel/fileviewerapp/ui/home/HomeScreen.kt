@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -20,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material3.Card
@@ -135,14 +137,13 @@ fun StorageDashboardCard(onClick: () -> Unit) {
             .fillMaxWidth()
             .height(210.dp),
         onClick = onClick,
-        shape = RoundedCornerShape(24.dp), // More standardized Material 3 curvature
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface // Fixed: System surface tokens directly linked
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Balanced Tonal Gradient Surface Layer
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -167,22 +168,44 @@ fun StorageDashboardCard(onClick: () -> Unit) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
+                    // Folder Icon
                     Surface(
                         modifier = Modifier.size(56.dp),
                         shape = RoundedCornerShape(16.dp),
-                        color = Color(0xFFFFB300).copy(alpha = 0.12f) // Professional low-alpha warm container
+                        color = Color(0xFFFFB300).copy(alpha = 0.12f)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 painter = painterResource(R.drawable.folder_icon),
                                 contentDescription = null,
-                                tint = Color(0xFFFFB300), // Secure corporate standard folder amber tint
+                                tint = Color(0xFFFFB300),
                                 modifier = Modifier.size(28.dp)
                             )
                         }
                     }
+
+                    // NEW: "Open" Text and Arrow Indicator
+                    Row(
+                        modifier = Modifier.offset(y = 25.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Open",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            contentDescription = "Open Storage",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
 
+                // ... Remaining parts of the code stay the same ...
                 Column(modifier = Modifier.padding(vertical = 4.dp)) {
                     Text(
                         text = "Internal Storage",
@@ -194,7 +217,6 @@ fun StorageDashboardCard(onClick: () -> Unit) {
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Refactored Progress Track
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -206,7 +228,7 @@ fun StorageDashboardCard(onClick: () -> Unit) {
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(0.65f) // 65% Allocation Bar
+                                .fillMaxWidth(0.65f)
                                 .fillMaxHeight()
                                 .background(
                                     Brush.horizontalGradient(
