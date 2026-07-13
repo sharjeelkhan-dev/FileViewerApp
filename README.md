@@ -11,7 +11,6 @@
 | 🎥 **All-in-One Viewer** | Immersive media rendering engine integrating Android Media3 (ExoPlayer) pipelines alongside custom high-fidelity PDF, image, and text layouts. |
 | 📄 **Document Support** | Low-latency IO processing engines managing native rendering extensions for plain Text, JSON, XML, and Office formats (Docx, Xlsx). |
 | 🎨 **Design Philosophy** | Complete edge-to-edge system interfaces engineered using frosted-glass canvas rules and vibrant neon palettes matching dynamic system dark modes. |
-
 | 🔧 **State Preservation** | Architecture configured over strict MVVM and Clean boundaries using Hilt DI and Room caching to preserve state across rotation vectors. |
 
 <details>
