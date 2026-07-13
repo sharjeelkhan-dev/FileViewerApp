@@ -98,7 +98,7 @@ dependencies {
     implementation(libs.play.services.location)
     implementation(libs.retrofit)
     implementation(libs.poi.android)
-    implementation("com.github.junrar:junrar:7.6.0")
+    implementation(libs.junrar)
 
     // Firebase
     implementation(platform(libs.firebase.bom))

@@ -7,8 +7,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.ai.ai
-import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.ai.GenerativeModel
+import com.google.firebase.ai.type.GenerativeBackend
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

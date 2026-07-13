@@ -1,4 +1,5 @@
 package com.sharjeel.fileviewerapp.ui.viewer
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.Alignment
@@ -210,14 +211,11 @@ private fun FileViewerContent(
         }
     }
 
-    val scaffoldContainerColor = if (isMedia) {
-        Color.Black
-    } else {
-        MaterialTheme.colorScheme.background
-    }
-
-    val topAppBarContainerColor = if (isMedia) Color.Black else MaterialTheme.colorScheme.surface
-    val topAppBarContentColor = if (isMedia) Color.White else MaterialTheme.colorScheme.onSurface
+    // 🎯 Ab kisi bhi category ke liye koi custom black/white conditions nahi hain.
+    // Sab kuch application ke main central theme colors se map ho raha hai.
+    val scaffoldContainerColor = MaterialTheme.colorScheme.background
+    val topAppBarContainerColor = MaterialTheme.colorScheme.surface
+    val topAppBarContentColor = MaterialTheme.colorScheme.onSurface
 
     AppScaffold(
         topBar = {
@@ -338,7 +336,7 @@ private fun FileViewerContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(scaffoldContainerColor) 
+                .background(scaffoldContainerColor)
         ) {
             Box(
                 modifier = Modifier

@@ -1,8 +1,11 @@
 package com.sharjeel.fileviewerapp.ui.ai
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
+import com.sharjeel.fileviewerapp.BuildConfig // Ensure correct package import for BuildConfig
 import com.sharjeel.fileviewerapp.util.AIService
 import com.sharjeel.fileviewerapp.util.TextExtractionUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,23 +30,52 @@ class AIViewModel @Inject constructor(
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val chatMessages = _chatMessages.asStateFlow()
 
+    private val tag = "AIViewModel_Debug"
+
     // Global Exception Handler to catch unexpected coroutine failures cleanly
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         _uiState.value = AIUiState.Error(throwable.localizedMessage ?: "An unexpected error occurred")
     }
 
+    init {
+        // Automatically setup Debug Provider if the application is running in Debug Mode
+        setupAppCheckDebugProvider()
+    }
+
     /**
-     * Helper suspend function to dynamically generate Firebase App Check Token.
-     * ForceRefresh true rakhne se validation replay attacks mitigate ho jate hain.
+     * Development phase ke liye local debug provider setup karne ka method.
+     * Isko call karne se App Check automatically Logcat me temporary local debug token print kar deta hai.
      */
+    private fun setupAppCheckDebugProvider() {
+        if (BuildConfig.DEBUG) {
+            try {
+                val appCheckInstance = FirebaseAppCheck.getInstance()
+                appCheckInstance.installAppCheckProviderFactory(
+                    DebugAppCheckProviderFactory.getInstance()
+                )
+                Log.d(tag, "App Check initialized with DebugAppCheckProviderFactory successfully.")
+            } catch (e: Exception) {
+                Log.e(tag, "Failed to initialize App Check Debug Provider: ${e.message}", e)
+            }
+        }
+    }
+
+
     private suspend fun fetchAppCheckToken(): String? {
         return withContext(Dispatchers.IO) {
             try {
                 val appCheckInstance = FirebaseAppCheck.getInstance()
-                // Fetching token securely using kotlinx-coroutines-play dependency (.await())
                 val tokenResult = appCheckInstance.getToken(false).await()
+
+                if (BuildConfig.DEBUG) {
+                    Log.d(tag, "Successfully generated App Check Token: ${tokenResult.token}")
+                }
+
                 tokenResult.token
             } catch (e: Exception) {
+                if (BuildConfig.DEBUG) {
+                    Log.e(tag, "App Check Token fetch failed: ${e.message}", e)
+                }
                 e.printStackTrace()
                 null // Secure failure default
             }
@@ -192,7 +224,7 @@ class AIViewModel @Inject constructor(
                 }
 
                 val finalCommand = commandBuilder.toString().trim()
-                
+
                 // Clean the output from possible AI artifacts
                 val sanitizedCommand = finalCommand
                     .replace("\"", "")
