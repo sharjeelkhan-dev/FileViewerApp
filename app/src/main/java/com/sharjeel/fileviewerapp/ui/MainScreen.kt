@@ -68,6 +68,7 @@ import com.sharjeel.fileviewerapp.domain.repository.FileCategory
 import com.sharjeel.fileviewerapp.ui.components.AppScaffold
 import com.sharjeel.fileviewerapp.ui.explorer.ExplorerScreen
 import com.sharjeel.fileviewerapp.ui.explorer.ExplorerViewModel
+import com.sharjeel.fileviewerapp.ui.favorites.FavoritesScreen
 import com.sharjeel.fileviewerapp.ui.home.HomeScreen
 import com.sharjeel.fileviewerapp.ui.navigation.NavRoute
 import com.sharjeel.fileviewerapp.ui.settings.SettingsScreen
@@ -131,7 +132,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                         "STORAGE" -> backstack.add(NavRoute.Explorer(title = "Storage", path = Environment.getExternalStorageDirectory().absolutePath))
                         "DOWNLOADS" -> backstack.add(NavRoute.Explorer(title = "Downloads"))
                         "RECENT" -> backstack.add(NavRoute.Explorer(title = "Recent"))
-                        "FAVORITES" -> backstack.add(NavRoute.Explorer(title = "Favorites"))
+                        "FAVORITES" -> backstack.add(NavRoute.Favorites)
                         "VAULT" -> backstack.add(NavRoute.Vault)
                         "TRASH" -> backstack.add(NavRoute.Trash)
                         "SETTINGS" -> backstack.add(NavRoute.Settings)
@@ -280,11 +281,11 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
 
                     NavigationDrawerItem(
                         label = { Text("Favorites") },
-                        selected = currentRoute is NavRoute.Explorer && (currentRoute as NavRoute.Explorer).title == "Favorites",
+                        selected = currentRoute == NavRoute.Favorites,
                         onClick = {
                             backstack.clear()
                             backstack.add(NavRoute.Home)
-                            backstack.add(NavRoute.Explorer(title = "Favorites"))
+                            backstack.add(NavRoute.Favorites)
                             scope.launch { drawerState.close() }
                         },
                         icon = {
@@ -480,7 +481,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                         when (placeName) {
                                             "Downloads" -> backstack.add(NavRoute.Explorer(title = "Downloads"))
                                             "Recent" -> backstack.add(NavRoute.Explorer(title = "Recent"))
-                                            "Favorites" -> backstack.add(NavRoute.Explorer(title = "Favorites"))
+                                            "Favorites" -> backstack.add(NavRoute.Favorites)
                                             "Vault" -> backstack.add(NavRoute.Vault)
                                             "Trash" -> backstack.add(NavRoute.Trash)
                                         }
@@ -498,7 +499,6 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                             "Storage" -> explorerViewModel.loadFiles(Environment.getExternalStorageDirectory().absolutePath)
                                             "Downloads" -> explorerViewModel.loadCategory(FileCategory.DOWNLOADS)
                                             "Recent" -> explorerViewModel.loadRecent()
-                                            "Favorites" -> explorerViewModel.loadFavorites()
                                             "Images" -> explorerViewModel.loadCategory(FileCategory.IMAGES)
                                             "Videos" -> explorerViewModel.loadCategory(FileCategory.VIDEOS)
                                             "Audio" -> explorerViewModel.loadCategory(FileCategory.AUDIO)
@@ -581,6 +581,21 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                         val state = trashFiles
                                         if (state is com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState.Success) {
                                             viewerViewModel.setPlaylist(state.files, file.path)
+                                        }
+                                        backstack.add(NavRoute.Viewer(file.path, file.extension))
+                                    }
+                                )
+                            }
+                            is NavRoute.Favorites -> NavEntry(route) {
+                                val favoritesViewModel: com.sharjeel.fileviewerapp.ui.favorites.FavoritesViewModel = hiltViewModel()
+                                val favoritesFiles by favoritesViewModel.uiState.collectAsState()
+                                
+                                FavoritesScreen(
+                                    viewModel = favoritesViewModel,
+                                    onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) },
+                                    onFileClick = { file ->
+                                        if (favoritesFiles is com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState.Success) {
+                                            viewerViewModel.setPlaylist((favoritesFiles as com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState.Success).files, file.path)
                                         }
                                         backstack.add(NavRoute.Viewer(file.path, file.extension))
                                     }

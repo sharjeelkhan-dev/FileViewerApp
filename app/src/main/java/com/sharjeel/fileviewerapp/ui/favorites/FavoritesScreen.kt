@@ -1,9 +1,10 @@
-package com.sharjeel.fileviewerapp.ui.trash
+package com.sharjeel.fileviewerapp.ui.favorites
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,14 +18,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.ui.explorer.*
 import com.sharjeel.fileviewerapp.ui.components.AppScaffold
-import androidx.compose.ui.tooling.preview.Preview
 import com.sharjeel.fileviewerapp.R
 
 @Composable
-fun TrashScreen(
+fun FavoritesScreen(
     onBackClick: () -> Unit,
     onFileClick: (FileModel) -> Unit,
-    viewModel: TrashViewModel = hiltViewModel()
+    viewModel: FavoritesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedFiles by viewModel.selectedFiles.collectAsState()
@@ -44,7 +44,7 @@ fun TrashScreen(
         }
     }
 
-    TrashContent(
+    FavoritesContent(
         uiState = uiState,
         selectedFiles = selectedFiles,
         viewMode = viewMode,
@@ -60,9 +60,8 @@ fun TrashScreen(
             }
         },
         onFileLongClick = { viewModel.toggleFileSelection(it.path) },
-        onRestoreSelected = { viewModel.restoreSelected() },
-        onDeleteSelectedPermanently = { viewModel.deleteSelectedPermanently() },
-        onEmptyTrash = { viewModel.emptyTrash() },
+        onToggleFavorite = { viewModel.toggleFavorite(it) },
+        onDeleteSelected = { viewModel.deleteSelectedFiles() },
         onSortSelected = { type, order -> viewModel.updateSort(type, order) },
         onViewModeSelected = { mode -> viewModel.updateViewMode(mode) }
     )
@@ -70,7 +69,7 @@ fun TrashScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrashContent(
+fun FavoritesContent(
     uiState: ExplorerUiState,
     selectedFiles: Set<String>,
     viewMode: ViewMode,
@@ -80,9 +79,8 @@ fun TrashContent(
     onBackClick: () -> Unit,
     onFileClick: (FileModel) -> Unit,
     onFileLongClick: (FileModel) -> Unit,
-    onRestoreSelected: () -> Unit,
-    onDeleteSelectedPermanently: () -> Unit,
-    onEmptyTrash: () -> Unit,
+    onToggleFavorite: (FileModel) -> Unit,
+    onDeleteSelected: () -> Unit,
     onSortSelected: (SortType, SortOrder) -> Unit,
     onViewModeSelected: (ViewMode) -> Unit
 ) {
@@ -90,19 +88,10 @@ fun TrashContent(
     var showViewOptionsSheet by remember { mutableStateOf(false) }
 
     val isPreview = LocalInspectionMode.current
-
-    // Determine if content actually exists to decide top bar visibility
-    val hasContent = when (uiState) {
-        is ExplorerUiState.Success -> {
-            val filteredFiles = if (searchQuery.isBlank()) uiState.files
-            else uiState.files.filter { it.name.contains(searchQuery, ignoreCase = true) }
-            filteredFiles.isNotEmpty()
-        }
-        else -> false
-    }
+    val hasContent = (uiState as? ExplorerUiState.Success)?.files?.isNotEmpty() == true
 
     if (!isPreview) {
-        if (showSortSheet && hasContent) {
+        if (showSortSheet) {
             SortBottomSheet(
                 currentType = sortType,
                 currentOrder = sortOrder,
@@ -114,7 +103,7 @@ fun TrashContent(
             )
         }
 
-        if (showViewOptionsSheet && hasContent) {
+        if (showViewOptionsSheet) {
             ViewOptionsBottomSheet(
                 currentMode = viewMode,
                 onDismiss = { showViewOptionsSheet = false },
@@ -129,11 +118,12 @@ fun TrashContent(
     AppScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            if (hasContent) {
+            // 🎯 FIXED: Header only shows if there's content or items are selected
+            if (hasContent || selectedFiles.isNotEmpty()) {
                 TopAppBar(
                     title = {
                         Text(
-                            text = if (selectedFiles.isNotEmpty()) "${selectedFiles.size} SELECTED" else "RECYCLE BIN",
+                            text = if (selectedFiles.isNotEmpty()) "${selectedFiles.size} SELECTED" else "FAVORITES",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 1.2.sp,
@@ -151,30 +141,20 @@ fun TrashContent(
                     },
                     actions = {
                         if (selectedFiles.isNotEmpty()) {
-                            IconButton(onClick = onRestoreSelected) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.reload_sync_icon),
-                                    contentDescription = "Restore",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            IconButton(onClick = onDeleteSelectedPermanently) {
+                            IconButton(onClick = onDeleteSelected) {
                                 Icon(
                                     painter = painterResource(id = R.drawable.recycle_bin_line_icon),
-                                    modifier = Modifier.size(24.dp),
-                                    contentDescription = "Delete Permanently",
+                                    contentDescription = "Delete",
+                                    modifier = Modifier.size(20.dp),
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             }
-                        } else {
-                            IconButton(onClick = onEmptyTrash) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.recycle_bin_line_icon),
-                                    contentDescription = "Empty Trash",
-                                    modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            }
+                        }
+                        IconButton(onClick = { showSortSheet = true }) {
+                            Icon(Icons.Rounded.Sort, contentDescription = "Sort")
+                        }
+                        IconButton(onClick = { showViewOptionsSheet = true }) {
+                            Icon(Icons.Rounded.GridView, contentDescription = "View Options")
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -182,8 +162,7 @@ fun TrashContent(
                         titleContentColor = MaterialTheme.colorScheme.onBackground,
                         navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
                         actionIconContentColor = MaterialTheme.colorScheme.onBackground
-                    ),
-                    windowInsets = WindowInsets.statusBars
+                    )
                 )
             }
         }
@@ -196,7 +175,7 @@ fun TrashContent(
             when (uiState) {
                 is ExplorerUiState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
                 is ExplorerUiState.Success -> {
@@ -204,46 +183,42 @@ fun TrashContent(
                     else uiState.files.filter { it.name.contains(searchQuery, ignoreCase = true) }
 
                     if (filteredFiles.isEmpty()) {
-                        // Clean, minimal full screen view (No headers, no sheets, clean center back button)
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
-                                modifier = Modifier.padding(24.dp)
+                                verticalArrangement = Arrangement.Center
                             ) {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.recycle_bin_line_icon),
+                                    imageVector = Icons.Rounded.FavoriteBorder,
                                     contentDescription = null,
-                                    modifier = Modifier.size(65.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                                    modifier = Modifier.size(72.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text(
-                                    text = "Recycle Bin is Empty",
+                                    "No favorites yet",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = "Any deleted files and folders will show up here.",
+                                    "Mark files as favorite to see them here",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                 )
                             }
                         }
                     } else {
-                        if (isPreview) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                filteredFiles.forEach { file ->
-                                    Text(
-                                        text = "📁 ${file.name}",
-                                        modifier = Modifier.padding(vertical = 8.dp),
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                }
-                            }
-                        } else {
+                        Column {
+                            SortBar(
+                                currentType = sortType,
+                                currentOrder = sortOrder,
+                                viewMode = viewMode,
+                                onSortClick = { showSortSheet = true },
+                                onViewModeClick = { showViewOptionsSheet = true }
+                            )
+                            
                             FileList(
                                 files = filteredFiles,
                                 selectedFiles = selectedFiles,
@@ -254,7 +229,7 @@ fun TrashContent(
                                 onRenameClick = { },
                                 onShareClick = { },
                                 onOpenWithClick = { },
-                                onFavoriteClick = { },
+                                onFavoriteClick = { onToggleFavorite(it) },
                                 onExtractClick = { },
                                 onLockClick = { },
                                 onMoveClick = { },
@@ -271,33 +246,5 @@ fun TrashContent(
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun TrashScreenPreview() {
-    val mockFiles = listOf(
-        FileModel("Document_1.pdf", "/Trash/Doc1.pdf", 500L, System.currentTimeMillis(), false, "pdf"),
-        FileModel("Song.mp3", "/Trash/Song.mp3", 4000L, System.currentTimeMillis(), false, "mp3"),
-        FileModel("Photo.png", "/Trash/Photo.png", 200L, System.currentTimeMillis(), false, "png")
-    )
-    MaterialTheme {
-        TrashContent(
-            uiState = ExplorerUiState.Success(files = mockFiles),
-            selectedFiles = emptySet(),
-            viewMode = ViewMode.LIST,
-            sortType = SortType.NAME,
-            sortOrder = SortOrder.ASCENDING,
-            searchQuery = "",
-            onBackClick = {},
-            onFileClick = {},
-            onFileLongClick = {},
-            onRestoreSelected = {},
-            onDeleteSelectedPermanently = {},
-            onEmptyTrash = {},
-            onSortSelected = { _, _ -> },
-            onViewModeSelected = {}
-        )
     }
 }

@@ -1,5 +1,4 @@
 package com.sharjeel.fileviewerapp.ui.explorer
-
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -32,7 +31,6 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Clear
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.GridView
@@ -196,7 +194,8 @@ fun ExplorerScreen(
                                 } else {
                                     onBackClick()
                                 }
-                            }) {
+                            })
+                            {
                                 Icon(
                                     if (selectedFiles.isNotEmpty()) Icons.Rounded.Close
                                     else Icons.AutoMirrored.Rounded.ArrowBack,
@@ -211,6 +210,7 @@ fun ExplorerScreen(
                                     Icon(
                                         painterResource(id = R.drawable.recycle_bin_line_icon),
                                         contentDescription = "Delete",
+                                        modifier = Modifier.size(20.dp),
                                         tint = MaterialTheme.colorScheme.error
                                     )
                                 }
@@ -268,7 +268,8 @@ fun ExplorerScreen(
                                             },
                                             leadingIcon = {
                                                 Icon(
-                                                    if (isAllSelected) Icons.Rounded.Close else Icons.Rounded.CheckCircle,
+                                                    if (isAllSelected) Icons.Rounded.Close
+                                                    else Icons.Rounded.CheckCircle,
                                                     contentDescription = null,
                                                     tint = MaterialTheme.colorScheme.primary
                                                 )
@@ -685,9 +686,11 @@ fun FileRowItem(
     onCopy: () -> Unit
 ) {
     Surface(
-        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface,
+        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+        else MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(24.dp),
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp,
+            MaterialTheme.colorScheme.primary) else null,
         shadowElevation = if (isSelected) 0.dp else 2.dp,
         modifier = Modifier
             .fillMaxWidth()
@@ -753,9 +756,11 @@ fun FileGridItem(
     val itemHeight = if (viewMode == ViewMode.LARGE) 150.dp else 120.dp
 
     Surface(
-        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface,
+        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+        else MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(20.dp),
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp,
+            MaterialTheme.colorScheme.primary) else null,
         shadowElevation = if (isSelected) 0.dp else 1.dp,
         modifier = Modifier
             .fillMaxWidth()
@@ -807,8 +812,7 @@ fun ActionMenuButton(
     onOpenWith: () -> Unit
 ) {
     if (isSelected) {
-        Icon(
-            Icons.Rounded.CheckCircle,
+        Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(24.dp)
@@ -832,54 +836,84 @@ fun ActionMenuButton(
                 DropdownMenuItem(
                     text = { Text("Rename", fontWeight = FontWeight.SemiBold) },
                     onClick = { onRename(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.brush_paintbrush_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.brush_paintbrush_icon),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)) }
                 )
                 DropdownMenuItem(
                     text = { Text("Move", fontWeight = FontWeight.SemiBold) },
                     onClick = { onMove(); showFileMenu = false },
-                    leadingIcon = { Icon(Icons.Rounded.MoveUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+                    leadingIcon = { Icon(Icons.Rounded.MoveUp,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)) }
                 )
                 DropdownMenuItem(
                     text = { Text("Copy", fontWeight = FontWeight.SemiBold) },
                     onClick = { onCopy(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.copy_outline_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.copy_outline_icon),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)) }
                 )
                 DropdownMenuItem(
                     text = { Text("Delete", fontWeight = FontWeight.SemiBold) },
                     onClick = { onDelete(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.recycle_bin_line_icon), contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) }
+                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.recycle_bin_line_icon),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp)) }
                 )
                 if (file.extension.lowercase() in listOf("zip", "rar")) {
                     DropdownMenuItem(
                         text = { Text("Extract Here", fontWeight = FontWeight.SemiBold) },
                         onClick = { onExtract(); showFileMenu = false },
-                        leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+                        leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)) }
                     )
                 }
                 DropdownMenuItem(
                     text = { Text("Select", fontWeight = FontWeight.SemiBold) },
                     onClick = { onLongClick(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon), contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp)) }
+                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(20.dp)) }
                 )
                 DropdownMenuItem(
                     text = { Text("Favorite", fontWeight = FontWeight.SemiBold) },
                     onClick = { onFavorite(); showFileMenu = false },
-                    leadingIcon = { Icon(Icons.Rounded.Favorite, contentDescription = null, tint = Color(0xFFFF4081), modifier = Modifier.size(20.dp)) }
+                    leadingIcon = { Icon(Icons.Rounded.Favorite,
+                        contentDescription = null,
+                        tint = Color(0xFFFF4081),
+                        modifier = Modifier.size(20.dp)) }
                 )
                 DropdownMenuItem(
                     text = { Text("Lock (Vault)", fontWeight = FontWeight.SemiBold) },
                     onClick = { onLock(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.lock_line_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.lock_line_icon),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)) }
                 )
                 DropdownMenuItem(
                     text = { Text("Share", fontWeight = FontWeight.SemiBold) },
                     onClick = { onShare(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.share_icon), contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp)) }
+                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.share_icon),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(20.dp)) }
                 )
                 DropdownMenuItem(
                     text = { Text("Open with", fontWeight = FontWeight.SemiBold) },
                     onClick = { onOpenWith(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.shortcut_icon), contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp)) }
+                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.shortcut_icon),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(20.dp)) }
                 )
             }
         }
