@@ -1,15 +1,22 @@
 package com.sharjeel.fileviewerapp.ui.viewer
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -20,7 +27,11 @@ import java.util.zip.ZipFile
 import javax.xml.parsers.DocumentBuilderFactory
 
 @Composable
-fun XlsxViewer(filePath: String) {
+fun XlsxViewer(
+    filePath: String,
+    onZoomChanged: (Boolean) -> Unit = {},
+    onTap: () -> Unit = {}
+) {
     var rows by remember { mutableStateOf<List<List<String>>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
@@ -36,67 +47,99 @@ fun XlsxViewer(filePath: String) {
         isLoading = false
     }
 
-    // Fixed: Standard surface boundary setup to prevent backdrop color bleaching
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                        val isUp = event.changes.any { it.changedToUp() }
+                        if (isUp && event.changes.size == 1) {
+                            onTap()
+                        }
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
     ) {
-        if (isLoading) {
+        GestureCoordinatedBox(
+            onZoomChanged = onZoomChanged,
+            onTap = {} // Handled by outer Box
+        ) { scale, offset ->
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            }
-        } else {
-            // Horizontal scrolling capability for handling wide multi-column matrices
-            Box(modifier = Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxHeight(),
-                    contentPadding = PaddingValues(16.dp)
-                ) {
-                    // Fixed: Optimized keying structure and indexed composition loops to bypass O(N) constraints
-                    itemsIndexed(
-                        items = rows,
-                        key = { index, _ -> index }
-                    ) { rowIndex, row ->
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            row.forEachIndexed { columnIndex, cell ->
-
-                                // Fixed: Contextually safe theme mapping with solid high contrast layers
-                                val cellBgColor = when {
-                                    rowIndex == 0 -> MaterialTheme.colorScheme.primaryContainer
-                                    columnIndex % 2 == 0 -> MaterialTheme.colorScheme.surfaceVariant
-                                    else -> MaterialTheme.colorScheme.surface
-                                }
-
-                                val cellTextColor = when (rowIndex) {
-                                    0 -> MaterialTheme.colorScheme.onPrimaryContainer
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                }
-
-                                val cellBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-
-                                Surface(
-                                    modifier = Modifier
-                                        .width(130.dp)
-                                        .height(48.dp), // Unified container bounding boxes
-                                    color = cellBgColor,
-                                    border = BorderStroke(width = 0.5.dp, color = cellBorderColor)
+                if (isLoading) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                } else {
+                    Surface(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(top = 84.dp, bottom = 24.dp)
+                            .fillMaxWidth()
+                            .fillMaxHeight()
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = offset.x
+                                translationY = offset.y
+                            },
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color.White,
+                        shadowElevation = 10.dp,
+                        border = BorderStroke(0.5.dp, Color.LightGray.copy(alpha = 0.4f))
+                    ) {
+                        androidx.compose.foundation.text.selection.SelectionContainer {
+                            Box(modifier = Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxHeight(),
+                                    contentPadding = PaddingValues(16.dp)
                                 ) {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-                                        contentAlignment = Alignment.CenterStart
-                                    ) {
-                                        Text(
-                                            text = cell,
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                color = cellTextColor,
-                                                fontWeight = if (rowIndex == 0) FontWeight.Bold else FontWeight.Normal
-                                            ),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                    itemsIndexed(
+                                        items = rows,
+                                        key = { index, _ -> index }
+                                    ) { rowIndex, row ->
+                                        Row(modifier = Modifier.fillMaxWidth()) {
+                                            row.forEachIndexed { columnIndex, cell ->
+                                                val cellBgColor = when {
+                                                    rowIndex == 0 -> MaterialTheme.colorScheme.primaryContainer
+                                                    columnIndex % 2 == 0 -> MaterialTheme.colorScheme.surfaceVariant
+                                                    else -> MaterialTheme.colorScheme.surface
+                                                }
+
+                                                val cellTextColor = when (rowIndex) {
+                                                    0 -> MaterialTheme.colorScheme.onPrimaryContainer
+                                                    else -> MaterialTheme.colorScheme.onSurface
+                                                }
+
+                                                Surface(
+                                                    modifier = Modifier
+                                                        .width(130.dp)
+                                                        .height(48.dp),
+                                                    color = cellBgColor,
+                                                    border = BorderStroke(width = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                                                        contentAlignment = Alignment.CenterStart
+                                                    ) {
+                                                        Text(
+                                                            text = cell,
+                                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                                color = cellTextColor,
+                                                                fontWeight = if (rowIndex == 0) FontWeight.Bold else FontWeight.Normal
+                                                            ),
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -130,8 +173,6 @@ private fun extractDataFromXlsx(filePath: String): List<List<String>> {
             for (i in 0 until rowNodes.length) {
                 val rowNode = rowNodes.item(i) as? org.w3c.dom.Element ?: continue
                 val cells = mutableListOf<String>()
-
-                // Fixed: Query tags directly instead of evaluating loose multi-type child nodes
                 val cellNodes = rowNode.getElementsByTagNameNS("*", "c")
 
                 for (j in 0 until cellNodes.length) {

@@ -2,14 +2,20 @@ package com.sharjeel.fileviewerapp.ui.viewer
 
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
@@ -18,12 +24,15 @@ import java.io.File
 import java.util.zip.ZipFile
 
 @Composable
-fun EpubViewer(filePath: String) {
+fun EpubViewer(
+    filePath: String,
+    onZoomChanged: (Boolean) -> Unit = {},
+    onTap: () -> Unit = {}
+) {
     var htmlContent by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
-    // IO operations shifted to Dispatchers.IO to maintain Main Thread safety
     LaunchedEffect(filePath) {
         isLoading = true
         try {
@@ -61,42 +70,105 @@ fun EpubViewer(filePath: String) {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        when {
-            isLoading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(text = "Loading EPUB content...", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-            error != null -> {
-                Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text(text = error ?: "Unknown Error", color = MaterialTheme.colorScheme.error)
-                }
-            }
-            htmlContent != null -> {
-                AndroidView(
-                    factory = { context ->
-                        WebView(context).apply {
-                            webViewClient = WebViewClient()
-                            // XSS attacks protect karne ke liye dynamic flags disable rakhein agar basic presentation ho
-                            settings.apply {
-                                javaScriptEnabled = false
-                                allowContentAccess = false
-                                allowFileAccess = false
-                            }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                        val isUp = event.changes.any { it.changedToUp() }
+                        if (isUp && event.changes.size == 1) {
+                            onTap()
                         }
-                    },
-                    update = { webView ->
-                        // Safely unwrap via state management local capture
-                        htmlContent?.let { content ->
-                            webView.loadDataWithBaseURL(null, content, "text/html", "UTF-8", null)
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        GestureCoordinatedBox(
+            onZoomChanged = onZoomChanged,
+            onTap = {} // Handled by outer Box
+        ) { scale, offset ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center
+            ) {
+                when {
+                    isLoading -> {
+                        Text(text = "Loading EPUB content...", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    error != null -> {
+                        Text(text = error ?: "Unknown Error", color = MaterialTheme.colorScheme.error)
+                    }
+                    htmlContent != null -> {
+                        Surface(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .padding(top = 84.dp, bottom = 24.dp)
+                                .fillMaxWidth()
+                                .fillMaxHeight()
+                                .graphicsLayer {
+                                    scaleX = scale
+                                    scaleY = scale
+                                    translationX = offset.x
+                                    translationY = offset.y
+                                },
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color.White,
+                            shadowElevation = 12.dp
+                        ) {
+                            AndroidView(
+                                factory = { context ->
+                                    WebView(context).apply {
+                                        webViewClient = WebViewClient()
+                                        settings.apply {
+                                            javaScriptEnabled = false
+                                            allowContentAccess = false
+                                            allowFileAccess = false
+                                        }
+                                    }
+                                },
+                                update = { webView ->
+                                    htmlContent?.let { content ->
+                                        val styledHtml = """
+                                        <html>
+                                        <head>
+                                            <style>
+                                                body {
+                                                    display: flex;
+                                                    flex-direction: column;
+                                                    align-items: center;
+                                                    justify-content: center;
+                                                    text-align: left;
+                                                    padding: 24px;
+                                                    font-family: sans-serif;
+                                                    line-height: 1.7;
+                                                    background-color: white;
+                                                }
+                                                img { max-width: 100%; height: auto; display: block; margin: 15px auto; }
+                                            </style>
+                                        </head>
+                                        <body>$content</body>
+                                        </html>
+                                    """.trimIndent()
+                                        webView.loadDataWithBaseURL(null, styledHtml, "text/html", "UTF-8", null)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            else -> {
-                TextViewer(filePath = filePath)
+                    }
+                    else -> {
+                        TextViewer(
+                            filePath = filePath,
+                            onZoomChanged = onZoomChanged,
+                            onTap = onTap
+                        )
+                    }
+                }
             }
         }
     }

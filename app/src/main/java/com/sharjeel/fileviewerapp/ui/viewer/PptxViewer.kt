@@ -4,35 +4,22 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -63,8 +50,11 @@ data class PptxElement(
 )
 
 @Composable
-fun PptxViewer(filePath: String) {
-    val context = LocalContext.current
+fun PptxViewer(
+    filePath: String,
+    onZoomChanged: (Boolean) -> Unit = {},
+    onTap: () -> Unit = {}
+) {
     var slides by remember { mutableStateOf<List<PptxSlide>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
@@ -81,47 +71,67 @@ fun PptxViewer(filePath: String) {
         isLoading = false
     }
 
-    // Fixed: Background converted to dynamic surface token to prevent high-contrast jarring borders
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 4.dp
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("Original Design View", style = MaterialTheme.typography.titleMedium)
-                    Text("High-fidelity local rendering", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                        val isUp = event.changes.any { it.changedToUp() }
+                        if (isUp && event.changes.size == 1) {
+                            onTap()
+                        }
+                    }
                 }
-                Button(
-                    onClick = { openPptxWithExternalApp(context, filePath) },
-                    shape = RoundedCornerShape(12.dp)
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        GestureCoordinatedBox(
+            onZoomChanged = onZoomChanged,
+            onTap = {} // Handled by outer Box
+        ) { scale, offset ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                } else {
+                    Surface(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 84.dp, bottom = 24.dp)
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = offset.x
+                            translationY = offset.y
+                        },
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color.White,
+                    shadowElevation = 12.dp
                 ) {
-                    Text("Full Edit Mode")
-                }
-            }
-        }
-
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                items(slides, key = { slide -> slide.index }) { slide ->
-                    SlideView(slide)
+                    androidx.compose.foundation.text.selection.SelectionContainer {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(24.dp)
+                        ) {
+                            items(slides, key = { slide -> slide.index }) { slide ->
+                                SlideView(slide)
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+}
 }
 
 @Composable
@@ -175,7 +185,6 @@ private fun parsePptxSlides(filePath: String): List<PptxSlide> {
             var refW = 9144000f
             var refH = 5143500f
 
-            // Safe Parsing Factory instantiation
             val dbf = DocumentBuilderFactory.newInstance().apply {
                 isNamespaceAware = true
             }
@@ -204,7 +213,6 @@ private fun parsePptxSlides(filePath: String): List<PptxSlide> {
             entries.forEachIndexed { index, entry ->
                 val elements = mutableListOf<PptxElement>()
 
-                // Explicit nested streaming closure
                 val doc = zip.getInputStream(entry).use { stream -> db.parse(stream) }
                 val shapes = doc.getElementsByTagNameNS("*", "sp")
 

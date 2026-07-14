@@ -3,10 +3,11 @@ package com.sharjeel.fileviewerapp.ui.ai
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.firebase.appcheck.appCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
-import com.sharjeel.fileviewerapp.BuildConfig // Ensure correct package import for BuildConfig
-import com.sharjeel.fileviewerapp.util.AIService
+import com.google.firebase.ai.GenerativeModel
+import com.google.firebase.Firebase
+import com.sharjeel.fileviewerapp.BuildConfig
 import com.sharjeel.fileviewerapp.util.TextExtractionUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -15,13 +16,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
 class AIViewModel @Inject constructor(
-    private val aiService: AIService
+    private val model: GenerativeModel // Hilt automatically injects the verified instance from FirebaseModule
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AIUiState>(AIUiState.Idle)
@@ -32,25 +32,20 @@ class AIViewModel @Inject constructor(
 
     private val tag = "AIViewModel_Debug"
 
-    // Global Exception Handler to catch unexpected coroutine failures cleanly
+    // Global Exception Handler to catch unexpected failures cleanly
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         _uiState.value = AIUiState.Error(throwable.localizedMessage ?: "An unexpected error occurred")
     }
 
     init {
-        // Automatically setup Debug Provider if the application is running in Debug Mode
+        // App Check setup for local development as per specs
         setupAppCheckDebugProvider()
     }
 
-    /**
-     * Development phase ke liye local debug provider setup karne ka method.
-     * Isko call karne se App Check automatically Logcat me temporary local debug token print kar deta hai.
-     */
     private fun setupAppCheckDebugProvider() {
         if (BuildConfig.DEBUG) {
             try {
-                val appCheckInstance = FirebaseAppCheck.getInstance()
-                appCheckInstance.installAppCheckProviderFactory(
+                Firebase.appCheck.installAppCheckProviderFactory(
                     DebugAppCheckProviderFactory.getInstance()
                 )
                 Log.d(tag, "App Check initialized with DebugAppCheckProviderFactory successfully.")
@@ -60,40 +55,10 @@ class AIViewModel @Inject constructor(
         }
     }
 
-
-    private suspend fun fetchAppCheckToken(): String? {
-        return withContext(Dispatchers.IO) {
-            try {
-                val appCheckInstance = FirebaseAppCheck.getInstance()
-                val tokenResult = appCheckInstance.getToken(false).await()
-
-                if (BuildConfig.DEBUG) {
-                    Log.d(tag, "Successfully generated App Check Token: ${tokenResult.token}")
-                }
-
-                tokenResult.token
-            } catch (e: Exception) {
-                if (BuildConfig.DEBUG) {
-                    Log.e(tag, "App Check Token fetch failed: ${e.message}", e)
-                }
-                e.printStackTrace()
-                null // Secure failure default
-            }
-        }
-    }
-
     fun summarizeFile(filePath: String) {
         viewModelScope.launch(Dispatchers.Main + exceptionHandler) {
-            _uiState.value = AIUiState.Loading("Verifying app identity & generating summary...")
+            _uiState.value = AIUiState.Loading("Extracting text and generating summary...")
 
-            // 1. Fetching App Check Token for secure AI backend validation
-            val appCheckToken = fetchAppCheckToken()
-            if (appCheckToken == null) {
-                _uiState.value = AIUiState.Error("Security verification failed (App Check rejected)")
-                return@launch
-            }
-
-            // 2. Offloading heavy file reading to I/O Thread
             val text = withContext(Dispatchers.IO) {
                 TextExtractionUtils.extractText(filePath)
             } ?: ""
@@ -103,12 +68,21 @@ class AIViewModel @Inject constructor(
                 return@launch
             }
 
-            // Note: pass appCheckToken to your backend service call if required by modifying your API signatures
-            val summary = aiService.summarizeDocument(text)
-            if (summary != null) {
-                _uiState.value = AIUiState.SummaryReady(summary)
-            } else {
-                _uiState.value = AIUiState.Error("Failed to generate summary")
+            try {
+                val prompt = "Provide a concise and structured summary of the following text:\n\n$text"
+
+                val response = withContext(Dispatchers.IO) {
+                    model.generateContent(prompt)
+                }
+
+                if (!response.text.isNullOrBlank()) {
+                    _uiState.value = AIUiState.SummaryReady(response.text!!)
+                } else {
+                    _uiState.value = AIUiState.Error("Failed to generate summary content.")
+                }
+            } catch (e: Exception) {
+                Log.e(tag, "Error during summarizeFile execution: ${e.message}", e)
+                _uiState.value = AIUiState.Error("AI Generation Failed: ${e.localizedMessage}")
             }
         }
     }
@@ -117,16 +91,8 @@ class AIViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Main + exceptionHandler) {
             if (question.isBlank()) return@launch
 
-            // Atomic state updates using .update to prevent race conditions
             val userMsg = ChatMessage(content = question, isUser = true)
             _chatMessages.update { it + userMsg }
-
-            // Fetching verification token for secure multi-turn context
-            val appCheckToken = fetchAppCheckToken()
-            if (appCheckToken == null) {
-                _chatMessages.update { it + ChatMessage("Error: Device verification failed via App Check.", isUser = false) }
-                return@launch
-            }
 
             val text = withContext(Dispatchers.IO) {
                 TextExtractionUtils.extractText(filePath)
@@ -137,44 +103,65 @@ class AIViewModel @Inject constructor(
                 return@launch
             }
 
-            // Collecting chunks safely and updating UI atomically
-            aiService.chatWithDocument(text, question).collect { chunk ->
-                if (!chunk.isNullOrEmpty()) {
-                    _chatMessages.update { currentList ->
-                        val lastMsg = currentList.lastOrNull()
-                        if (lastMsg != null && !lastMsg.isUser) {
-                            // Append chunk to the existing assistant message
-                            currentList.dropLast(1) + lastMsg.copy(content = lastMsg.content + chunk)
-                        } else {
-                            // First chunk received, create new message entry
-                            currentList + ChatMessage(content = chunk, isUser = false)
+            try {
+                val promptWithContext = "Context from file:\n$text\n\nQuestion: $question"
+
+                model.generateContentStream(promptWithContext).collect { chunk ->
+                    val chunkText = chunk.text
+                    if (!chunkText.isNullOrEmpty()) {
+                        _chatMessages.update { currentList ->
+                            val lastMsg = currentList.lastOrNull()
+                            if (lastMsg != null && !lastMsg.isUser) {
+                                currentList.dropLast(1) + lastMsg.copy(content = lastMsg.content + chunkText)
+                            } else {
+                                currentList + ChatMessage(content = chunkText, isUser = false)
+                            }
                         }
                     }
                 }
+            } catch (e: Exception) {
+                Log.e(tag, "Streaming conversation failure: ${e.message}", e)
+                _chatMessages.update { it + ChatMessage("Error: Stream interrupted. ${e.localizedMessage}", isUser = false) }
             }
         }
     }
 
     fun autoRename(filePath: String) {
         viewModelScope.launch(Dispatchers.Main + exceptionHandler) {
-            _uiState.value = AIUiState.Loading("Analyzing for auto-naming...")
-
-            // Security token acquisition block
-            val appCheckToken = fetchAppCheckToken()
-            if (appCheckToken == null) {
-                _uiState.value = AIUiState.Error("App Check token authentication failed.")
-                return@launch
-            }
+            _uiState.value = AIUiState.Loading("Analyzing text for structural naming...")
 
             val text = withContext(Dispatchers.IO) {
                 TextExtractionUtils.extractText(filePath)
             } ?: ""
 
-            val suggestion = aiService.suggestFileNameAndCategory(text)
-            if (suggestion != null) {
-                _uiState.value = AIUiState.NamingSuggestion(filePath, suggestion.first, suggestion.second)
-            } else {
-                _uiState.value = AIUiState.Error("Could not generate naming suggestion")
+            if (text.isBlank()) {
+                _uiState.value = AIUiState.Error("File is empty.")
+                return@launch
+            }
+
+            try {
+                val prompt = """
+                    Analyze this text and provide an optimal filename and a category.
+                    Respond ONLY in this exact format: Name, Category
+                    Example response: Invoice_2026, Finance
+                    
+                    Text: $text
+                """.trimIndent()
+
+                val response = withContext(Dispatchers.IO) { model.generateContent(prompt) }
+                val result = response.text
+
+                if (!result.isNullOrBlank() && result.contains(",")) {
+                    val parts = result.split(",", limit = 2)
+                    val suggestedName = parts[0].trim()
+                    val suggestedCategory = parts[1].trim()
+                    _uiState.value = AIUiState.NamingSuggestion(filePath, suggestedName, suggestedCategory)
+                } else {
+                    _uiState.value = AIUiState.Error("Could not clean raw naming output.")
+                }
+            } catch (e: Exception) {
+                Log.e(tag, "Auto-naming execution crash: ${e.message}", e)
+                _uiState.value = AIUiState.Error("Naming Failed: ${e.localizedMessage}")
             }
         }
     }
@@ -183,14 +170,7 @@ class AIViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Main + exceptionHandler) {
             if (prompt.isBlank()) return@launch
 
-            _uiState.value = AIUiState.Loading("Thinking...")
-
-            // Fetching App Check validation string
-            val appCheckToken = fetchAppCheckToken()
-            if (appCheckToken == null) {
-                _uiState.value = AIUiState.Error("Security verification failed via App Check.")
-                return@launch
-            }
+            _uiState.value = AIUiState.Loading("Processing system action...")
 
             val systemInstructions = """
                 You are the AI controller for 'File Viewer App'. 
@@ -210,22 +190,14 @@ class AIViewModel @Inject constructor(
                 
                 Example: NAVIGATE:RECENT or SEARCH:bills
                 If you don't understand, respond with UNKNOWN.
+                
+                User Prompt: $prompt
             """.trimIndent()
 
-            val combinedPrompt = "$systemInstructions\n\nUser Prompt: $prompt"
-
-            val commandBuilder = StringBuilder()
-
             try {
-                aiService.chatWithDocument("", combinedPrompt).collect { chunk ->
-                    if (chunk != null) {
-                        commandBuilder.append(chunk)
-                    }
-                }
+                val response = withContext(Dispatchers.IO) { model.generateContent(systemInstructions) }
+                val finalCommand = response.text?.trim() ?: "UNKNOWN"
 
-                val finalCommand = commandBuilder.toString().trim()
-
-                // Clean the output from possible AI artifacts
                 val sanitizedCommand = finalCommand
                     .replace("\"", "")
                     .replace("'", "")
@@ -239,7 +211,8 @@ class AIViewModel @Inject constructor(
                     _uiState.value = AIUiState.AppAction(sanitizedCommand)
                 }
             } catch (e: Exception) {
-                _uiState.value = AIUiState.Error("AI Connection failed: ${e.message}")
+                Log.e(tag, "Command orchestration crash: ${e.message}", e)
+                _uiState.value = AIUiState.Error("Action parsing failure: ${e.message}")
             }
         }
     }

@@ -10,19 +10,43 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.rounded.Forward10
-import androidx.compose.material.icons.rounded.Replay10
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -45,6 +69,7 @@ import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
 import kotlinx.coroutines.delay
 import java.io.File
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.milliseconds
 import androidx.annotation.OptIn as AOptIn
 import kotlin.OptIn as KOptIn
 
@@ -90,7 +115,7 @@ fun VideoViewer(
                     true
                 )
                 setSeekParameters(SeekParameters.CLOSEST_SYNC)
-                setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT)
+                videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
             }
     }
 
@@ -136,7 +161,7 @@ fun VideoViewer(
         if (isPlaying) {
             while (true) {
                 currentPosition = exoPlayer.currentPosition
-                delay(250) // High precision tracing rate (4Hz) for stable frame-to-seek alignment
+                delay(250.milliseconds) // High precision tracing rate (4Hz) for stable frame-to-seek alignment
             }
         }
     }
@@ -144,6 +169,7 @@ fun VideoViewer(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .pointerInput(Unit) { /* Consume events to prevent accidental pager swipes during playback */ }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
@@ -299,7 +325,10 @@ fun VideoViewerContent(
                                 contentDescription = "Previous", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                         }
                         IconButton(onClick = onReplay15s, modifier = Modifier.size(if (isLandscape) 48.dp else 56.dp)) {
-                            Icon(Icons.Rounded.Replay10, contentDescription = "-15s", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(32.dp))
+                            Icon(painter = painterResource(id = R.drawable.reset_update_icon),
+                                contentDescription = "-15s",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(32.dp))
                         }
                         Surface(
                             onClick = onTogglePlay,
@@ -317,7 +346,10 @@ fun VideoViewerContent(
                             }
                         }
                         IconButton(onClick = onForward15s, modifier = Modifier.size(if (isLandscape) 48.dp else 56.dp)) {
-                            Icon(Icons.Rounded.Forward10, contentDescription = "+15s", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(32.dp))
+                            Icon(painter = painterResource(id = R.drawable.forward_restore_icon),
+                                contentDescription = "+15s",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(32.dp))
                         }
                         IconButton(onClick = onNext, modifier = Modifier.size(if (isLandscape) 40.dp else 48.dp)) {
                             Icon(painter = painterResource(id = R.drawable.step_forward_icon),

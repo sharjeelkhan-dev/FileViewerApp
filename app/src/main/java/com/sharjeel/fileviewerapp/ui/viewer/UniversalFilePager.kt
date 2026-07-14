@@ -20,8 +20,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import com.sharjeel.fileviewerapp.domain.model.FileModel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -46,6 +44,8 @@ fun UniversalFilePager(
         pageCount = { filePlaylist.size },
     )
     val scope = rememberCoroutineScope()
+
+    // Tracks if the current file is actively being pinched or zoomed
     var isCurrentPageZoomed by remember { mutableStateOf(false) }
 
     LaunchedEffect(targetInitialPage) {
@@ -66,34 +66,32 @@ fun UniversalFilePager(
             }
     }
 
-    // 🎯 FIXED: derivedStateOf ka istemal kiya taake pager State change hote hi background composition breakdown ke bina update ho jaye
-    val isMediaOrPdf by remember(filePlaylist) {
+    // Strict type enforcement logic: Swipe ONLY allowed for Images.
+    // PDF, DOCX, TXT, etc., are locked to prevent accidental navigation while reading.
+    val isSwipeAllowed by remember(filePlaylist, isCurrentPageZoomed) {
         derivedStateOf {
             val currentPage = pagerState.currentPage
-            if (currentPage in filePlaylist.indices) {
+            if (currentPage in filePlaylist.indices && !isCurrentPageZoomed) {
                 val ext = filePlaylist[currentPage].extension.lowercase()
-                ext in listOf(
-                    "pdf", "mp3", "wav", "flac", "opus", "ogg",
-                    "mp4", "mkv", "avi", "webm", "3gp", "jpg", "png", "webp", "gif", "jpeg"
-                )
+                // Only Images allow horizontal swiping between files
+                ext in listOf("jpg", "png", "webp", "gif", "jpeg")
             } else false
         }
     }
 
-    // 🎯 Use the themed background for all content types to match the new slate corporate palette
     val pagerBackgroundColor = MaterialTheme.colorScheme.background
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(pagerBackgroundColor) // Fixed: Enforces precise dark mode state on the root wrapper
+            .background(pagerBackgroundColor)
     ) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
             key = { index -> if (index in filePlaylist.indices) filePlaylist[index].path else index },
-            userScrollEnabled = !isCurrentPageZoomed,
-            beyondViewportPageCount = 0
+            userScrollEnabled = isSwipeAllowed,
+            beyondViewportPageCount = 0 // 🎯 FIXED: Set to 0 to prevent OOM/Crashes when swiping between heavy documents
         ) { page ->
             if (page in filePlaylist.indices) {
                 FileContentRenderer(
@@ -122,6 +120,7 @@ fun UniversalFilePager(
     }
 }
 
+// 🎯 FIXED: Added the complete missing renderer function here
 @Composable
 fun FileContentRenderer(
     file: FileModel,
@@ -173,8 +172,44 @@ fun FileContentRenderer(
             )
         }
 
-        "txt", "log", "json", "xml", "kt", "java" -> {
-            TextViewer(filePath = file.path)
+        "txt", "log", "json", "xml", "kt", "java", "csv", "docx", "doc" -> {
+            TextViewer(
+                filePath = file.path,
+                onZoomChanged = onZoomChanged,
+                onTap = onToggleControls
+            )
+        }
+
+        "xlsx", "xls" -> {
+            XlsxViewer(
+                filePath = file.path,
+                onZoomChanged = onZoomChanged,
+                onTap = onToggleControls
+            )
+        }
+
+        "epub" -> {
+            EpubViewer(
+                filePath = file.path,
+                onZoomChanged = onZoomChanged,
+                onTap = onToggleControls
+            )
+        }
+
+        "pptx", "ppt" -> {
+            PptxViewer(
+                filePath = file.path,
+                onZoomChanged = onZoomChanged,
+                onTap = onToggleControls
+            )
+        }
+
+        "html", "htm" -> {
+            WebViewViewer(
+                filePath = file.path,
+                onZoomChanged = onZoomChanged,
+                onTap = onToggleControls
+            )
         }
 
         else -> {

@@ -1,5 +1,6 @@
 package com.sharjeel.fileviewerapp.ui.viewer
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.Alignment
@@ -7,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Share
@@ -117,7 +119,11 @@ private fun FileViewerContent(
     val isVideo = effectiveFileType in listOf("mp4", "mkv", "avi", "webm", "3gp")
     val isImage = effectiveFileType in listOf("jpg", "png", "webp", "gif", "jpeg")
     val isPdf = effectiveFileType == "pdf"
+    val isText = effectiveFileType in listOf("txt", "log", "json", "xml", "kt", "java", "csv")
+    val isOffice = effectiveFileType in listOf("docx", "doc", "xlsx", "xls", "pptx", "ppt", "epub")
+    
     val isMedia = isAudio || isVideo || isImage
+    val isAnyDocument = isPdf || isText || isOffice
 
     var showAISummary by remember { mutableStateOf(false) }
 
@@ -159,7 +165,12 @@ private fun FileViewerContent(
                         Spacer(modifier = Modifier.height(8.dp))
                         when (aiUiState) {
                             is AIUiState.Loading -> CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                            is AIUiState.SummaryReady -> Text(aiUiState.summary, style = MaterialTheme.typography.bodyMedium)
+                            is AIUiState.SummaryReady -> {
+                                // 🎯 FIXED: Wrapped AI Summary in SelectionContainer
+                                androidx.compose.foundation.text.selection.SelectionContainer {
+                                    Text(aiUiState.summary, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
                             is AIUiState.Error -> Text(aiUiState.message, color = MaterialTheme.colorScheme.error)
                             else -> Text("Generating summary...")
                         }
@@ -178,11 +189,14 @@ private fun FileViewerContent(
                                 shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier.fillMaxWidth(0.85f)
                             ) {
-                                Text(
-                                    msg.content,
-                                    modifier = Modifier.padding(12.dp),
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                // 🎯 FIXED: Wrapped Chat Messages in SelectionContainer
+                                androidx.compose.foundation.text.selection.SelectionContainer {
+                                    Text(
+                                        msg.content,
+                                        modifier = Modifier.padding(12.dp),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
                             }
                         }
                     }
@@ -218,8 +232,46 @@ private fun FileViewerContent(
     val topAppBarContentColor = MaterialTheme.colorScheme.onSurface
 
     AppScaffold(
-        topBar = {
-            if (controlsVisible || (!isMedia && !isPdf)) {
+        containerColor = scaffoldContainerColor,
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(scaffoldContainerColor)
+        ) {
+            // Main Content - Full Screen (Ignoring top bar padding to prevent jumping)
+            Box(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                if (filePlaylist.isNotEmpty()) {
+                    UniversalFilePager(
+                        filePlaylist = filePlaylist,
+                        initialIndex = filePlaylist.indexOfFirst { it.path == effectiveFilePath }.coerceAtLeast(0),
+                        controlsVisible = controlsVisible,
+                        onToggleControls = { controlsVisible = !controlsVisible },
+                        onFileChanged = { /* Centralized handle check block */ },
+                        onIndexChanged = onUpdateFileIndex
+                    )
+                } else {
+                    FileContentRenderer(
+                        file = fileModel,
+                        controlsVisible = controlsVisible,
+                        isActive = true,
+                        onZoomChanged = {},
+                        onToggleControls = { controlsVisible = !controlsVisible },
+                        onNext = {},
+                        onPrevious = {}
+                    )
+                }
+            }
+
+            // Top Bar Overlay - Prevents "jumping" content when hidden/shown
+            AnimatedVisibility(
+                visible = controlsVisible,
+                enter = fadeIn() + slideInVertically(),
+                exit = fadeOut() + slideOutVertically(),
+                modifier = Modifier.align(Alignment.TopCenter)
+            ) {
                 TopAppBar(
                     title = {
                         Text(
@@ -296,6 +348,28 @@ private fun FileViewerContent(
                                     }
                                 )
 
+                                // 🎯 FIXED: Added Copy Text functionality for documents
+                                if (isPdf || effectiveFileType in listOf("txt", "docx", "doc", "json", "xml", "kt", "java", "log", "csv")) {
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                                    DropdownMenuItem(
+                                        text = { Text("Copy All Text") },
+                                        onClick = {
+                                            showMenu = false
+                                            val text = com.sharjeel.fileviewerapp.util.TextExtractionUtils.extractText(effectiveFilePath)
+                                            if (!text.isNullOrBlank()) {
+                                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                                val clip = android.content.ClipData.newPlainText("File Text", text)
+                                                clipboard.setPrimaryClip(clip)
+                                                android.widget.Toast.makeText(context, "Text copied to clipboard", android.widget.Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                android.widget.Toast.makeText(context, "No text found to copy", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        leadingIcon = { Icon(Icons.Rounded.ContentCopy, contentDescription = null) }
+                                    )
+                                }
+
                                 if (isPdf || effectiveFileType == "txt") {
                                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
@@ -321,52 +395,13 @@ private fun FileViewerContent(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = topAppBarContainerColor,
+                        containerColor = topAppBarContainerColor.copy(alpha = 0.9f),
                         titleContentColor = topAppBarContentColor,
                         navigationIconContentColor = topAppBarContentColor,
                         actionIconContentColor = topAppBarContentColor
                     ),
                     windowInsets = if (isLandscape) WindowInsets(0, 0, 0, 0) else TopAppBarDefaults.windowInsets
                 )
-            }
-        },
-        containerColor = scaffoldContainerColor,
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(scaffoldContainerColor)
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    if (filePlaylist.isNotEmpty()) {
-                        UniversalFilePager(
-                            filePlaylist = filePlaylist,
-                            initialIndex = filePlaylist.indexOfFirst { it.path == effectiveFilePath }.coerceAtLeast(0),
-                            controlsVisible = controlsVisible,
-                            onToggleControls = { controlsVisible = !controlsVisible },
-                            onFileChanged = { /* Centralized handle check block */ },
-                            onIndexChanged = onUpdateFileIndex
-                        )
-                    } else {
-                        FileContentRenderer(
-                            file = fileModel,
-                            controlsVisible = controlsVisible,
-                            isActive = true,
-                            onZoomChanged = {},
-                            onToggleControls = { controlsVisible = !controlsVisible },
-                            onNext = {},
-                            onPrevious = {}
-                        )
-                    }
-                }
             }
         }
     }

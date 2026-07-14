@@ -1,14 +1,23 @@
 package com.sharjeel.fileviewerapp.ui.viewer
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,7 +28,11 @@ import org.w3c.dom.Element
 import org.w3c.dom.Node
 
 @Composable
-fun DocxViewer(filePath: String) {
+fun DocxViewer(
+    filePath: String,
+    onZoomChanged: (Boolean) -> Unit = {},
+    onTap: () -> Unit = {}
+) {
     var content by remember { mutableStateOf("Loading...") }
 
     LaunchedEffect(filePath) {
@@ -35,14 +48,64 @@ fun DocxViewer(filePath: String) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                        val isUp = event.changes.any { it.changedToUp() }
+                        if (isUp && event.changes.size == 1) {
+                            onTap()
+                        }
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = content,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        GestureCoordinatedBox(
+            onZoomChanged = onZoomChanged,
+            onTap = {} // Handled by outer Box
+        ) { scale, offset ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 84.dp, bottom = 24.dp)
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = offset.x
+                            translationY = offset.y
+                        },
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color.White,
+                    shadowElevation = 12.dp
+                ) {
+                    SelectionContainer {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                .padding(24.dp)
+                        ) {
+                            Text(
+                                text = content,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFF2C2C2C),
+                                textAlign = TextAlign.Start,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -59,7 +122,6 @@ private fun extractTextFromDocx(filePath: String): String {
             val entry = zip.getEntry("word/document.xml")
                 ?: return "Not a valid DOCX file (missing word/document.xml)"
 
-            // Stream explicit automatic closure inside use block
             val result = zip.getInputStream(entry).use { inputStream ->
                 val factory = DocumentBuilderFactory.newInstance().apply {
                     isNamespaceAware = true
@@ -73,7 +135,6 @@ private fun extractTextFromDocx(filePath: String): String {
                 for (i in 0 until pList.length) {
                     val pNode = pList.item(i)
 
-                    // Direct unsafe casting avoided via Element interface assertion check
                     if (pNode.nodeType == Node.ELEMENT_NODE) {
                         val pElement = pNode as Element
                         val tList = pElement.getElementsByTagNameNS("*", "t")

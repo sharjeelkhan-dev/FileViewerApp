@@ -5,45 +5,69 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import androidx.annotation.OptIn as AOptIn
-import kotlin.OptIn as KOptIn
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.sharjeel.fileviewerapp.R
-import androidx.compose.ui.tooling.preview.Preview
 import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
 import kotlinx.coroutines.delay
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
+import androidx.annotation.OptIn as AOptIn
+import kotlin.OptIn as KOptIn
 
 @AOptIn(UnstableApi::class)
 @Composable
@@ -188,16 +212,15 @@ fun AudioViewerContent(
         }
 
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 40.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Album Art Container
+            // Album Art Container - Perfectly Centered
             Box(
                 modifier = Modifier
                     .size(280.dp)
-                    .offset(y = (-40).dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(24.dp))
                     .background(surfaceVariantColor),
                 contentAlignment = Alignment.Center
             ) {
@@ -302,7 +325,7 @@ fun AudioViewerContent(
                         }
                         IconButton(onClick = onReplay15s) {
                             Icon(
-                                imageVector = Icons.Rounded.Replay10,
+                                painter = painterResource(id = R.drawable.reset_update_icon),
                                 contentDescription = "-10s",
                                 tint = onBackgroundColor,
                                 modifier = Modifier.size(32.dp)
@@ -326,7 +349,7 @@ fun AudioViewerContent(
                         }
                         IconButton(onClick = onForward15s) {
                             Icon(
-                                imageVector = Icons.Rounded.Forward10,
+                                painter = painterResource(id = R.drawable.forward_restore_icon),
                                 contentDescription = "+10s",
                                 tint = onBackgroundColor,
                                 modifier = Modifier.size(32.dp)

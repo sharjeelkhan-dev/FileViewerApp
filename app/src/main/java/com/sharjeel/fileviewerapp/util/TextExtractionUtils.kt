@@ -15,23 +15,25 @@ object TextExtractionUtils {
         
         return try {
             when (file.extension.lowercase()) {
-                "txt", "csv", "log", "json", "xml" -> file.readText()
+                "txt", "csv", "log", "json", "xml", "kt", "java", "md" -> file.readText()
                 "docx" -> {
-                    val fis = FileInputStream(file)
-                    val doc = XWPFDocument(fis)
-                    val extractor = XWPFWordExtractor(doc)
-                    val text = extractor.text
-                    extractor.close()
-                    fis.close()
-                    text
+                    FileInputStream(file).use { fis ->
+                        XWPFDocument(fis).use { doc ->
+                            XWPFWordExtractor(doc).use { extractor ->
+                                // Extraction limit raised to 5MB to ensure "All Text" actually means all
+                                extractor.text
+                            }
+                        }
+                    }
                 }
                 "pdf" -> {
+                    // PDF text extraction limit also removed/increased
                     extractPdfText(filePath)
                 }
-                // For other files, try to read as text but limited
+                // For other files, try to read as text
                 else -> {
                     try {
-                        file.readText().take(5000)
+                        file.readText()
                     } catch (e: Exception) {
                         null
                     }
