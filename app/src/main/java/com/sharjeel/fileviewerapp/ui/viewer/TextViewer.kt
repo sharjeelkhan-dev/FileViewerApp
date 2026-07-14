@@ -6,8 +6,6 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -22,8 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -57,7 +53,6 @@ fun TextViewer(
                 if (extractedText == null) {
                     TextUiState.Error("Could not extract text from this file.")
                 } else {
-                    // Optimized chunking to mimic PDF pages (approx 1800 chars per page)
                     val chunks = extractedText.chunked(1800)
                     TextUiState.Success(chunks.take(1000))
                 }
@@ -72,28 +67,7 @@ fun TextViewer(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(finalBgColor)
-            // 🎯 FIXED: Smart Tap Detection (Initial Pass)
-            // Header ab sirf tab toggle hoga jab aap waqayi tap karenge.
-            // Scroll ya Zoom karte waqt header baar-baar nahi aayega.
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(pass = PointerEventPass.Initial)
-                    var isTap = true
-                    while (true) {
-                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                        // Agar finger touch slop se zyada move ho gayi, to ye tap nahi hai
-                        if (event.changes.any { (it.position - down.position).getDistance() > viewConfiguration.touchSlop }) {
-                            isTap = false
-                        }
-                        // Jab finger lift ho jaye
-                        if (event.changes.all { !it.pressed }) {
-                            if (isTap) onTap()
-                            break
-                        }
-                    }
-                }
-            },
+            .background(finalBgColor),
         contentAlignment = Alignment.Center
     ) {
         when (val state = uiState) {
@@ -112,9 +86,10 @@ fun TextViewer(
                 )
             }
             is TextUiState.Success -> {
+                // ⭐ PDF VIEW REGIME: Pura touch coordinator sirf ye hi box manage karega
                 GestureCoordinatedBox(
                     onZoomChanged = onZoomChanged,
-                    onTap = { /* Handled by outer Box to prevent double-toggle */ }
+                    onTap = onTap
                 ) { scale, offset ->
                     LazyColumn(
                         modifier = Modifier
@@ -130,10 +105,10 @@ fun TextViewer(
                         contentPadding = PaddingValues(
                             start = 16.dp,
                             end = 16.dp,
-                            top = 96.dp, 
-                            bottom = 48.dp
+                            top = 80.dp,
+                            bottom = 32.dp
                         ),
-                        verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically),
+                        verticalArrangement = Arrangement.spacedBy(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         items(state.pages.size, key = { index -> "$filePath-$index" }) { index ->
@@ -151,14 +126,14 @@ fun TextViewer(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 32.dp),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(20.dp),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
                     contentColor = MaterialTheme.colorScheme.onSurface,
-                    shadowElevation = 10.dp,
+                    shadowElevation = 8.dp,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
@@ -172,7 +147,7 @@ fun TextViewer(
                         Text(
                             text = "${firstVisibleItem + 1} / ${state.pages.size}",
                             style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -196,36 +171,42 @@ fun TextPageItem(
             .wrapContentHeight(),
         shape = RoundedCornerShape(4.dp),
         color = Color.White,
-        shadowElevation = 8.dp,
-        border = BorderStroke(0.5.dp, Color.LightGray.copy(alpha = 0.5f))
+        shadowElevation = 6.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(28.dp)
+                .padding(24.dp)
         ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 12.dp)
+            ) {
                 Text(
-                    text = "Page ${index + 1}",
-                    style = MaterialTheme.typography.labelSmall.copy(
+                    text = "--- Page ${index + 1} ---",
+                    style = MaterialTheme.typography.labelMedium.copy(
                         color = Color.Gray,
-                        letterSpacing = 1.5.sp
+                        letterSpacing = 2.sp
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp),
+                        .padding(bottom = 12.dp),
                     textAlign = TextAlign.Center
                 )
 
+                // ⭐ PDF Screen ki tarah SelectionContainer ko text reading block ke limit me rakha h
+                // Is se double tap, drag ya select pure card ka gesture block nahi karta
                 SelectionContainer {
                     Text(
                         text = pageText,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            lineHeight = 24.sp,
+                            lineHeight = 22.sp,
                             fontFamily = FontFamily.Monospace,
-                            letterSpacing = 0.4.sp
+                            letterSpacing = 0.5.sp
                         ),
-                        color = Color(0xFF333333),
+                        color = Color(0xFF2C2C2C),
                         textAlign = TextAlign.Start,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -235,23 +216,23 @@ fun TextPageItem(
             IconButton(
                 onClick = {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    val clip = ClipData.newPlainText("Copied Text Page ${index + 1}", pageText)
+                    val clip = ClipData.newPlainText("Copied Document Page ${index + 1}", pageText)
                     clipboard.setPrimaryClip(clip)
-                    Toast.makeText(context, "Page ${index + 1} copied!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Page ${index + 1} text copied!", Toast.LENGTH_SHORT).show()
                 },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
                         shape = RoundedCornerShape(8.dp)
                     )
-                    .size(32.dp)
+                    .size(36.dp)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.ContentCopy,
-                    contentDescription = "Copy Page",
+                    contentDescription = "Copy Page Text",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }

@@ -202,7 +202,7 @@ fun PdfPageItem(
                 synchronized(renderer) {
                     try {
                         pageToRender = renderer.openPage(index)
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         return@withContext
                     }
                 }
@@ -220,7 +220,7 @@ fun PdfPageItem(
                             page.render(tempBitmap!!, null,
                                 null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                             page.close()
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             tempBitmap?.recycle()
                             tempBitmap = null
                         }
@@ -233,7 +233,7 @@ fun PdfPageItem(
                 }
                 if (!textCache.containsKey(index) && tempBitmap != null) {
                     isExtracting = true
-                    val image = InputImage.fromBitmap(tempBitmap!!, 0)
+                    val image = InputImage.fromBitmap(tempBitmap, 0)
 
                     textRecognizer.process(image)
                         .addOnSuccessListener { visionText ->
