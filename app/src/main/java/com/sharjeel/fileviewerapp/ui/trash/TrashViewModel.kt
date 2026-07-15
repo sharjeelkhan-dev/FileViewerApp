@@ -1,5 +1,6 @@
 package com.sharjeel.fileviewerapp.ui.trash
 
+import android.os.Environment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sharjeel.fileviewerapp.domain.repository.FileRepository
@@ -10,13 +11,10 @@ import com.sharjeel.fileviewerapp.ui.explorer.SortType
 import com.sharjeel.fileviewerapp.ui.explorer.ViewMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import android.os.Environment
 
 @HiltViewModel
 class TrashViewModel @Inject constructor(

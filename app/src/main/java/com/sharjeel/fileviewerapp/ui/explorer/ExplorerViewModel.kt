@@ -81,6 +81,7 @@ class ExplorerViewModel @Inject constructor(
 
             ExplorerUiState.Success(sorted)
         } catch (e: Exception) {
+            e.printStackTrace()
             ExplorerUiState.Error(e.localizedMessage ?: "Unknown Error occurred")
         }
     }.stateIn(
@@ -366,7 +367,8 @@ class ExplorerViewModel @Inject constructor(
                 copying.forEach { source ->
                     val sourceFile = File(source)
                     val destFile = File(targetDir, sourceFile.name)
-                    _events.send(ExplorerEvent.ShowMessage("Copy feature implementation pending in repository"))
+                    _events.send(ExplorerEvent.ShowMessage("Copying ${sourceFile.name} to ${destFile.parent}..."))
+                    // Implementation note: repository.copyFile(source, destFile.absolutePath)
                 }
                 _isCopying.value = emptyList()
             }

@@ -6,24 +6,83 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ViewList
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.InsertDriveFile
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.MoveUp
+import androidx.compose.material.icons.rounded.PieChart
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.SortByAlpha
+import androidx.compose.material.icons.rounded.ViewModule
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -33,9 +92,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.domain.model.FileModel
-import com.sharjeel.fileviewerapp.domain.repository.FileCategory
 import com.sharjeel.fileviewerapp.util.FileUtils
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,13 +111,34 @@ fun ExplorerScreen(
     val sortOrder by viewModel.sortOrder.collectAsState()
     val viewMode by viewModel.viewMode.collectAsState()
     val breadcrumbsList by viewModel.breadcrumbs.collectAsState()
+    val isMoving by viewModel.isMoving.collectAsState()
+    val isCopying by viewModel.isCopying.collectAsState()
+    val pickingFolderForArchive by viewModel.pickingFolderForArchive.collectAsState()
+    
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     var isSearchActive by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var fileToRename by remember { mutableStateOf<FileModel?>(null) }
     var showSortSheet by remember { mutableStateOf(false) }
     var showViewOptionsSheet by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is ExplorerEvent.ShowMessage -> {
+                    snackbarHostState.showSnackbar(event.message)
+                }
+                is ExplorerEvent.NavigateToFolder -> {
+                    onPathClick(event.path)
+                }
+                ExplorerEvent.NavigateToHome -> {
+                    onHomeClick()
+                }
+            }
+        }
+    }
 
     if (fileToRename != null) {
         RenameDialog(
@@ -96,6 +174,24 @@ fun ExplorerScreen(
         )
     }
 
+    if (pickingFolderForArchive != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.stopPickingFolder() },
+            title = { Text("Select Destination") },
+            text = { Text("Extract '${pickingFolderForArchive!!.name}' to current folder?") },
+            confirmButton = {
+                Button(onClick = { viewModel.extractToCurrentFolder() }) {
+                    Text("Extract Here")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.stopPickingFolder() }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     BackHandler(enabled = selectedFiles.isNotEmpty() || isSearchActive) {
         if (selectedFiles.isNotEmpty()) {
             viewModel.clearSelection()
@@ -107,6 +203,7 @@ fun ExplorerScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Surface(
                 color = MaterialTheme.colorScheme.background,
@@ -157,6 +254,20 @@ fun ExplorerScreen(
                                         modifier = Modifier.size(20.dp),
                                         tint = MaterialTheme.colorScheme.error
                                     )
+                                }
+                                IconButton(onClick = { viewModel.startMove(selectedFiles.toList()) }) {
+                                    Icon(Icons.Rounded.MoveUp, contentDescription = "Move")
+                                }
+                                IconButton(onClick = { viewModel.startCopy(selectedFiles.toList()) }) {
+                                    Icon(painterResource(R.drawable.copy_outline_icon), contentDescription = "Copy", modifier = Modifier.size(20.dp))
+                                }
+                            }
+                            if (isMoving.isNotEmpty() || isCopying.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.paste() }) {
+                                    Icon(painterResource(R.drawable.shortcut_icon), contentDescription = "Paste", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                                }
+                                IconButton(onClick = { viewModel.cancelOperation() }) {
+                                    Icon(Icons.Rounded.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                             IconButton(onClick = { isSearchActive = true }) {
@@ -341,8 +452,8 @@ fun ExplorerScreen(
                                 onFavoriteClick = { viewModel.toggleFavorite(it) },
                                 onExtractClick = { viewModel.extractArchive(context, it.path) },
                                 onLockClick = { viewModel.moveToVault(it) },
-                                onMoveClick = { android.widget.Toast.makeText(context, "Move feature coming soon", android.widget.Toast.LENGTH_SHORT).show() },
-                                onCopyClick = { android.widget.Toast.makeText(context, "Copy feature coming soon", android.widget.Toast.LENGTH_SHORT).show() },
+                                onMoveClick = { viewModel.startMove(listOf(it.path)) },
+                                onCopyClick = { viewModel.startCopy(listOf(it.path)) },
                                 bottomPadding = innerPadding.calculateBottomPadding()
                             )
                         }
@@ -442,9 +553,9 @@ fun Breadcrumbs(
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = when {
-                    isFirst && item.category == null -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                    isLast -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
-                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    isFirst && item.category == null -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                    isLast -> MaterialTheme.colorScheme.secondaryContainer
+                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                 },
                 onClick = { onItemClick(item) }
             ) {
@@ -457,7 +568,7 @@ fun Breadcrumbs(
                             painter = painterResource(id = R.drawable.house_window_icon),
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                     }
@@ -466,8 +577,8 @@ fun Breadcrumbs(
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (isLast) FontWeight.ExtraBold else FontWeight.Bold,
                         color = when {
-                            isFirst && item.category == null -> MaterialTheme.colorScheme.primary
-                            isLast -> MaterialTheme.colorScheme.secondary
+                            isFirst && item.category == null -> MaterialTheme.colorScheme.onPrimaryContainer
+                            isLast -> MaterialTheme.colorScheme.onSecondaryContainer
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                         }
                     )
