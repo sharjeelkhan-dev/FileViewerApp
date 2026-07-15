@@ -2,8 +2,10 @@ package com.sharjeel.fileviewerapp.ui.trash
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +33,7 @@ fun TrashScreen(
     val viewMode by viewModel.viewMode.collectAsState()
     val sortType by viewModel.sortType.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
+    val breadcrumbsList by viewModel.breadcrumbs.collectAsState()
 
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -51,6 +54,7 @@ fun TrashScreen(
         sortType = sortType,
         sortOrder = sortOrder,
         searchQuery = searchQuery,
+        breadcrumbsList = breadcrumbsList,
         onBackClick = onBackClick,
         onFileClick = { file ->
             if (selectedFiles.isNotEmpty()) {
@@ -77,6 +81,7 @@ fun TrashContent(
     sortType: SortType,
     sortOrder: SortOrder,
     searchQuery: String,
+    breadcrumbsList: List<BreadcrumbItem>,
     onBackClick: () -> Unit,
     onFileClick: (FileModel) -> Unit,
     onFileLongClick: (FileModel) -> Unit,
@@ -91,15 +96,12 @@ fun TrashContent(
 
     val isPreview = LocalInspectionMode.current
 
-    // Determine if content actually exists to decide top bar visibility
     val hasContent = when (uiState) {
-        is ExplorerUiState.Success -> {
-            val filteredFiles = if (searchQuery.isBlank()) uiState.files
-            else uiState.files.filter { it.name.contains(searchQuery, ignoreCase = true) }
-            filteredFiles.isNotEmpty()
-        }
+        is ExplorerUiState.Success -> uiState.files.isNotEmpty()
         else -> false
     }
+    
+    val shouldShowHeaders = hasContent || selectedFiles.isNotEmpty()
 
     if (!isPreview) {
         if (showSortSheet && hasContent) {
@@ -129,7 +131,7 @@ fun TrashContent(
     AppScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            if (hasContent) {
+            if (shouldShowHeaders) {
                 TopAppBar(
                     title = {
                         Text(
@@ -152,38 +154,28 @@ fun TrashContent(
                     actions = {
                         if (selectedFiles.isNotEmpty()) {
                             IconButton(onClick = onRestoreSelected) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.reload_sync_icon),
+                                Icon(painter = painterResource(id = R.drawable.reload_sync_icon),
                                     contentDescription = "Restore",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
+                                    tint = MaterialTheme.colorScheme.primary)
                             }
                             IconButton(onClick = onDeleteSelectedPermanently) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.recycle_bin_line_icon),
+                                Icon(painter = painterResource(id = R.drawable.recycle_bin_line_icon),
                                     modifier = Modifier.size(24.dp),
                                     contentDescription = "Delete Permanently",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
+                                    tint = MaterialTheme.colorScheme.error)
                             }
                         } else {
                             IconButton(onClick = onEmptyTrash) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.recycle_bin_line_icon),
+                                Icon( painter = painterResource(id = R.drawable.recycle_bin_line_icon),
                                     contentDescription = "Empty Trash",
                                     modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.error
-                                )
+                                    tint = MaterialTheme.colorScheme.error)
                             }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
-                        actionIconContentColor = MaterialTheme.colorScheme.onBackground
-                    ),
-                    windowInsets = WindowInsets.statusBars
+                        containerColor = MaterialTheme.colorScheme.background
+                    )
                 )
             }
         }
@@ -204,7 +196,6 @@ fun TrashContent(
                     else uiState.files.filter { it.name.contains(searchQuery, ignoreCase = true) }
 
                     if (filteredFiles.isEmpty()) {
-                        // Clean, minimal full screen view (No headers, no sheets, clean center back button)
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -230,20 +221,22 @@ fun TrashContent(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                 )
+                                Spacer(modifier = Modifier.height(28.dp))
+                                Button(
+                                    onClick = onBackClick,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Go Back")
+                                }
                             }
                         }
                     } else {
-                        if (isPreview) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                filteredFiles.forEach { file ->
-                                    Text(
-                                        text = "📁 ${file.name}",
-                                        modifier = Modifier.padding(vertical = 8.dp),
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                }
-                            }
-                        } else {
+                        Column {
+                            Breadcrumbs(
+                                items = breadcrumbsList,
+                                onItemClick = { }
+                            )
+                            
                             FileList(
                                 files = filteredFiles,
                                 selectedFiles = selectedFiles,
@@ -282,6 +275,10 @@ fun TrashScreenPreview() {
         FileModel("Song.mp3", "/Trash/Song.mp3", 4000L, System.currentTimeMillis(), false, "mp3"),
         FileModel("Photo.png", "/Trash/Photo.png", 200L, System.currentTimeMillis(), false, "png")
     )
+    val mockBreadcrumbs = listOf(
+        BreadcrumbItem("Internal Storage", "/root", null),
+        BreadcrumbItem("Recycle Bin", "", null)
+    )
     MaterialTheme {
         TrashContent(
             uiState = ExplorerUiState.Success(files = mockFiles),
@@ -290,6 +287,7 @@ fun TrashScreenPreview() {
             sortType = SortType.NAME,
             sortOrder = SortOrder.ASCENDING,
             searchQuery = "",
+            breadcrumbsList = mockBreadcrumbs,
             onBackClick = {},
             onFileClick = {},
             onFileLongClick = {},

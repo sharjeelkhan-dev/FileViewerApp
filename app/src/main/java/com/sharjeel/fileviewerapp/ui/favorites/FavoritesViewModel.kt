@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.domain.repository.FileRepository
+import com.sharjeel.fileviewerapp.ui.explorer.BreadcrumbItem
 import com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState
 import com.sharjeel.fileviewerapp.ui.explorer.SortOrder
 import com.sharjeel.fileviewerapp.ui.explorer.SortType
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import android.os.Environment
 
 @HiltViewModel
 class FavoritesViewModel @Inject constructor(
@@ -22,6 +24,14 @@ class FavoritesViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<ExplorerUiState>(ExplorerUiState.Loading)
     val uiState: StateFlow<ExplorerUiState> = _uiState.asStateFlow()
+
+    // 🎯 ADDED: Breadcrumbs for Favorites
+    val breadcrumbs: StateFlow<List<BreadcrumbItem>> = MutableStateFlow(
+        listOf(
+            BreadcrumbItem("Internal Storage", Environment.getExternalStorageDirectory().absolutePath, null),
+            BreadcrumbItem("Favorites", "", null)
+        )
+    ).asStateFlow()
 
     private val _viewMode = MutableStateFlow(ViewMode.SMALL)
     val viewMode: StateFlow<ViewMode> = _viewMode.asStateFlow()

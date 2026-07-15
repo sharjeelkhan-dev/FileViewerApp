@@ -3,16 +3,20 @@ package com.sharjeel.fileviewerapp.ui.trash
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sharjeel.fileviewerapp.domain.repository.FileRepository
+import com.sharjeel.fileviewerapp.ui.explorer.BreadcrumbItem
 import com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState
 import com.sharjeel.fileviewerapp.ui.explorer.SortOrder
 import com.sharjeel.fileviewerapp.ui.explorer.SortType
 import com.sharjeel.fileviewerapp.ui.explorer.ViewMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import android.os.Environment
 
 @HiltViewModel
 class TrashViewModel @Inject constructor(
@@ -21,6 +25,14 @@ class TrashViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<ExplorerUiState>(ExplorerUiState.Loading)
     val uiState: StateFlow<ExplorerUiState> = _uiState.asStateFlow()
+
+    // 🎯 ADDED: Breadcrumbs for Trash
+    val breadcrumbs: StateFlow<List<BreadcrumbItem>> = MutableStateFlow(
+        listOf(
+            BreadcrumbItem("Internal Storage", Environment.getExternalStorageDirectory().absolutePath, null),
+            BreadcrumbItem("Recycle Bin", "", null)
+        )
+    ).asStateFlow()
 
     private val _viewMode = MutableStateFlow(ViewMode.SMALL)
     val viewMode: StateFlow<ViewMode> = _viewMode.asStateFlow()

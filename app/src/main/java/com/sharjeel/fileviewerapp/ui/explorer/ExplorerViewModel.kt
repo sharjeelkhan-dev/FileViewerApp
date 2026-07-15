@@ -1,5 +1,6 @@
 package com.sharjeel.fileviewerapp.ui.explorer
 
+import android.content.Context
 import android.os.Environment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,13 +21,20 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+// --- UI STATE SEALED INTERFACE (FIXED COMPILER ERROR) ---
+sealed interface ExplorerUiState {
+    object Loading : ExplorerUiState
+    data class Success(val files: List<FileModel>) : ExplorerUiState
+    data class Error(val message: String) : ExplorerUiState
+}
+
 @HiltViewModel
 class ExplorerViewModel @Inject constructor(
     private val repository: FileRepository,
     private val aiService: AIService
 ) : ViewModel() {
 
-    private val _events = Channel<ExplorerEvent>()
+    private val _events = Channel<ExplorerEvent>(Channel.CONFLATED)
     val events = _events.receiveAsFlow()
 
     private val _rawFiles = MutableStateFlow<List<FileModel>>(emptyList())
@@ -52,38 +60,92 @@ class ExplorerViewModel @Inject constructor(
     val isCopying = _isCopying.asStateFlow()
 
     val uiState: StateFlow<ExplorerUiState> = combine(
-        _rawFiles, 
+        _rawFiles,
         _searchQuery,
         _sortType,
         _sortOrder
     ) { files, query, sortType, sortOrder ->
-        val filtered = if (query.isBlank()) {
-            files
-        } else {
-            files.filter { it.name.contains(query, ignoreCase = true) }
-        }
+        try {
+            val filtered = if (query.isBlank()) {
+                files
+            } else {
+                files.filter { it.name.contains(query, ignoreCase = true) }
+            }
 
-        val sorted = when (sortType) {
-            SortType.NAME -> if (sortOrder == SortOrder.ASCENDING) filtered.sortedBy { it.name.lowercase() } else filtered.sortedByDescending { it.name.lowercase() }
-            SortType.TYPE -> if (sortOrder == SortOrder.ASCENDING) filtered.sortedBy { it.extension.lowercase() } else filtered.sortedByDescending { it.extension.lowercase() }
-            SortType.SIZE -> if (sortOrder == SortOrder.ASCENDING) filtered.sortedBy { it.size } else filtered.sortedByDescending { it.size }
-            SortType.DATE -> if (sortOrder == SortOrder.ASCENDING) filtered.sortedBy { it.lastModified } else filtered.sortedByDescending { it.lastModified }
-        }
+            val sorted = when (sortType) {
+                SortType.NAME -> if (sortOrder == SortOrder.ASCENDING) filtered.sortedBy { it.name.lowercase() } else filtered.sortedByDescending { it.name.lowercase() }
+                SortType.TYPE -> if (sortOrder == SortOrder.ASCENDING) filtered.sortedBy { it.extension.lowercase() } else filtered.sortedByDescending { it.extension.lowercase() }
+                SortType.SIZE -> if (sortOrder == SortOrder.ASCENDING) filtered.sortedBy { it.size } else filtered.sortedByDescending { it.size }
+                SortType.DATE -> if (sortOrder == SortOrder.ASCENDING) filtered.sortedBy { it.lastModified } else filtered.sortedByDescending { it.lastModified }
+            }
 
-        ExplorerUiState.Success(sorted)
+            ExplorerUiState.Success(sorted)
+        } catch (e: Exception) {
+            ExplorerUiState.Error(e.localizedMessage ?: "Unknown Error occurred")
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = ExplorerUiState.Loading
     )
 
-    private val _currentPath = MutableStateFlow(Environment.getExternalStorageDirectory().absolutePath)
+    private val _currentPath = MutableStateFlow("")
     val currentPath: StateFlow<String> = _currentPath.asStateFlow()
 
     private val _selectedFiles = MutableStateFlow<Set<String>>(emptySet())
     val selectedFiles: StateFlow<Set<String>> = _selectedFiles.asStateFlow()
 
     private val _currentCategory = MutableStateFlow<FileCategory?>(null)
+    val currentCategory: StateFlow<FileCategory?> = _currentCategory.asStateFlow()
+
+    val breadcrumbs: StateFlow<List<BreadcrumbItem>> = combine(
+        _currentPath,
+        _currentCategory
+    ) { path, category ->
+        val items = mutableListOf<BreadcrumbItem>()
+        val storageRoot = Environment.getExternalStorageDirectory().absolutePath
+
+        // 🎯 FIXED HIERARCHY: Always start with Home as the absolute root
+        items.add(BreadcrumbItem(name = "Home", path = "", category = null))
+        items.add(BreadcrumbItem(name = "Internal Storage", path = storageRoot, category = null))
+
+        if (category != null) {
+            val categoryLabel = when(category) {
+                FileCategory.IMAGES -> "Images"
+                FileCategory.VIDEOS -> "Videos"
+                FileCategory.AUDIO -> "Audio"
+                FileCategory.DOCUMENTS -> "Documents"
+                FileCategory.ARCHIVES -> "Archives"
+                FileCategory.DOWNLOADS -> "Downloads"
+                FileCategory.RECENT -> "Recent"
+                FileCategory.FAVORITES -> "Favorites"
+            }
+            items.add(BreadcrumbItem(name = categoryLabel, path = "", category = category))
+        } else if (path.isNotEmpty()) {
+            if (path.startsWith(storageRoot)) {
+                if (path != storageRoot) {
+                    val relativePath = path.removePrefix(storageRoot).trim('/')
+                    if (relativePath.isNotEmpty()) {
+                        val segments = relativePath.split('/')
+                        var currentAccumulatedPath = storageRoot
+                        segments.forEach { segment ->
+                            currentAccumulatedPath = "$currentAccumulatedPath/$segment"
+                            items.add(BreadcrumbItem(name = segment, path = currentAccumulatedPath, category = null))
+                        }
+                    }
+                }
+            } else {
+                // External SD Card or special path
+                val file = File(path)
+                items.add(BreadcrumbItem(name = file.name, path = path, category = null))
+            }
+        }
+        items
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = listOf(BreadcrumbItem("Internal Storage", Environment.getExternalStorageDirectory().absolutePath, null))
+    )
 
     fun setSort(type: SortType, order: SortOrder) {
         _sortType.value = type
@@ -94,20 +156,81 @@ class ExplorerViewModel @Inject constructor(
         _viewMode.value = mode
     }
 
+    fun resetToHome() {
+        _currentPath.value = ""
+        _currentCategory.value = null
+        _rawFiles.value = emptyList()
+        _searchQuery.value = ""
+        clearSelection()
+        _events.trySend(ExplorerEvent.NavigateToHome)
+    }
+
     fun loadFiles(path: String) {
         viewModelScope.launch {
             _currentPath.value = path
             _currentCategory.value = null
-            repository.getFiles(File(path)).collect { files ->
-                _rawFiles.value = files
+            if (path.isEmpty()) {
+                _rawFiles.value = emptyList()
+            } else {
+                repository.getFiles(File(path)).collect { files ->
+                    _rawFiles.value = files
+                }
             }
         }
+    }
+
+    fun navigateToDirectory(targetPath: String) {
+        viewModelScope.launch {
+            loadFiles(targetPath)
+            clearSelection()
+        }
+    }
+
+    fun handleBackNavigation(): Boolean {
+        if (_selectedFiles.value.isNotEmpty()) {
+            clearSelection()
+            return true
+        }
+
+        if (isSearchActive()) {
+            return false
+        }
+
+        val storageRoot = Environment.getExternalStorageDirectory().absolutePath
+        val current = _currentPath.value
+
+        if (_currentCategory.value != null) {
+            resetToHome()
+            return true
+        }
+
+        if (current.isNotEmpty()) {
+            if (current == storageRoot) {
+                resetToHome()
+                return true
+            } else {
+                val parentFile = File(current).parentFile
+                if (parentFile != null && parentFile.absolutePath.startsWith(storageRoot)) {
+                    loadFiles(parentFile.absolutePath)
+                    return true
+                } else {
+                    loadFiles(storageRoot)
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private fun isSearchActive(): Boolean {
+        return _searchQuery.value.isNotEmpty()
     }
 
     fun loadCategory(category: FileCategory) {
         _currentPath.value = ""
         viewModelScope.launch {
             _currentCategory.value = category
+            _searchQuery.value = ""
             repository.getFilesByCategory(category).collect { files ->
                 _rawFiles.value = files
             }
@@ -116,21 +239,19 @@ class ExplorerViewModel @Inject constructor(
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
-        // If it's a complex natural language query, we could trigger AI filtering here
     }
 
     fun aiSearch(query: String) {
         viewModelScope.launch {
             val currentState = uiState.value
             if (currentState !is ExplorerUiState.Success) return@launch
-            
+
             _events.send(ExplorerEvent.ShowMessage("AI is searching..."))
-            
+
             val fileNames = currentState.files.joinToString("\n") { it.name }
             val prompt = "From this list of files, which ones best match the query: '$query'? Return only the filenames that match, separated by newlines. If none match, return 'NONE'.\n\nFiles:\n$fileNames"
-            
+
             try {
-                // Using provideGenerativeModel from di concept
                 val response = aiService.chatWithDocument(fileNames, prompt)
                 response.collect { result ->
                     if (result != null && result.trim().uppercase() != "NONE") {
@@ -148,10 +269,11 @@ class ExplorerViewModel @Inject constructor(
     fun refresh() {
         val category = _currentCategory.value
         val currentPath = _currentPath.value
-        
+
         when {
             category != null -> loadCategory(category)
-            else -> loadFiles(currentPath)
+            currentPath.isNotEmpty() -> loadFiles(currentPath)
+            else -> resetToHome()
         }
     }
 
@@ -244,7 +366,6 @@ class ExplorerViewModel @Inject constructor(
                 copying.forEach { source ->
                     val sourceFile = File(source)
                     val destFile = File(targetDir, sourceFile.name)
-
                     _events.send(ExplorerEvent.ShowMessage("Copy feature implementation pending in repository"))
                 }
                 _isCopying.value = emptyList()
@@ -273,6 +394,7 @@ class ExplorerViewModel @Inject constructor(
     fun selectAllPaths(paths: List<String>) {
         _selectedFiles.value = paths.toSet()
     }
+
     fun stopPickingFolder() {
         _pickingFolderForArchive.value = null
     }
@@ -284,12 +406,12 @@ class ExplorerViewModel @Inject constructor(
         stopPickingFolder()
     }
 
-    private var appContext: android.content.Context? = null
-    fun setContext(context: android.content.Context) {
+    private var appContext: Context? = null
+    fun setContext(context: Context) {
         this.appContext = context.applicationContext
     }
 
-    fun extractArchive(context: android.content.Context?, path: String, customDestination: String? = null) {
+    fun extractArchive(context: Context?, path: String, customDestination: String? = null) {
         viewModelScope.launch {
             val file = File(path)
             val destDir = if (customDestination != null) {
@@ -297,15 +419,15 @@ class ExplorerViewModel @Inject constructor(
             } else {
                 File(file.parentFile, file.nameWithoutExtension)
             }
-            
+
             val targetContext = context ?: appContext
             if (targetContext == null) {
                 _events.send(ExplorerEvent.ShowMessage("System error: Missing context"))
                 return@launch
             }
-            
+
             _events.send(ExplorerEvent.ShowMessage("Extracting ${file.name}..."))
-            
+
             val success = if (file.extension.lowercase() == "zip") {
                 com.sharjeel.fileviewerapp.util.ArchiveUtils.extractZip(file, destDir, targetContext) { msg ->
                     viewModelScope.launch { _events.send(ExplorerEvent.ShowMessage(msg)) }
@@ -315,10 +437,9 @@ class ExplorerViewModel @Inject constructor(
                     viewModelScope.launch { _events.send(ExplorerEvent.ShowMessage(msg)) }
                 }
             }
-            
+
             if (success) {
                 _events.send(ExplorerEvent.ShowMessage("Extracted successfully to ${destDir.name}"))
-                // Request navigation to the new folder
                 if (destDir.exists() && destDir.isDirectory) {
                     _events.send(ExplorerEvent.NavigateToFolder(destDir.absolutePath, destDir.name))
                 } else {
@@ -349,15 +470,16 @@ class ExplorerViewModel @Inject constructor(
     }
 }
 
+data class BreadcrumbItem(
+    val name: String,
+    val path: String,
+    val category: FileCategory? = null
+)
+
 sealed interface ExplorerEvent {
     data class ShowMessage(val message: String) : ExplorerEvent
     data class NavigateToFolder(val path: String, val title: String) : ExplorerEvent
-}
-
-sealed interface ExplorerUiState {
-    data object Loading : ExplorerUiState
-    data class Success(val files: List<FileModel>) : ExplorerUiState
-    data class Error(val message: String) : ExplorerUiState
+    object NavigateToHome : ExplorerEvent
 }
 
 enum class SortType { NAME, TYPE, SIZE, DATE }

@@ -2,8 +2,10 @@ package com.sharjeel.fileviewerapp.ui.favorites
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,10 +16,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sharjeel.fileviewerapp.domain.model.FileModel
-import com.sharjeel.fileviewerapp.ui.explorer.*
 import com.sharjeel.fileviewerapp.ui.components.AppScaffold
+import com.sharjeel.fileviewerapp.ui.explorer.*
 import com.sharjeel.fileviewerapp.R
 
 @Composable
@@ -31,6 +34,7 @@ fun FavoritesScreen(
     val viewMode by viewModel.viewMode.collectAsState()
     val sortType by viewModel.sortType.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
+    val breadcrumbsList by viewModel.breadcrumbs.collectAsState()
 
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -51,19 +55,20 @@ fun FavoritesScreen(
         sortType = sortType,
         sortOrder = sortOrder,
         searchQuery = searchQuery,
+        breadcrumbsList = breadcrumbsList,
         onBackClick = onBackClick,
-        onFileClick = { file ->
+        onFileClick = { file: FileModel ->
             if (selectedFiles.isNotEmpty()) {
                 viewModel.toggleFileSelection(file.path)
             } else {
                 onFileClick(file)
             }
         },
-        onFileLongClick = { viewModel.toggleFileSelection(it.path) },
-        onToggleFavorite = { viewModel.toggleFavorite(it) },
+        onFileLongClick = { file: FileModel -> viewModel.toggleFileSelection(file.path) },
+        onToggleFavorite = { file: FileModel -> viewModel.toggleFavorite(file) },
         onDeleteSelected = { viewModel.deleteSelectedFiles() },
-        onSortSelected = { type, order -> viewModel.updateSort(type, order) },
-        onViewModeSelected = { mode -> viewModel.updateViewMode(mode) }
+        onSortSelected = { type: SortType, order: SortOrder -> viewModel.updateSort(type, order) },
+        onViewModeSelected = { mode: ViewMode -> viewModel.updateViewMode(mode) }
     )
 }
 
@@ -76,6 +81,7 @@ fun FavoritesContent(
     sortType: SortType,
     sortOrder: SortOrder,
     searchQuery: String,
+    breadcrumbsList: List<BreadcrumbItem>,
     onBackClick: () -> Unit,
     onFileClick: (FileModel) -> Unit,
     onFileLongClick: (FileModel) -> Unit,
@@ -90,24 +96,26 @@ fun FavoritesContent(
     val isPreview = LocalInspectionMode.current
     val hasContent = (uiState as? ExplorerUiState.Success)?.files?.isNotEmpty() == true
 
+    val shouldShowHeaders = hasContent || selectedFiles.isNotEmpty()
+
     if (!isPreview) {
-        if (showSortSheet) {
+        if (showSortSheet && hasContent) {
             SortBottomSheet(
                 currentType = sortType,
                 currentOrder = sortOrder,
                 onDismiss = { showSortSheet = false },
-                onSortSelected = { type, order ->
+                onSortSelected = { type: SortType, order: SortOrder ->
                     onSortSelected(type, order)
                     showSortSheet = false
                 }
             )
         }
 
-        if (showViewOptionsSheet) {
+        if (showViewOptionsSheet && hasContent) {
             ViewOptionsBottomSheet(
                 currentMode = viewMode,
                 onDismiss = { showViewOptionsSheet = false },
-                onModeSelected = { mode ->
+                onModeSelected = { mode: ViewMode ->
                     onViewModeSelected(mode)
                     showViewOptionsSheet = false
                 }
@@ -118,8 +126,7 @@ fun FavoritesContent(
     AppScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            // 🎯 FIXED: Header only shows if there's content or items are selected
-            if (hasContent || selectedFiles.isNotEmpty()) {
+            if (shouldShowHeaders) {
                 TopAppBar(
                     title = {
                         Text(
@@ -150,11 +157,16 @@ fun FavoritesContent(
                                 )
                             }
                         }
-                        IconButton(onClick = { showSortSheet = true }) {
-                            Icon(Icons.Rounded.Sort, contentDescription = "Sort")
-                        }
-                        IconButton(onClick = { showViewOptionsSheet = true }) {
-                            Icon(Icons.Rounded.GridView, contentDescription = "View Options")
+                        if (hasContent) {
+                            IconButton(onClick = { showSortSheet = true }) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.Sort,
+                                    contentDescription = "Sort"
+                                )
+                            }
+                            IconButton(onClick = { showViewOptionsSheet = true }) {
+                                Icon(Icons.Rounded.GridView, contentDescription = "View Options")
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -207,10 +219,23 @@ fun FavoritesContent(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                 )
+                                Spacer(modifier = Modifier.height(28.dp))
+                                Button(
+                                    onClick = onBackClick,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Go Back")
+                                }
                             }
                         }
                     } else {
                         Column {
+                            // 🎯 FIXED: Breadcrumbs added
+                            Breadcrumbs(
+                                items = breadcrumbsList,
+                                onItemClick = { }
+                            )
+
                             SortBar(
                                 currentType = sortType,
                                 currentOrder = sortOrder,
@@ -218,18 +243,18 @@ fun FavoritesContent(
                                 onSortClick = { showSortSheet = true },
                                 onViewModeClick = { showViewOptionsSheet = true }
                             )
-                            
+
                             FileList(
                                 files = filteredFiles,
                                 selectedFiles = selectedFiles,
                                 viewMode = viewMode,
                                 onFileClick = onFileClick,
                                 onFileLongClick = onFileLongClick,
+                                onFavoriteClick = { file: FileModel -> onToggleFavorite(file) },
                                 onDeleteClick = { onFileLongClick(it) },
                                 onRenameClick = { },
                                 onShareClick = { },
                                 onOpenWithClick = { },
-                                onFavoriteClick = { onToggleFavorite(it) },
                                 onExtractClick = { },
                                 onLockClick = { },
                                 onMoveClick = { },
@@ -246,5 +271,36 @@ fun FavoritesContent(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun FavoritesScreenPreview() {
+    val mockFiles = listOf(
+        FileModel("Fav_Photo.jpg", "/path/fav.jpg", 1024L, System.currentTimeMillis(), false, "jpg"),
+        FileModel("Fav_Doc.pdf", "/path/fav.pdf", 2048L, System.currentTimeMillis(), false, "pdf")
+    )
+    val mockBreadcrumbs = listOf(
+        BreadcrumbItem("Internal Storage", "/root", null),
+        BreadcrumbItem("Favorites", "", null)
+    )
+    MaterialTheme {
+        FavoritesContent(
+            uiState = ExplorerUiState.Success(files = mockFiles),
+            selectedFiles = emptySet(),
+            viewMode = ViewMode.LIST,
+            sortType = SortType.NAME,
+            sortOrder = SortOrder.ASCENDING,
+            searchQuery = "",
+            breadcrumbsList = mockBreadcrumbs,
+            onBackClick = {},
+            onFileClick = {},
+            onFileLongClick = {},
+            onToggleFavorite = {},
+            onDeleteSelected = {},
+            onSortSelected = { _, _ -> },
+            onViewModeSelected = {}
+        )
     }
 }

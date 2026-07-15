@@ -1,23 +1,12 @@
 package com.sharjeel.fileviewerapp.ui.explorer
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -26,55 +15,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ViewList
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Clear
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.MoveUp
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.PieChart
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.SortByAlpha
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.material.icons.rounded.ViewModule
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -83,13 +26,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.domain.model.FileModel
+import com.sharjeel.fileviewerapp.domain.repository.FileCategory
 import com.sharjeel.fileviewerapp.util.FileUtils
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,16 +45,15 @@ fun ExplorerScreen(
     onBackClick: () -> Unit,
     onFileClick: (FileModel) -> Unit,
     onPathClick: (String) -> Unit,
-    onSortClick: () -> Unit,      // Add this
-    onViewModeClick: () -> Unit   // Add this
+    onHomeClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedFiles by viewModel.selectedFiles.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val currentPath by viewModel.currentPath.collectAsState()
     val sortType by viewModel.sortType.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
     val viewMode by viewModel.viewMode.collectAsState()
+    val breadcrumbsList by viewModel.breadcrumbs.collectAsState()
     val context = LocalContext.current
 
     var isSearchActive by remember { mutableStateOf(false) }
@@ -194,8 +139,7 @@ fun ExplorerScreen(
                                 } else {
                                     onBackClick()
                                 }
-                            })
-                            {
+                            }) {
                                 Icon(
                                     if (selectedFiles.isNotEmpty()) Icons.Rounded.Close
                                     else Icons.AutoMirrored.Rounded.ArrowBack,
@@ -321,8 +265,18 @@ fun ExplorerScreen(
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
             Breadcrumbs(
-                currentPath = currentPath,
-                onPathClick = { path -> viewModel.loadFiles(path) }
+                items = breadcrumbsList,
+                onItemClick = { item ->
+                    if (item.category != null) {
+                        viewModel.loadCategory(item.category)
+                    } else if (item.path.isNotEmpty()) {
+                        viewModel.loadFiles(item.path)
+                        onPathClick(item.path)
+                    } else {
+                        viewModel.resetToHome()
+                        onHomeClick()
+                    }
+                }
             )
 
             SortBar(
@@ -452,16 +406,17 @@ fun SearchTopBar(
 }
 
 @Composable
-fun Breadcrumbs(currentPath: String, onPathClick: (String) -> Unit) {
-    val isPreview = LocalInspectionMode.current
-    val rootPath = remember {
-        if (isPreview) "/storage/emulated/0"
-        else android.os.Environment.getExternalStorageDirectory().absolutePath
-    }
-    val relativePath = currentPath.removePrefix(rootPath).trimStart('/')
-    val segments = if (relativePath.isEmpty()) emptyList() else relativePath.split('/')
-
+fun Breadcrumbs(
+    items: List<BreadcrumbItem>,
+    onItemClick: (BreadcrumbItem) -> Unit
+) {
     val scrollState = androidx.compose.foundation.rememberScrollState()
+
+    LaunchedEffect(items.size) {
+        if (items.isNotEmpty()) {
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+    }
 
     Row(
         modifier = Modifier
@@ -471,64 +426,52 @@ fun Breadcrumbs(currentPath: String, onPathClick: (String) -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-            onClick = { onPathClick(rootPath) }
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.house_window_icon),
-                contentDescription = null,
-                modifier = Modifier
-                    .padding(10.dp)
-                    .size(20.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
+        items.forEachIndexed { index, item ->
+            val isFirst = index == 0
+            val isLast = index == items.lastIndex
 
-        Icon(
-            Icons.Rounded.ChevronRight,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-        )
+            if (!isFirst) {
+                Icon(
+                    Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                )
+            }
 
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
-            onClick = { onPathClick(rootPath) }
-        ) {
-            Text(
-                "Internal Storage",
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.secondary
-            )
-        }
-
-        var cumulativePath = rootPath
-        segments.forEach { segment ->
-            Icon(
-                Icons.Rounded.ChevronRight,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-            )
-            cumulativePath += "/$segment"
-            val finalPath = cumulativePath
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                onClick = { onPathClick(finalPath) }
+                color = when {
+                    isFirst && item.category == null -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                    isLast -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
+                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                },
+                onClick = { onItemClick(item) }
             ) {
-                Text(
-                    segment,
+                Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isFirst && item.category == null) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.house_window_icon),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = item.name,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (isLast) FontWeight.ExtraBold else FontWeight.Bold,
+                        color = when {
+                            isFirst && item.category == null -> MaterialTheme.colorScheme.primary
+                            isLast -> MaterialTheme.colorScheme.secondary
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
             }
         }
     }
@@ -1117,7 +1060,7 @@ fun SortOptionBox(
 ) {
     val icon = when (type) {
         SortType.NAME -> Icons.Rounded.SortByAlpha
-        SortType.TYPE -> Icons.AutoMirrored.Rounded.InsertDriveFile
+        SortType.TYPE -> Icons.Rounded.InsertDriveFile // 🎯 FIXED: Correct Rounded variant
         SortType.SIZE -> Icons.Rounded.PieChart
         SortType.DATE -> Icons.Rounded.Schedule
     }

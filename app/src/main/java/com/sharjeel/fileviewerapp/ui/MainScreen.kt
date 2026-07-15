@@ -510,21 +510,19 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                 }
 
                                 ExplorerScreen(
-                                    title = if (backstack.last() is NavRoute.Explorer) (backstack.last() as NavRoute.Explorer).title else key.title,
+                                    title = key.title,
                                     viewModel = explorerViewModel,
-                                    onBackClick = {
-                                        if (backstack.size > 1) {
-                                            backstack.removeAt(backstack.lastIndex)
-                                        }
-                                    },
+                                    onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) },
                                     onFileClick = { file ->
                                         if (file.isDirectory) {
-                                            backstack.add(NavRoute.Explorer(title = key.title, path = file.path))
+                                            backstack.add(NavRoute.Explorer(title = file.name, path = file.path))
                                             explorerViewModel.loadFiles(file.path)
                                         } else {
-                                            val state = explorerFiles
-                                            if (state is com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState.Success) {
-                                                viewerViewModel.setPlaylist(state.files, file.path)
+                                            if (explorerFiles is com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState.Success) {
+                                                viewerViewModel.setPlaylist(
+                                                    (explorerFiles as com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState.Success).files,
+                                                    file.path
+                                                )
                                             }
                                             backstack.add(NavRoute.Viewer(file.path, file.extension))
                                         }
@@ -541,9 +539,10 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                             explorerViewModel.loadFiles(path)
                                         }
                                     },
-                                    onSortClick = {
-                                    },
-                                    onViewModeClick = {
+                                    onHomeClick = {
+                                        // Synchronously reset backstack clean directly to NavRoute.Home
+                                        backstack.clear()
+                                        backstack.add(NavRoute.Home)
                                     }
                                 )
                             }
@@ -589,7 +588,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                             is NavRoute.Favorites -> NavEntry(route) {
                                 val favoritesViewModel: com.sharjeel.fileviewerapp.ui.favorites.FavoritesViewModel = hiltViewModel()
                                 val favoritesFiles by favoritesViewModel.uiState.collectAsState()
-                                
+
                                 FavoritesScreen(
                                     viewModel = favoritesViewModel,
                                     onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) },
@@ -622,7 +621,7 @@ fun DrawerHeader() {
         Text(
             text = "FILE VIEWER",
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary, // Fixed: Custom color replaced with theme primary
+            color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Black,
             letterSpacing = 0.5.sp
         )
