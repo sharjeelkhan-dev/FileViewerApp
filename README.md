@@ -41,11 +41,6 @@ The ecosystem follows standard **Clean Architecture** patterns to decoupled feat
 ## 🛠 Setup & Installation
 
 ### 📋 Prerequisites
-* Android Studio Ladybug (or newer)
-* JDK 17+
-* Android SDK 28 (Android 9.0) or higher
-
-### ⚙️ Compilation Steps
-1. **Clone the repository**:
-   ```bash
-   git clone [https://github.com/sharjeelkhan111213-coder/fileviewerapp.git](https://github.com/sharjeelkhan111213-coder/fileviewerapp.git)
+- Android Studio Ladybug (or newer)
+- A Google Gemini API Key
+- Firebase Project setup
