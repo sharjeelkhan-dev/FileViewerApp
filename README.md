@@ -17,13 +17,43 @@
 <summary><b>✨ View Interface Design (Click to Expand)</b></summary>
 <br/>
 <table width="100%">
-  <!-- Row 1 -->
-  <tr>
-    <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/82606a97-ce28-4131-8164-315217ac2a7b" width="100%"alt="Screen 1" /> </td>
-    <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/b45857ca-262c-4c76-bdbf-c184bb9ca9d6" width="100%"alt="Screen 2" /> </td>
-    <td width="33.3%" align="center"><img src="https://github.com/user-attachments/assets/21a75094-6f4b-4150-9e74-6b2cede5450d" width="100%"alt="Screen 3"/> </td>
+ <tr>
+  <td width="33.3%" align="center">
+    <img src="https://github.com/user-attachments/assets/82606a97-ce28-4131-8164-315217ac2a7b" width="100%" alt="Screen 1" />
+    <br />
+    <b>Screen 1: Home Screen</b> 
+  </td>
+  <td width="33.3%" align="center">
+    <img src="https://github.com/user-attachments/assets/b45857ca-262c-4c76-bdbf-c184bb9ca9d6" width="100%" alt="Screen 2" />
+    <br />
+    <b>Screen 2: Document Summarization</b> <!-- Yahan apna text likhein -->
+  </td>
+  <td width="33.3%" align="center">
+    <img src="https://github.com/user-attachments/assets/faf8bd6e-04d3-452a-8ed1-dd79fd66643c" width="100%" alt="Screen 3" />
+    <br />
+    <b>Screen 3: Video Screen</b> <!-- Yahan apna text likhein -->
+  </td>
+</tr>
 
-  </tr>
+<!-- Row 2 -->
+<tr>
+  <td width="33.3%" align="center">
+    <img src="https://github.com/user-attachments/assets/456d56d2-b7e8-4c93-af27-e5163d7d2757" width="100%" alt="Screen 4" />
+    <br />
+    <b>Screen 4: Video Summarization</b> <!-- Yahan apna text likhein -->
+  </td>
+  <td width="33.3%" align="center">
+    <img src="https://github.com/user-attachments/assets/3a85ff3b-c010-4080-956a-a394e025c098" width="100%" alt="Screen 5" />
+    <br />
+    <b>Screen 5: Audio Screen</b> <!-- Yahan apna text likhein -->
+  </td>
+  <td width="33.3%" align="center">
+    <img src="https://github.com/user-attachments/assets/b5db7d14-8f29-4267-9e52-9a90b57f718e" width="100%" alt="Screen 6" />
+    <br />
+    <b>Screen 6: Audio Summarization</b> <!-- Yahan apna text likhein -->
+  </td>
+</tr>
+
 </table>
 </details>
 
