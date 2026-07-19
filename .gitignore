@@ -20,3 +20,7 @@ local.properties
 /app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.webp
 /app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.webp
 /app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.webp
+
+# Firebase / Secrets
+app/src/google-services.json
+
