@@ -30,17 +30,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.automirrored.rounded.ViewList
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.InsertDriveFile
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MoveUp
 import androidx.compose.material.icons.rounded.PieChart
@@ -92,9 +91,10 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.domain.model.FileModel
+import androidx.compose.ui.tooling.preview.Preview
+import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
 import com.sharjeel.fileviewerapp.util.FileUtils
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExplorerScreen(
     title: String,
@@ -118,12 +118,6 @@ fun ExplorerScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var isSearchActive by remember { mutableStateOf(false) }
-    var showMenu by remember { mutableStateOf(false) }
-    var fileToRename by remember { mutableStateOf<FileModel?>(null) }
-    var showSortSheet by remember { mutableStateOf(false) }
-    var showViewOptionsSheet by remember { mutableStateOf(false) }
-
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
@@ -140,12 +134,104 @@ fun ExplorerScreen(
         }
     }
 
+    ExplorerScreenContent(
+        title = title,
+        uiState = uiState,
+        selectedFiles = selectedFiles,
+        searchQuery = searchQuery,
+        sortType = sortType,
+        sortOrder = sortOrder,
+        viewMode = viewMode,
+        breadcrumbsList = breadcrumbsList,
+        isMoving = isMoving,
+        isCopying = isCopying,
+        pickingFolderForArchive = pickingFolderForArchive,
+        onBackClick = onBackClick,
+        onFileClick = onFileClick,
+        onRenameFile = { path, newName -> viewModel.renameFile(path, newName) },
+        onSetSort = { type, order -> viewModel.setSort(type, order) },
+        onSetViewMode = { mode -> viewModel.setViewMode(mode) },
+        onStopPickingFolder = { viewModel.stopPickingFolder() },
+        onExtractToCurrentFolder = { viewModel.extractToCurrentFolder() },
+        onClearSelection = { viewModel.clearSelection() },
+        onSetSearchQuery = { viewModel.setSearchQuery(it) },
+        onDeleteSelectedFiles = { viewModel.deleteSelectedFiles() },
+        onStartMove = { viewModel.startMove(it) },
+        onStartCopy = { viewModel.startCopy(it) },
+        onPaste = { viewModel.paste() },
+        onCancelOperation = { viewModel.cancelOperation() },
+        onRefresh = { viewModel.refresh() },
+        onSelectAllPaths = { viewModel.selectAllPaths(it) },
+        onToggleFileSelection = { viewModel.toggleFileSelection(it) },
+        onToggleFavorite = { viewModel.toggleFavorite(it) },
+        onExtractArchive = { viewModel.extractArchive(context, it) },
+        onMoveToVault = { viewModel.moveToVault(it) },
+        onBreadcrumbClick = { item ->
+            if (item.category != null) {
+                viewModel.loadCategory(item.category)
+            } else if (item.path.isNotEmpty()) {
+                viewModel.loadFiles(item.path)
+                onPathClick(item.path)
+            } else {
+                viewModel.resetToHome()
+                onHomeClick()
+            }
+        },
+        snackbarHostState = snackbarHostState
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExplorerScreenContent(
+    title: String,
+    uiState: ExplorerUiState,
+    selectedFiles: Set<String>,
+    searchQuery: String,
+    sortType: SortType,
+    sortOrder: SortOrder,
+    viewMode: ViewMode,
+    breadcrumbsList: List<BreadcrumbItem>,
+    isMoving: List<String>,
+    isCopying: List<String>,
+    pickingFolderForArchive: FileModel?,
+    onBackClick: () -> Unit,
+    onFileClick: (FileModel) -> Unit,
+    onRenameFile: (String, String) -> Unit,
+    onSetSort: (SortType, SortOrder) -> Unit,
+    onSetViewMode: (ViewMode) -> Unit,
+    onStopPickingFolder: () -> Unit,
+    onExtractToCurrentFolder: () -> Unit,
+    onClearSelection: () -> Unit,
+    onSetSearchQuery: (String) -> Unit,
+    onDeleteSelectedFiles: () -> Unit,
+    onStartMove: (List<String>) -> Unit,
+    onStartCopy: (List<String>) -> Unit,
+    onPaste: () -> Unit,
+    onCancelOperation: () -> Unit,
+    onRefresh: () -> Unit,
+    onSelectAllPaths: (List<String>) -> Unit,
+    onToggleFileSelection: (String) -> Unit,
+    onToggleFavorite: (FileModel) -> Unit,
+    onExtractArchive: (String) -> Unit,
+    onMoveToVault: (FileModel) -> Unit,
+    onBreadcrumbClick: (BreadcrumbItem) -> Unit,
+    snackbarHostState: SnackbarHostState
+) {
+    val context = LocalContext.current
+
+    var isSearchActive by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var fileToRename by remember { mutableStateOf<FileModel?>(null) }
+    var showSortSheet by remember { mutableStateOf(false) }
+    var showViewOptionsSheet by remember { mutableStateOf(false) }
+
     if (fileToRename != null) {
         RenameDialog(
             fileName = fileToRename!!.name,
             onDismiss = { fileToRename = null },
             onConfirm = { newName ->
-                viewModel.renameFile(fileToRename!!.path, newName)
+                onRenameFile(fileToRename!!.path, newName)
                 fileToRename = null
             }
         )
@@ -157,7 +243,7 @@ fun ExplorerScreen(
             currentOrder = sortOrder,
             onDismiss = { showSortSheet = false },
             onSortSelected = { type, order ->
-                viewModel.setSort(type, order)
+                onSetSort(type, order)
                 showSortSheet = false
             }
         )
@@ -168,7 +254,7 @@ fun ExplorerScreen(
             currentMode = viewMode,
             onDismiss = { showViewOptionsSheet = false },
             onModeSelected = { mode ->
-                viewModel.setViewMode(mode)
+                onSetViewMode(mode)
                 showViewOptionsSheet = false
             }
         )
@@ -176,16 +262,16 @@ fun ExplorerScreen(
 
     if (pickingFolderForArchive != null) {
         AlertDialog(
-            onDismissRequest = { viewModel.stopPickingFolder() },
+            onDismissRequest = { onStopPickingFolder() },
             title = { Text("Select Destination") },
-            text = { Text("Extract '${pickingFolderForArchive!!.name}' to current folder?") },
+            text = { Text("Extract '${pickingFolderForArchive.name}' to current folder?") },
             confirmButton = {
-                Button(onClick = { viewModel.extractToCurrentFolder() }) {
+                Button(onClick = { onExtractToCurrentFolder() }) {
                     Text("Extract Here")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.stopPickingFolder() }) {
+                TextButton(onClick = { onStopPickingFolder() }) {
                     Text("Cancel")
                 }
             }
@@ -194,10 +280,10 @@ fun ExplorerScreen(
 
     BackHandler(enabled = selectedFiles.isNotEmpty() || isSearchActive) {
         if (selectedFiles.isNotEmpty()) {
-            viewModel.clearSelection()
+            onClearSelection()
         } else if (isSearchActive) {
             isSearchActive = false
-            viewModel.setSearchQuery("")
+            onSetSearchQuery("")
         }
     }
 
@@ -212,10 +298,10 @@ fun ExplorerScreen(
                 if (isSearchActive) {
                     SearchTopBar(
                         query = searchQuery,
-                        onQueryChange = { viewModel.setSearchQuery(it) },
+                        onQueryChange = { onSetSearchQuery(it) },
                         onCloseClick = {
                             isSearchActive = false
-                            viewModel.setSearchQuery("")
+                            onSetSearchQuery("")
                         }
                     )
                 } else {
@@ -232,7 +318,7 @@ fun ExplorerScreen(
                         navigationIcon = {
                             IconButton(onClick = {
                                 if (selectedFiles.isNotEmpty()) {
-                                    viewModel.clearSelection()
+                                    onClearSelection()
                                 } else {
                                     onBackClick()
                                 }
@@ -247,7 +333,7 @@ fun ExplorerScreen(
                         },
                         actions = {
                             if (selectedFiles.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.deleteSelectedFiles() }) {
+                                IconButton(onClick = { onDeleteSelectedFiles() }) {
                                     Icon(
                                         painterResource(id = R.drawable.recycle_bin_line_icon),
                                         contentDescription = "Delete",
@@ -255,18 +341,18 @@ fun ExplorerScreen(
                                         tint = MaterialTheme.colorScheme.error
                                     )
                                 }
-                                IconButton(onClick = { viewModel.startMove(selectedFiles.toList()) }) {
+                                IconButton(onClick = { onStartMove(selectedFiles.toList()) }) {
                                     Icon(Icons.Rounded.MoveUp, contentDescription = "Move")
                                 }
-                                IconButton(onClick = { viewModel.startCopy(selectedFiles.toList()) }) {
+                                IconButton(onClick = { onStartCopy(selectedFiles.toList()) }) {
                                     Icon(painterResource(R.drawable.copy_outline_icon), contentDescription = "Copy", modifier = Modifier.size(20.dp))
                                 }
                             }
                             if (isMoving.isNotEmpty() || isCopying.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.paste() }) {
+                                IconButton(onClick = { onPaste() }) {
                                     Icon(painterResource(R.drawable.shortcut_icon), contentDescription = "Paste", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                                 }
-                                IconButton(onClick = { viewModel.cancelOperation() }) {
+                                IconButton(onClick = { onCancelOperation() }) {
                                     Icon(Icons.Rounded.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
@@ -296,7 +382,7 @@ fun ExplorerScreen(
                                         text = { Text("Refresh") },
                                         onClick = {
                                             showMenu = false
-                                            viewModel.refresh()
+                                            onRefresh()
                                         },
                                         leadingIcon = {
                                             Icon(
@@ -307,7 +393,7 @@ fun ExplorerScreen(
                                         }
                                     )
                                     if (uiState is ExplorerUiState.Success) {
-                                        val filesList = (uiState as ExplorerUiState.Success).files
+                                        val filesList = uiState.files
                                         val isAllSelected = selectedFiles.size == filesList.size && filesList.isNotEmpty()
 
                                         DropdownMenuItem(
@@ -315,10 +401,10 @@ fun ExplorerScreen(
                                             onClick = {
                                                 showMenu = false
                                                 if (isAllSelected) {
-                                                    viewModel.clearSelection()
+                                                    onClearSelection()
                                                 } else {
                                                     val allPaths = filesList.map { it.path }
-                                                    viewModel.selectAllPaths(allPaths)
+                                                    onSelectAllPaths(allPaths)
                                                 }
                                             },
                                             leadingIcon = {
@@ -377,17 +463,7 @@ fun ExplorerScreen(
         ) {
             Breadcrumbs(
                 items = breadcrumbsList,
-                onItemClick = { item ->
-                    if (item.category != null) {
-                        viewModel.loadCategory(item.category)
-                    } else if (item.path.isNotEmpty()) {
-                        viewModel.loadFiles(item.path)
-                        onPathClick(item.path)
-                    } else {
-                        viewModel.resetToHome()
-                        onHomeClick()
-                    }
-                }
+                onItemClick = onBreadcrumbClick
             )
 
             SortBar(
@@ -406,14 +482,14 @@ fun ExplorerScreen(
             )
 
             Box(modifier = Modifier.fillMaxSize()) {
-                when (val state = uiState) {
+                when (uiState) {
                     is ExplorerUiState.Loading -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         }
                     }
                     is ExplorerUiState.Success -> {
-                        if (state.files.isEmpty()) {
+                        if (uiState.files.isEmpty()) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
@@ -434,26 +510,26 @@ fun ExplorerScreen(
                             }
                         } else {
                             FileList(
-                                files = state.files,
+                                files = uiState.files,
                                 selectedFiles = selectedFiles,
                                 viewMode = viewMode,
                                 onFileClick = { file ->
                                     if (selectedFiles.isNotEmpty()) {
-                                        viewModel.toggleFileSelection(file.path)
+                                        onToggleFileSelection(file.path)
                                     } else {
                                         onFileClick(file)
                                     }
                                 },
-                                onFileLongClick = { viewModel.toggleFileSelection(it.path) },
-                                onDeleteClick = { viewModel.toggleFileSelection(it.path); viewModel.deleteSelectedFiles() },
+                                onFileLongClick = { onToggleFileSelection(it.path) },
+                                onDeleteClick = { onToggleFileSelection(it.path); onDeleteSelectedFiles() },
                                 onRenameClick = { fileToRename = it },
                                 onShareClick = { FileUtils.shareFile(context, it.path) },
                                 onOpenWithClick = { FileUtils.openWithExternalApp(context, it.path) },
-                                onFavoriteClick = { viewModel.toggleFavorite(it) },
-                                onExtractClick = { viewModel.extractArchive(context, it.path) },
-                                onLockClick = { viewModel.moveToVault(it) },
-                                onMoveClick = { viewModel.startMove(listOf(it.path)) },
-                                onCopyClick = { viewModel.startCopy(listOf(it.path)) },
+                                onFavoriteClick = { onToggleFavorite(it) },
+                                onExtractClick = { onExtractArchive(it.path) },
+                                onLockClick = { onMoveToVault(it) },
+                                onMoveClick = { onStartMove(listOf(it.path)) },
+                                onCopyClick = { onStartCopy(listOf(it.path)) },
                                 bottomPadding = innerPadding.calculateBottomPadding()
                             )
                         }
@@ -463,7 +539,7 @@ fun ExplorerScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(state.message, color = MaterialTheme.colorScheme.error)
+                            Text(uiState.message, color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
@@ -543,13 +619,12 @@ fun Breadcrumbs(
 
             if (!isFirst) {
                 Icon(
-                    Icons.Rounded.ChevronRight,
+                    painter = painterResource(id = R.drawable.arrow_right_direction_icon),
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                 )
             }
-
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = when {
@@ -1171,7 +1246,7 @@ fun SortOptionBox(
 ) {
     val icon = when (type) {
         SortType.NAME -> Icons.Rounded.SortByAlpha
-        SortType.TYPE -> Icons.Rounded.InsertDriveFile // 🎯 FIXED: Correct Rounded variant
+        SortType.TYPE -> Icons.AutoMirrored.Rounded.InsertDriveFile
         SortType.SIZE -> Icons.Rounded.PieChart
         SortType.DATE -> Icons.Rounded.Schedule
     }
@@ -1291,5 +1366,58 @@ fun ViewModeBox(
                 color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ExplorerScreenPreview() {
+    val mockFiles = listOf(
+        FileModel("Documents", "/Documents", 0, System.currentTimeMillis(), true),
+        FileModel("Images", "/Images", 0, System.currentTimeMillis(), true),
+        FileModel("report.pdf", "/report.pdf", 1024L * 1024, System.currentTimeMillis(), false, "pdf"),
+        FileModel("vacation.jpg", "/vacation.jpg", 2L * 1024 * 1024, System.currentTimeMillis(), false, "jpg")
+    )
+    val mockBreadcrumbs = listOf(
+        BreadcrumbItem("Home", "", null),
+        BreadcrumbItem("Internal Storage", "/storage/emulated/0", null)
+    )
+
+    FileViewerAppTheme {
+        ExplorerScreenContent(
+            title = "Explorer",
+            uiState = ExplorerUiState.Success(mockFiles),
+            selectedFiles = emptySet(),
+            searchQuery = "",
+            sortType = SortType.NAME,
+            sortOrder = SortOrder.ASCENDING,
+            viewMode = ViewMode.LIST,
+            breadcrumbsList = mockBreadcrumbs,
+            isMoving = emptyList(),
+            isCopying = emptyList(),
+            pickingFolderForArchive = null,
+            onBackClick = {},
+            onFileClick = {},
+            onRenameFile = { _, _ -> },
+            onSetSort = { _, _ -> },
+            onSetViewMode = {},
+            onStopPickingFolder = {},
+            onExtractToCurrentFolder = {},
+            onClearSelection = {},
+            onSetSearchQuery = {},
+            onDeleteSelectedFiles = {},
+            onStartMove = {},
+            onStartCopy = {},
+            onPaste = {},
+            onCancelOperation = {},
+            onRefresh = {},
+            onSelectAllPaths = {},
+            onToggleFileSelection = {},
+            onToggleFavorite = {},
+            onExtractArchive = {},
+            onMoveToVault = {},
+            onBreadcrumbClick = {},
+            snackbarHostState = remember { SnackbarHostState() }
+        )
     }
 }
