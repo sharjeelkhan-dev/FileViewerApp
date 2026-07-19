@@ -62,6 +62,10 @@ fun FileViewerScreen(
         }
         viewModel.checkIfFavorite(effectiveFilePath)
         viewModel.addToRecent(fileModel)
+        
+        // 🎯 FIXED: Reset AI context when swiping to a different file
+        aiViewModel.clearChat()
+        aiViewModel.resetState()
     }
 
     FileViewerContent(

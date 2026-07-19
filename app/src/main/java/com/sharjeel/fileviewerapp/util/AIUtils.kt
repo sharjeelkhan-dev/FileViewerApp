@@ -47,7 +47,7 @@ class AIService @Inject constructor(
         Log.d(TAG, "Summarizing media. MimeType: $mimeType, Size: ${bytes.size}")
         val prompt = content {
             inlineData(bytes, mimeType)
-            text("Please provide a concise summary of this media file in exactly 5-6 bullet points. If it's audio, summarize the speech. If it's video, summarize both visual and audio content.")
+            text("Please provide a concise and structured summary of this media file in exactly 5-6 bullet points. Describe what you see or hear clearly.")
         }
         return try {
             val response = model.generateContent(prompt)
@@ -58,11 +58,14 @@ class AIService @Inject constructor(
         }
     }
 
-    fun chatWithMedia(bytes: ByteArray, mimeType: String, question: String): Flow<String?> {
-        Log.d(TAG, "Chatting with media. Question: $question")
+    fun chatWithMedia(bytes: ByteArray, mimeType: String, question: String, history: List<String> = emptyList()): Flow<String?> {
+        Log.d(TAG, "Chatting with media. Question: $question, History size: ${history.size}")
         val prompt = content {
             inlineData(bytes, mimeType)
-            text("You are an expert media analyzer. Based on the provided audio/video, answer the user's question precisely.\n\nQuestion: $question")
+            if (history.isNotEmpty()) {
+                text("Conversation History:\n${history.joinToString("\n")}\n\n")
+            }
+            text("You are an expert media and document analyzer. Based on the provided file (image, audio, video, or PDF), answer the user's question precisely. If history is provided, maintain continuity.\n\nQuestion: $question")
         }
         return model.generateContentStream(prompt)
             .onEach { Log.d(TAG, "Media chunk processed") }
@@ -114,8 +117,8 @@ class AIService @Inject constructor(
         }
     }
 
-    fun chatWithDocument(text: String, question: String): Flow<String?> {
-        Log.d(TAG, "Chatting with context. Question: $question")
+    fun chatWithDocument(text: String, question: String, history: List<String> = emptyList()): Flow<String?> {
+        Log.d(TAG, "Chatting with context. Question: $question, History size: ${history.size}")
 
         val workingContext = if (text.isNotBlank()) {
             val chunks = sanitizeAndChunkText(text)
@@ -126,7 +129,8 @@ class AIService @Inject constructor(
         val prompt = if (workingContext.isBlank()) {
             question
         } else {
-            "You are an elite, highly precise context analyzer. Rely ONLY on the provided content below to answer the user's question. If the clear validation metrics are missing or cannot be safely derived directly from the document context, explicitly state 'I cannot confirm this based on the file content.'\n\nContext:\n$workingContext\n\nQuestion: $question"
+            val historyText = if (history.isNotEmpty()) "History:\n${history.joinToString("\n")}\n\n" else ""
+            "You are an elite, highly precise context analyzer. Rely ONLY on the provided content below to answer the user's question.\n\n$historyText Context:\n$workingContext\n\nQuestion: $question"
         }
 
         return model.generateContentStream(prompt)
@@ -165,6 +169,39 @@ class AIService @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Error suggesting structural properties: ${e.message}", e)
             null
+        }
+    }
+
+    suspend fun getAppAction(prompt: String): String {
+        Log.d(TAG, "Parsing system action for prompt: $prompt")
+        val systemInstructions = """
+            You are the AI controller for 'File Viewer App'. 
+            Determine the most likely action based on the user's prompt.
+            Respond ONLY with the action string. No extra text or quotes.
+            
+            Available actions:
+            - NAVIGATE:HOME
+            - NAVIGATE:STORAGE
+            - NAVIGATE:DOWNLOADS
+            - NAVIGATE:RECENT
+            - NAVIGATE:FAVORITES
+            - NAVIGATE:VAULT
+            - NAVIGATE:TRASH
+            - NAVIGATE:SETTINGS
+            - SEARCH:[query]
+            
+            Example: NAVIGATE:RECENT or SEARCH:bills
+            If you don't understand, respond with UNKNOWN.
+            
+            User Prompt: $prompt
+        """.trimIndent()
+
+        return try {
+            val response = model.generateContent(systemInstructions)
+            response.text?.trim() ?: "UNKNOWN"
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing system action: ${e.message}")
+            "UNKNOWN"
         }
     }
 }

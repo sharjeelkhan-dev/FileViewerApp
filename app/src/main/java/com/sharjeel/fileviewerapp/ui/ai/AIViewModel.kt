@@ -5,10 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.appcheck.appCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
-import com.google.firebase.ai.GenerativeModel
-import com.google.firebase.ai.type.content
 import com.google.firebase.Firebase
 import com.sharjeel.fileviewerapp.BuildConfig
+import com.sharjeel.fileviewerapp.util.AIService
 import com.sharjeel.fileviewerapp.util.FileUtils
 import com.sharjeel.fileviewerapp.util.TextExtractionUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,7 +23,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AIViewModel @Inject constructor(
-    private val model: GenerativeModel // Hilt automatically injects the verified instance from FirebaseModule
+    private val aiService: AIService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AIUiState>(AIUiState.Idle)
@@ -63,19 +62,18 @@ class AIViewModel @Inject constructor(
             val isAudio = FileUtils.isAudioFile(filePath)
             val isVideo = FileUtils.isVideoFile(filePath)
             val isImage = FileUtils.isImageFile(filePath)
+            val isPdf = filePath.lowercase().endsWith(".pdf")
 
-            if (isAudio || isVideo || isImage) {
-                _uiState.value = AIUiState.Loading("Analyzing ${if (isImage) "image" else "media"} and generating summary...")
+            if (isAudio || isVideo || isImage || isPdf) {
+                _uiState.value = AIUiState.Loading("Analyzing file and generating summary...")
                 try {
                     val bytes = withContext(Dispatchers.IO) { File(filePath).readBytes() }
                     val mime = FileUtils.getMimeType(filePath)
-                    val prompt = content {
-                        inlineData(bytes, mime)
-                        text("Provide a concise and structured summary of this ${if (isAudio) "audio" else if (isVideo) "video" else "image"} file in exactly 5-6 bullet points.")
+                    val result = withContext(Dispatchers.IO) {
+                        aiService.summarizeMedia(bytes, mime)
                     }
-                    val response = withContext(Dispatchers.IO) { model.generateContent(prompt) }
-                    if (!response.text.isNullOrBlank()) {
-                        _uiState.value = AIUiState.SummaryReady(response.text!!)
+                    if (!result.isNullOrBlank()) {
+                        _uiState.value = AIUiState.SummaryReady(result)
                     } else {
                         _uiState.value = AIUiState.Error("Failed to generate summary content.")
                     }
@@ -97,14 +95,12 @@ class AIViewModel @Inject constructor(
             }
 
             try {
-                val prompt = "Provide a concise and structured summary of the following text:\n\n$text"
-
-                val response = withContext(Dispatchers.IO) {
-                    model.generateContent(prompt)
+                val result = withContext(Dispatchers.IO) {
+                    aiService.summarizeDocument(text)
                 }
 
-                if (!response.text.isNullOrBlank()) {
-                    _uiState.value = AIUiState.SummaryReady(response.text!!)
+                if (!result.isNullOrBlank()) {
+                    _uiState.value = AIUiState.SummaryReady(result)
                 } else {
                     _uiState.value = AIUiState.Error("Failed to generate summary content.")
                 }
@@ -119,23 +115,22 @@ class AIViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Main + exceptionHandler) {
             if (question.isBlank()) return@launch
 
+            val history = _chatMessages.value.takeLast(10).map { "${if (it.isUser) "User" else "AI"}: ${it.content}" }
+            
             val userMsg = ChatMessage(content = question, isUser = true)
             _chatMessages.update { it + userMsg }
 
             val isAudio = FileUtils.isAudioFile(filePath)
             val isVideo = FileUtils.isVideoFile(filePath)
             val isImage = FileUtils.isImageFile(filePath)
+            val isPdf = filePath.lowercase().endsWith(".pdf")
 
-            if (isAudio || isVideo || isImage) {
+            if (isAudio || isVideo || isImage || isPdf) {
                 try {
                     val bytes = withContext(Dispatchers.IO) { File(filePath).readBytes() }
                     val mime = FileUtils.getMimeType(filePath)
-                    val prompt = content {
-                        inlineData(bytes, mime)
-                        text("You are an expert analyzer. Based on the provided ${if (isAudio) "audio" else if (isVideo) "video" else "image"}, answer the user's question precisely.\n\nQuestion: $question")
-                    }
-                    model.generateContentStream(prompt).collect { chunk ->
-                        val chunkText = chunk.text
+                    
+                    aiService.chatWithMedia(bytes, mime, question, history).collect { chunkText ->
                         if (!chunkText.isNullOrEmpty()) {
                             _chatMessages.update { currentList ->
                                 val lastMsg = currentList.lastOrNull()
@@ -149,7 +144,7 @@ class AIViewModel @Inject constructor(
                     }
                 } catch (e: Exception) {
                     Log.e(tag, "Media chat failure: ${e.message}", e)
-                    _chatMessages.update { it + ChatMessage("Error: Media analysis failed. ${e.localizedMessage}", isUser = false) }
+                    _chatMessages.update { it + ChatMessage("Error: AI analysis failed. ${e.localizedMessage}", isUser = false) }
                 }
                 return@launch
             }
@@ -164,10 +159,7 @@ class AIViewModel @Inject constructor(
             }
 
             try {
-                val promptWithContext = "Context from file:\n$text\n\nQuestion: $question"
-
-                model.generateContentStream(promptWithContext).collect { chunk ->
-                    val chunkText = chunk.text
+                aiService.chatWithDocument(text, question, history).collect { chunkText ->
                     if (!chunkText.isNullOrEmpty()) {
                         _chatMessages.update { currentList ->
                             val lastMsg = currentList.lastOrNull()
@@ -200,24 +192,14 @@ class AIViewModel @Inject constructor(
             }
 
             try {
-                val prompt = """
-                    Analyze this text and provide an optimal filename and a category.
-                    Respond ONLY in this exact format: Name, Category
-                    Example response: Invoice_2026, Finance
-                    
-                    Text: $text
-                """.trimIndent()
+                val result = withContext(Dispatchers.IO) {
+                    aiService.suggestFileNameAndCategory(text)
+                }
 
-                val response = withContext(Dispatchers.IO) { model.generateContent(prompt) }
-                val result = response.text
-
-                if (!result.isNullOrBlank() && result.contains(",")) {
-                    val parts = result.split(",", limit = 2)
-                    val suggestedName = parts[0].trim()
-                    val suggestedCategory = parts[1].trim()
-                    _uiState.value = AIUiState.NamingSuggestion(filePath, suggestedName, suggestedCategory)
+                if (result != null) {
+                    _uiState.value = AIUiState.NamingSuggestion(filePath, result.first, result.second)
                 } else {
-                    _uiState.value = AIUiState.Error("Could not clean raw naming output.")
+                    _uiState.value = AIUiState.Error("Could not generate naming suggestion.")
                 }
             } catch (e: Exception) {
                 Log.e(tag, "Auto-naming execution crash: ${e.message}", e)
@@ -232,33 +214,12 @@ class AIViewModel @Inject constructor(
 
             _uiState.value = AIUiState.Loading("Processing system action...")
 
-            val systemInstructions = """
-                You are the AI controller for 'File Viewer App'. 
-                Determine the most likely action based on the user's prompt.
-                Respond ONLY with the action string. No extra text or quotes.
-                
-                Available actions:
-                - NAVIGATE:HOME
-                - NAVIGATE:STORAGE
-                - NAVIGATE:DOWNLOADS
-                - NAVIGATE:RECENT
-                - NAVIGATE:FAVORITES
-                - NAVIGATE:VAULT
-                - NAVIGATE:TRASH
-                - NAVIGATE:SETTINGS
-                - SEARCH:[query]
-                
-                Example: NAVIGATE:RECENT or SEARCH:bills
-                If you don't understand, respond with UNKNOWN.
-                
-                User Prompt: $prompt
-            """.trimIndent()
-
             try {
-                val response = withContext(Dispatchers.IO) { model.generateContent(systemInstructions) }
-                val finalCommand = response.text?.trim() ?: "UNKNOWN"
+                val command = withContext(Dispatchers.IO) {
+                    aiService.getAppAction(prompt)
+                }
 
-                val sanitizedCommand = finalCommand
+                val sanitizedCommand = command
                     .replace("\"", "")
                     .replace("'", "")
                     .replace("Command:", "")
