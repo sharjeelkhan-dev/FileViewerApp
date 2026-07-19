@@ -1128,7 +1128,7 @@ fun FileThumbnail(file: FileModel, isGrid: Boolean) {
         }
     } else {
         val (icon, color) = when {
-            file.isDirectory -> painterResource(R.drawable.archive_line_icon) to Color(0xFF64B5F6)
+            file.isDirectory -> painterResource(R.drawable.folder_icon) to Color(0xFF64B5F6)
             file.extension.lowercase() == "pdf" -> painterResource(R.drawable.text_document_line_icon) to Color(0xFFEF5350)
             file.extension.lowercase() in listOf("doc", "docx") -> painterResource(R.drawable.text_document_line_icon) to Color(0xFF1E88E5)
             file.extension.lowercase() in listOf("xls", "xlsx") -> painterResource(R.drawable.text_document_line_icon) to Color(0xFF43A047)

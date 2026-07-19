@@ -6,9 +6,7 @@ import org.apache.poi.xwpf.extractor.XWPFWordExtractor
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 
 object TextExtractionUtils {
-    /**
-     * Reads text content from supported file types.
-     */
+
     fun extractText(filePath: String): String? {
         val file = File(filePath)
         if (!file.exists()) return null
@@ -34,23 +32,20 @@ object TextExtractionUtils {
                 else -> {
                     try {
                         file.readText()
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         null
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
-
     private fun extractPdfText(filePath: String): String? {
         return try {
             val file = File(filePath)
-            // Actual text extraction for PDF requires a library like Apache PdfBox-Android.
-            // For now, providing a clear placeholder to context.
             "PDF Document: ${file.name}\n(Note: Detailed text extraction for PDF is under development using Gemini's multimodal capabilities or specialized libraries.)"
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }

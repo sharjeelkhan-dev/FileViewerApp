@@ -208,7 +208,7 @@ private fun FileViewerContent(
                     value = userQuestion,
                     onValueChange = { userQuestion = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Ask about this document...") },
+                    placeholder = { Text(if (isAudio || isVideo || isImage) "Ask about this media..." else "Ask about this document...") },
                     trailingIcon = {
                         IconButton(onClick = {
                             if (userQuestion.isNotBlank()) {
@@ -370,7 +370,7 @@ private fun FileViewerContent(
                                     )
                                 }
 
-                                if (isPdf || effectiveFileType == "txt") {
+                                if (isPdf || isText || isAudio || isVideo || isImage) {
                                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                                     DropdownMenuItem(

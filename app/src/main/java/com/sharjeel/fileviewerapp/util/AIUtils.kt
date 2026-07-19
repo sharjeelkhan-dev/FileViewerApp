@@ -2,6 +2,7 @@ package com.sharjeel.fileviewerapp.util
 
 import android.util.Log
 import com.google.firebase.ai.GenerativeModel
+import com.google.firebase.ai.type.content
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -18,10 +19,6 @@ class AIService @Inject constructor(
         // Target token size safe limits roughly mapping characters (~4000 words)
         private const val MAX_CHUNK_CHARACTERS = 16000
     }
-
-    /**
-     * Clean and split large text inputs to ensure token counts don't overflow model thresholds.
-     */
     private fun sanitizeAndChunkText(rawText: String): List<String> {
         val cleanText = rawText.replace(Regex("\\s+"), " ").trim()
         if (cleanText.length <= MAX_CHUNK_CHARACTERS) return listOf(cleanText)
@@ -44,6 +41,32 @@ class AIService @Inject constructor(
             currentIndex += slice.length
         }
         return chunks
+    }
+
+    suspend fun summarizeMedia(bytes: ByteArray, mimeType: String): String? {
+        Log.d(TAG, "Summarizing media. MimeType: $mimeType, Size: ${bytes.size}")
+        val prompt = content {
+            inlineData(bytes, mimeType)
+            text("Please provide a concise summary of this media file in exactly 5-6 bullet points. If it's audio, summarize the speech. If it's video, summarize both visual and audio content.")
+        }
+        return try {
+            val response = model.generateContent(prompt)
+            response.text
+        } catch (e: Exception) {
+            Log.e(TAG, "Error summarizing media: ${e.message}", e)
+            null
+        }
+    }
+
+    fun chatWithMedia(bytes: ByteArray, mimeType: String, question: String): Flow<String?> {
+        Log.d(TAG, "Chatting with media. Question: $question")
+        val prompt = content {
+            inlineData(bytes, mimeType)
+            text("You are an expert media analyzer. Based on the provided audio/video, answer the user's question precisely.\n\nQuestion: $question")
+        }
+        return model.generateContentStream(prompt)
+            .onEach { Log.d(TAG, "Media chunk processed") }
+            .map { it.text }
     }
 
     suspend fun summarizeDocument(text: String): String? {

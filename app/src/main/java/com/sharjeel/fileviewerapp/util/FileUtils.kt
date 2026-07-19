@@ -93,7 +93,16 @@ object FileUtils {
 
     fun isVideoFile(path: String): Boolean {
         val extension = path.substringAfterLast('.', "").lowercase()
-        return extension in listOf("mp4", "mkv", "avi", "mov", "webm", "3gp", "ts")
+        return extension in listOf("mp4", "mkv", "avi", "mov", "webm", "3gp", "ts", "flv", "mpeg", "mpg", "wmv")
+    }
+
+    fun isAudioFile(path: String): Boolean {
+        val extension = path.substringAfterLast('.', "").lowercase()
+        return extension in listOf("mp3", "wav", "flac", "opus", "ogg", "aac", "m4a", "mpga", "pcm")
+    }
+
+    fun isMediaFile(path: String): Boolean {
+        return isVideoFile(path) || isAudioFile(path) || isImageFile(path)
     }
 
     fun isImageFile(path: String): Boolean {
@@ -115,10 +124,20 @@ object FileUtils {
             "gif" -> "image/gif"
             "mp4", "m4v" -> "video/mp4"
             "mkv" -> "video/x-matroska"
-            "mp3" -> "audio/mpeg"
-            "wav" -> "audio/x-wav"
-            "opus" -> "audio/ogg"
+            "mov" -> "video/quicktime"
+            "webm" -> "video/webm"
+            "3gp", "3gpp" -> "video/3gpp"
+            "flv" -> "video/x-flv"
+            "mpeg", "mpg", "mpe" -> "video/mpeg"
+            "wmv" -> "video/x-ms-wmv"
+            "mp3" -> "audio/mp3"
+            "wav" -> "audio/wav"
+            "flac" -> "audio/flac"
+            "aac" -> "audio/aac"
+            "m4a" -> "audio/mp4"
+            "opus" -> "audio/opus"
             "ogg" -> "audio/ogg"
+            "mpga" -> "audio/mpeg"
             "zip" -> "application/zip"
             "rar" -> "application/x-rar-compressed"
             "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"

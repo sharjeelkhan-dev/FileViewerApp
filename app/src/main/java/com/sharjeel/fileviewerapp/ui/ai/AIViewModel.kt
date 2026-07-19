@@ -6,8 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.appcheck.appCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 import com.google.firebase.ai.GenerativeModel
+import com.google.firebase.ai.type.content
 import com.google.firebase.Firebase
 import com.sharjeel.fileviewerapp.BuildConfig
+import com.sharjeel.fileviewerapp.util.FileUtils
 import com.sharjeel.fileviewerapp.util.TextExtractionUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -57,8 +60,33 @@ class AIViewModel @Inject constructor(
 
     fun summarizeFile(filePath: String) {
         viewModelScope.launch(Dispatchers.Main + exceptionHandler) {
-            _uiState.value = AIUiState.Loading("Extracting text and generating summary...")
+            val isAudio = FileUtils.isAudioFile(filePath)
+            val isVideo = FileUtils.isVideoFile(filePath)
+            val isImage = FileUtils.isImageFile(filePath)
 
+            if (isAudio || isVideo || isImage) {
+                _uiState.value = AIUiState.Loading("Analyzing ${if (isImage) "image" else "media"} and generating summary...")
+                try {
+                    val bytes = withContext(Dispatchers.IO) { File(filePath).readBytes() }
+                    val mime = FileUtils.getMimeType(filePath)
+                    val prompt = content {
+                        inlineData(bytes, mime)
+                        text("Provide a concise and structured summary of this ${if (isAudio) "audio" else if (isVideo) "video" else "image"} file in exactly 5-6 bullet points.")
+                    }
+                    val response = withContext(Dispatchers.IO) { model.generateContent(prompt) }
+                    if (!response.text.isNullOrBlank()) {
+                        _uiState.value = AIUiState.SummaryReady(response.text!!)
+                    } else {
+                        _uiState.value = AIUiState.Error("Failed to generate summary content.")
+                    }
+                } catch (e: Exception) {
+                    Log.e(tag, "Media summary failed: ${e.message}", e)
+                    _uiState.value = AIUiState.Error("Analysis Failed: ${e.localizedMessage}")
+                }
+                return@launch
+            }
+
+            _uiState.value = AIUiState.Loading("Extracting text and generating summary...")
             val text = withContext(Dispatchers.IO) {
                 TextExtractionUtils.extractText(filePath)
             } ?: ""
@@ -93,6 +121,38 @@ class AIViewModel @Inject constructor(
 
             val userMsg = ChatMessage(content = question, isUser = true)
             _chatMessages.update { it + userMsg }
+
+            val isAudio = FileUtils.isAudioFile(filePath)
+            val isVideo = FileUtils.isVideoFile(filePath)
+            val isImage = FileUtils.isImageFile(filePath)
+
+            if (isAudio || isVideo || isImage) {
+                try {
+                    val bytes = withContext(Dispatchers.IO) { File(filePath).readBytes() }
+                    val mime = FileUtils.getMimeType(filePath)
+                    val prompt = content {
+                        inlineData(bytes, mime)
+                        text("You are an expert analyzer. Based on the provided ${if (isAudio) "audio" else if (isVideo) "video" else "image"}, answer the user's question precisely.\n\nQuestion: $question")
+                    }
+                    model.generateContentStream(prompt).collect { chunk ->
+                        val chunkText = chunk.text
+                        if (!chunkText.isNullOrEmpty()) {
+                            _chatMessages.update { currentList ->
+                                val lastMsg = currentList.lastOrNull()
+                                if (lastMsg != null && !lastMsg.isUser) {
+                                    currentList.dropLast(1) + lastMsg.copy(content = lastMsg.content + chunkText)
+                                } else {
+                                    currentList + ChatMessage(content = chunkText, isUser = false)
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(tag, "Media chat failure: ${e.message}", e)
+                    _chatMessages.update { it + ChatMessage("Error: Media analysis failed. ${e.localizedMessage}", isUser = false) }
+                }
+                return@launch
+            }
 
             val text = withContext(Dispatchers.IO) {
                 TextExtractionUtils.extractText(filePath)
