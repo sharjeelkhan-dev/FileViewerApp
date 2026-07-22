@@ -2,6 +2,7 @@ package com.sharjeel.fileviewerapp.ui.explorer
 
 import android.content.Context
 import android.os.Environment
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sharjeel.fileviewerapp.domain.model.FileModel
@@ -9,29 +10,39 @@ import com.sharjeel.fileviewerapp.domain.repository.FileCategory
 import com.sharjeel.fileviewerapp.domain.repository.FileRepository
 import com.sharjeel.fileviewerapp.util.AIService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-// --- UI STATE SEALED INTERFACE (FIXED COMPILER ERROR) ---
+// --- UI STATE SEALED INTERFACE ---
+@Immutable
 sealed interface ExplorerUiState {
     object Loading : ExplorerUiState
+
+    @Immutable
     data class Success(val files: List<FileModel>) : ExplorerUiState
+
+    @Immutable
     data class Error(val message: String) : ExplorerUiState
 }
 
 @HiltViewModel
 class ExplorerViewModel @Inject constructor(
     private val repository: FileRepository,
-    private val aiService: AIService
+    private val aiService: AIService,
+    @ApplicationContext private val appContext: Context // ✅ Memory Leak Fix via Hilt
 ) : ViewModel() {
 
     private val _events = Channel<ExplorerEvent>(Channel.CONFLATED)
@@ -59,30 +70,34 @@ class ExplorerViewModel @Inject constructor(
     private val _isCopying = MutableStateFlow<List<String>>(emptyList())
     val isCopying = _isCopying.asStateFlow()
 
+    // ✅ FIXED: Heavy computation moved to Dispatchers.Default (Background Thread)
     val uiState: StateFlow<ExplorerUiState> = combine(
         _rawFiles,
         _searchQuery,
         _sortType,
         _sortOrder
     ) { files, query, sortType, sortOrder ->
-        try {
-            val filtered = if (query.isBlank()) {
-                files
-            } else {
-                files.filter { it.name.contains(query, ignoreCase = true) }
-            }
+        withContext(Dispatchers.Default) {
+            try {
+                val filtered = if (query.isBlank()) {
+                    files
+                } else {
+                    files.filter { it.name.contains(query, ignoreCase = true) }
+                }
 
-            val sorted = when (sortType) {
-                SortType.NAME -> if (sortOrder == SortOrder.ASCENDING) filtered.sortedBy { it.name.lowercase() } else filtered.sortedByDescending { it.name.lowercase() }
-                SortType.TYPE -> if (sortOrder == SortOrder.ASCENDING) filtered.sortedBy { it.extension.lowercase() } else filtered.sortedByDescending { it.extension.lowercase() }
-                SortType.SIZE -> if (sortOrder == SortOrder.ASCENDING) filtered.sortedBy { it.size } else filtered.sortedByDescending { it.size }
-                SortType.DATE -> if (sortOrder == SortOrder.ASCENDING) filtered.sortedBy { it.lastModified } else filtered.sortedByDescending { it.lastModified }
-            }
+                val isAsc = sortOrder == SortOrder.ASCENDING
+                val sorted = when (sortType) {
+                    SortType.NAME -> if (isAsc) filtered.sortedBy { it.name.lowercase() } else filtered.sortedByDescending { it.name.lowercase() }
+                    SortType.TYPE -> if (isAsc) filtered.sortedBy { it.extension.lowercase() } else filtered.sortedByDescending { it.extension.lowercase() }
+                    SortType.SIZE -> if (isAsc) filtered.sortedBy { it.size } else filtered.sortedByDescending { it.size }
+                    SortType.DATE -> if (isAsc) filtered.sortedBy { it.lastModified } else filtered.sortedByDescending { it.lastModified }
+                }
 
-            ExplorerUiState.Success(sorted)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            ExplorerUiState.Error(e.localizedMessage ?: "Unknown Error occurred")
+                ExplorerUiState.Success(sorted)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                ExplorerUiState.Error(e.localizedMessage ?: "Unknown Error occurred")
+            }
         }
     }.stateIn(
         scope = viewModelScope,
@@ -99,14 +114,14 @@ class ExplorerViewModel @Inject constructor(
     private val _currentCategory = MutableStateFlow<FileCategory?>(null)
     val currentCategory: StateFlow<FileCategory?> = _currentCategory.asStateFlow()
 
+    // ✅ FIXED: Moved breadcrumbs String manipulation to Dispatchers.Default
     val breadcrumbs: StateFlow<List<BreadcrumbItem>> = combine(
         _currentPath,
         _currentCategory
     ) { path, category ->
-        val items = mutableListOf<BreadcrumbItem>()
+        val items = ArrayList<BreadcrumbItem>()
         val storageRoot = Environment.getExternalStorageDirectory().absolutePath
 
-        // 🎯 FIXED HIERARCHY: Always start with Home as the absolute root
         items.add(BreadcrumbItem(name = "Home", path = "", category = null))
         items.add(BreadcrumbItem(name = "Internal Storage", path = storageRoot, category = null))
 
@@ -136,17 +151,18 @@ class ExplorerViewModel @Inject constructor(
                     }
                 }
             } else {
-                // External SD Card or special path
                 val file = File(path)
                 items.add(BreadcrumbItem(name = file.name, path = path, category = null))
             }
         }
         items
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = listOf(BreadcrumbItem("Internal Storage", Environment.getExternalStorageDirectory().absolutePath, null))
-    )
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = listOf(BreadcrumbItem("Internal Storage", Environment.getExternalStorageDirectory().absolutePath, null))
+        )
 
     fun setSort(type: SortType, order: SortOrder) {
         _sortType.value = type
@@ -167,7 +183,7 @@ class ExplorerViewModel @Inject constructor(
     }
 
     fun loadFiles(path: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _currentPath.value = path
             _currentCategory.value = null
             if (path.isEmpty()) {
@@ -229,7 +245,7 @@ class ExplorerViewModel @Inject constructor(
 
     fun loadCategory(category: FileCategory) {
         _currentPath.value = ""
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _currentCategory.value = category
             _searchQuery.value = ""
             repository.getFilesByCategory(category).collect { files ->
@@ -243,7 +259,7 @@ class ExplorerViewModel @Inject constructor(
     }
 
     fun aiSearch(query: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val currentState = uiState.value
             if (currentState !is ExplorerUiState.Success) return@launch
 
@@ -279,13 +295,12 @@ class ExplorerViewModel @Inject constructor(
     }
 
     fun toggleFileSelection(path: String) {
-        val currentSelection = _selectedFiles.value.toMutableSet()
-        if (currentSelection.contains(path)) {
-            currentSelection.remove(path)
+        val currentSelection = _selectedFiles.value
+        _selectedFiles.value = if (currentSelection.contains(path)) {
+            currentSelection - path
         } else {
-            currentSelection.add(path)
+            currentSelection + path
         }
-        _selectedFiles.value = currentSelection
     }
 
     fun clearSelection() {
@@ -300,7 +315,7 @@ class ExplorerViewModel @Inject constructor(
     }
 
     fun deleteSelectedFiles() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _selectedFiles.value.forEach { path ->
                 repository.deleteFile(path)
             }
@@ -310,7 +325,7 @@ class ExplorerViewModel @Inject constructor(
     }
 
     fun renameFile(path: String, newName: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             if (repository.renameFile(path, newName)) {
                 refresh()
             }
@@ -318,14 +333,14 @@ class ExplorerViewModel @Inject constructor(
     }
 
     fun toggleFavorite(file: FileModel) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.toggleFavorite(file)
             refresh()
         }
     }
 
     fun moveToVault(file: FileModel) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             if (repository.toggleVault(file)) {
                 refresh()
             }
@@ -351,7 +366,7 @@ class ExplorerViewModel @Inject constructor(
             return
         }
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val moving = _isMoving.value
             val copying = _isCopying.value
 
@@ -368,7 +383,6 @@ class ExplorerViewModel @Inject constructor(
                     val sourceFile = File(source)
                     val destFile = File(targetDir, sourceFile.name)
                     _events.send(ExplorerEvent.ShowMessage("Copying ${sourceFile.name} to ${destFile.parent}..."))
-                    // Implementation note: repository.copyFile(source, destFile.absolutePath)
                 }
                 _isCopying.value = emptyList()
             }
@@ -382,7 +396,7 @@ class ExplorerViewModel @Inject constructor(
     }
 
     fun loadVault() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.getVaultFiles().collect { files ->
                 _rawFiles.value = files
             }
@@ -404,17 +418,12 @@ class ExplorerViewModel @Inject constructor(
     fun extractToCurrentFolder() {
         val archive = _pickingFolderForArchive.value ?: return
         val current = _currentPath.value
-        extractArchive(null, archive.path, current)
+        extractArchive(appContext, archive.path, current)
         stopPickingFolder()
     }
 
-    private var appContext: Context? = null
-    fun setContext(context: Context) {
-        this.appContext = context.applicationContext
-    }
-
     fun extractArchive(context: Context?, path: String, customDestination: String? = null) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val file = File(path)
             val destDir = if (customDestination != null) {
                 File(customDestination)
@@ -423,10 +432,6 @@ class ExplorerViewModel @Inject constructor(
             }
 
             val targetContext = context ?: appContext
-            if (targetContext == null) {
-                _events.send(ExplorerEvent.ShowMessage("System error: Missing context"))
-                return@launch
-            }
 
             _events.send(ExplorerEvent.ShowMessage("Extracting ${file.name}..."))
 
@@ -453,7 +458,7 @@ class ExplorerViewModel @Inject constructor(
 
     fun loadRecent() {
         _currentPath.value = ""
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _currentCategory.value = FileCategory.RECENT
             repository.getRecentFiles().collect { files ->
                 _rawFiles.value = files
@@ -463,7 +468,7 @@ class ExplorerViewModel @Inject constructor(
 
     fun loadFavorites() {
         _currentPath.value = ""
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _currentCategory.value = FileCategory.FAVORITES
             repository.getFavoriteFiles().collect { files ->
                 _rawFiles.value = files
@@ -472,15 +477,21 @@ class ExplorerViewModel @Inject constructor(
     }
 }
 
+@Immutable
 data class BreadcrumbItem(
     val name: String,
     val path: String,
     val category: FileCategory? = null
 )
 
+@Immutable
 sealed interface ExplorerEvent {
+    @Immutable
     data class ShowMessage(val message: String) : ExplorerEvent
+
+    @Immutable
     data class NavigateToFolder(val path: String, val title: String) : ExplorerEvent
+
     object NavigateToHome : ExplorerEvent
 }
 

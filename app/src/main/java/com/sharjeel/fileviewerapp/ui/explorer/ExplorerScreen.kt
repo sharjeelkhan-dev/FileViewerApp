@@ -1,7 +1,9 @@
 package com.sharjeel.fileviewerapp.ui.explorer
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -81,7 +83,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -93,9 +97,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.ImageLoader
-import coil.compose.AsyncImage
-import coil.decode.VideoFrameDecoder
+import coil.compose.rememberAsyncImagePainter
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
@@ -131,15 +133,9 @@ fun ExplorerScreen(
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
-                is ExplorerEvent.ShowMessage -> {
-                    snackbarHostState.showSnackbar(event.message)
-                }
-                is ExplorerEvent.NavigateToFolder -> {
-                    onPathClick(event.path)
-                }
-                ExplorerEvent.NavigateToHome -> {
-                    onHomeClick()
-                }
+                is ExplorerEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
+                is ExplorerEvent.NavigateToFolder -> onPathClick(event.path)
+                ExplorerEvent.NavigateToHome -> onHomeClick()
             }
         }
     }
@@ -753,6 +749,15 @@ fun FileList(
 
     val currentOnFileClick by rememberUpdatedState(onFileClick)
     val currentOnFileLongClick by rememberUpdatedState(onFileLongClick)
+    val currentOnDeleteClick by rememberUpdatedState(onDeleteClick)
+    val currentOnRenameClick by rememberUpdatedState(onRenameClick)
+    val currentOnShareClick by rememberUpdatedState(onShareClick)
+    val currentOnOpenWithClick by rememberUpdatedState(onOpenWithClick)
+    val currentOnFavoriteClick by rememberUpdatedState(onFavoriteClick)
+    val currentOnExtractClick by rememberUpdatedState(onExtractClick)
+    val currentOnLockClick by rememberUpdatedState(onLockClick)
+    val currentOnMoveClick by rememberUpdatedState(onMoveClick)
+    val currentOnCopyClick by rememberUpdatedState(onCopyClick)
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (viewMode == ViewMode.SMALL) {
@@ -763,7 +768,7 @@ fun FileList(
             ) {
                 items(
                     items = files,
-                    key = { file -> file.path },
+                    key = { file -> "${file.path}_${file.lastModified}" },
                     contentType = { file -> if (file.isDirectory) "folder" else "file" }
                 ) { file ->
                     FileRowItem(
@@ -771,15 +776,15 @@ fun FileList(
                         isSelected = selectedFiles.contains(file.path),
                         onClick = { currentOnFileClick(file) },
                         onLongClick = { currentOnFileLongClick(file) },
-                        onDeleteClick = onDeleteClick,
-                        onRenameClick = onRenameClick,
-                        onShareClick = onShareClick,
-                        onOpenWithClick = onOpenWithClick,
-                        onFavoriteClick = onFavoriteClick,
-                        onExtractClick = onExtractClick,
-                        onLockClick = onLockClick,
-                        onMoveClick = onMoveClick,
-                        onCopyClick = onCopyClick
+                        onDeleteClick = currentOnDeleteClick,
+                        onRenameClick = currentOnRenameClick,
+                        onShareClick = currentOnShareClick,
+                        onOpenWithClick = currentOnOpenWithClick,
+                        onFavoriteClick = currentOnFavoriteClick,
+                        onExtractClick = currentOnExtractClick,
+                        onLockClick = currentOnLockClick,
+                        onMoveClick = currentOnMoveClick,
+                        onCopyClick = currentOnCopyClick
                     )
                 }
             }
@@ -794,7 +799,7 @@ fun FileList(
             ) {
                 items(
                     items = files,
-                    key = { file -> file.path },
+                    key = { file -> "${file.path}_${file.lastModified}" },
                     contentType = { file -> if (file.isDirectory) "folder" else "file" }
                 ) { file ->
                     FileGridItem(
@@ -803,15 +808,15 @@ fun FileList(
                         isSelected = selectedFiles.contains(file.path),
                         onClick = { currentOnFileClick(file) },
                         onLongClick = { currentOnFileLongClick(file) },
-                        onDeleteClick = onDeleteClick,
-                        onRenameClick = onRenameClick,
-                        onShareClick = onShareClick,
-                        onOpenWithClick = onOpenWithClick,
-                        onFavoriteClick = onFavoriteClick,
-                        onExtractClick = onExtractClick,
-                        onLockClick = onLockClick,
-                        onMoveClick = onMoveClick,
-                        onCopyClick = onCopyClick
+                        onDeleteClick = currentOnDeleteClick,
+                        onRenameClick = currentOnRenameClick,
+                        onShareClick = currentOnShareClick,
+                        onOpenWithClick = currentOnOpenWithClick,
+                        onFavoriteClick = currentOnFavoriteClick,
+                        onExtractClick = currentOnExtractClick,
+                        onLockClick = currentOnLockClick,
+                        onMoveClick = currentOnMoveClick,
+                        onCopyClick = currentOnCopyClick
                     )
                 }
             }
@@ -837,8 +842,14 @@ fun FileRowItem(
     onCopyClick: (FileModel) -> Unit
 ) {
     var isMenuExpanded by remember { mutableStateOf(false) }
-    val formattedSize = remember(file.size) { FileUtils.formatFileSize(file.size) }
-    val formattedDate = remember(file.lastModified) { FileUtils.formatDate(file.lastModified) }
+
+    val subtitleText = remember(file.formattedSize, file.formattedDate, file.itemCount, file.isDirectory, file.size, file.lastModified) {
+        if (file.formattedSize.isNotEmpty() && file.formattedDate.isNotEmpty()) {
+            if (file.isDirectory) "${file.itemCount} Items" else "${file.formattedSize} • ${file.formattedDate}"
+        } else {
+            if (file.isDirectory) "${file.itemCount} Items" else "${FileUtils.formatFileSize(file.size)} • ${FileUtils.formatDate(file.lastModified)}"
+        }
+    }
 
     Surface(
         color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
@@ -847,6 +858,7 @@ fun FileRowItem(
         border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
         modifier = Modifier
             .fillMaxWidth()
+            .graphicsLayer { clip = true }
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -870,7 +882,7 @@ fun FileRowItem(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = if (file.isDirectory) "${file.itemCount} Items" else "$formattedSize • $formattedDate",
+                    text = subtitleText,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -941,6 +953,7 @@ fun FileGridItem(
         modifier = Modifier
             .fillMaxWidth()
             .height(itemHeight)
+            .graphicsLayer { clip = true }
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -1044,7 +1057,8 @@ private fun FileActionContextMenu(
             onClick = { onDeleteClick(file); onDismiss() },
             leadingIcon = { Icon(painter = painterResource(id = R.drawable.recycle_bin_line_icon), contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) }
         )
-        if (file.extension.lowercase() in listOf("zip", "rar")) {
+        val ext = remember(file.extension) { file.extension.lowercase() }
+        if (ext in listOf("zip", "rar")) {
             DropdownMenuItem(
                 text = { Text("Extract Here", fontWeight = FontWeight.SemiBold) },
                 onClick = { onExtractClick(file); onDismiss() },
@@ -1121,32 +1135,24 @@ fun RenameDialog(
 
 @Composable
 fun FileThumbnail(file: FileModel, isGrid: Boolean) {
-    val isVideo = remember(file.path) { FileUtils.isVideoFile(file.path) }
-    val isImage = remember(file.path) { FileUtils.isImageFile(file.path) }
+    val localContext = LocalContext.current
     val ext = remember(file.extension) { file.extension.lowercase() }
+
+    val isVideo = remember(ext) { ext in listOf("mp4", "mkv", "avi", "mov", "3gp", "webm") }
+    val isImage = remember(ext) { ext in listOf("jpg", "jpeg", "png", "webp", "gif", "heic") }
     val isApk = ext == "apk"
     val thumbSize = if (isGrid) 48.dp else 40.dp
-    val localContext = LocalContext.current
 
     if (isVideo || isImage || isApk) {
-        // Video decoder support added for Coil
-        val videoImageLoader = remember(localContext) {
-            ImageLoader.Builder(localContext)
-                .components {
-                    add(VideoFrameDecoder.Factory())
-                }
-                .build()
-        }
-
-        val imageRequest = remember(file.path, localContext, isVideo) {
+        val imageRequest = remember(file.path, isVideo) {
             ImageRequest.Builder(localContext)
                 .data(file.path)
                 .apply {
                     if (isVideo) {
-                        videoFrameMillis(1000) // 1 second mark frame extract
+                        videoFrameMillis(1000)
                     }
                 }
-                .crossfade(true)
+                .crossfade(false)
                 .size(96, 96)
                 .precision(Precision.EXACT)
                 .memoryCachePolicy(CachePolicy.ENABLED)
@@ -1154,20 +1160,21 @@ fun FileThumbnail(file: FileModel, isGrid: Boolean) {
                 .build()
         }
 
-        Surface(
-            shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.size(thumbSize),
-            color = MaterialTheme.colorScheme.surfaceVariant
+        Box(
+            modifier = Modifier
+                .size(thumbSize)
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            AsyncImage(
-                model = imageRequest,
-                imageLoader = videoImageLoader,
+            val painter = rememberAsyncImagePainter(model = imageRequest)
+
+            Image(
+                painter = painter,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-                placeholder = painterResource(R.drawable.photo_collage_icon),
-                error = painterResource(if (isApk) R.drawable.archive_line_icon else R.drawable.photo_collage_icon)
+                modifier = Modifier.fillMaxSize()
             )
+
             if (isVideo) {
                 Box(
                     modifier = Modifier
@@ -1189,14 +1196,12 @@ fun FileThumbnail(file: FileModel, isGrid: Boolean) {
         Box(
             modifier = Modifier
                 .size(thumbSize)
-                .background(
-                    color.copy(alpha = 0.15f),
-                    RoundedCornerShape(10.dp)
-                ),
+                .clip(RoundedCornerShape(10.dp))
+                .background(color.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                icon,
+                painter = icon,
                 contentDescription = null,
                 tint = color,
                 modifier = Modifier.size(20.dp)

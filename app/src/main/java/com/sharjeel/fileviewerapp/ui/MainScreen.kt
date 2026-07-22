@@ -167,7 +167,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
     ) {
         ModalNavigationDrawer(
             drawerState = drawerState,
-            gesturesEnabled = true,
+            gesturesEnabled = currentRoute !is NavRoute.Viewer,
             drawerContent = {
                 ModalDrawerSheet(
                     drawerContainerColor = MaterialTheme.colorScheme.surface,

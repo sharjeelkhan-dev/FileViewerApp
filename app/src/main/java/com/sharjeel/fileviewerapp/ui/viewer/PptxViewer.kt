@@ -17,9 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.changedToUp
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -74,27 +71,15 @@ fun PptxViewer(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                        val isUp = event.changes.any { it.changedToUp() }
-                        if (isUp && event.changes.size == 1) {
-                            onTap()
-                        }
-                    }
-                }
-            },
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         GestureCoordinatedBox(
             onZoomChanged = onZoomChanged,
-            onTap = {} // Handled by outer Box
+            onTap = onTap
         ) { scale, offset ->
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 if (isLoading) {
@@ -104,26 +89,27 @@ fun PptxViewer(
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
                             .padding(top = 84.dp, bottom = 24.dp)
-                        .fillMaxWidth()
-                        .fillMaxHeight()
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                            translationX = offset.x
-                            translationY = offset.y
-                        },
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color.White,
-                    shadowElevation = 12.dp
-                ) {
-                    androidx.compose.foundation.text.selection.SelectionContainer {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(24.dp)
-                        ) {
-                            items(slides, key = { slide -> slide.index }) { slide ->
-                                SlideView(slide)
+                            .fillMaxWidth()
+                            .fillMaxHeight()
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = offset.x
+                                translationY = offset.y
+                            },
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color.White,
+                        shadowElevation = 12.dp
+                    ) {
+                        androidx.compose.foundation.text.selection.SelectionContainer {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(24.dp)
+                            ) {
+                                items(slides, key = { slide -> slide.index }) { slide ->
+                                    SlideView(slide)
+                                }
                             }
                         }
                     }
@@ -131,7 +117,6 @@ fun PptxViewer(
             }
         }
     }
-}
 }
 
 @Composable
@@ -298,7 +283,7 @@ private fun openPptxWithExternalApp(context: Context, filePath: String) {
     val file = File(filePath)
     try {
         val authority = "${context.packageName}.fileprovider"
-        val uri = FileProvider.getUriForFile(context, authority, file)
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, authority, file)
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "application/vnd.openxmlformats-officedocument.presentationml.presentation")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

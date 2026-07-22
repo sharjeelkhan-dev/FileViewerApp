@@ -26,15 +26,11 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Initialize Firebase Analytics
         firebaseAnalytics = Firebase.analytics
         firebaseAnalytics.logEvent(FirebaseAnalytics.Event.APP_OPEN, null)
 
-        // Edge-to-edge layout framework enable karein
         enableEdgeToEdge()
 
-        // System ke default grey contrast overlays ko band karein taake solid custom colors perfectly transparent aur seamless dikhein
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
             window.isStatusBarContrastEnforced = false
@@ -65,7 +61,6 @@ class MainActivity : FragmentActivity() {
             val extension = path.substringAfterLast('.', "").lowercase()
             return NavRoute.Viewer(filePath = path, fileType = extension)
         }
-
         return NavRoute.Home
     }
 }

@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -31,7 +32,6 @@ class ViewerViewModel @Inject constructor(
         _filePlaylist.value = files
         _currentFileIndex.value = files.indexOfFirst { it.path == initialPath }
     }
-
     fun loadFolderPlaylist(currentFilePath: String) {
         if (_filePlaylist.value.isNotEmpty()) return
 
@@ -68,7 +68,7 @@ class ViewerViewModel @Inject constructor(
     fun toggleFavorite(file: FileModel) {
         viewModelScope.launch {
             repository.toggleFavorite(file)
-            _isFavorite.value = repository.isFavorite(file.path)
+            _isFavorite.update { !it }
         }
     }
 

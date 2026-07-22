@@ -66,8 +66,6 @@ fun UniversalFilePager(
             }
     }
 
-    // Strict type enforcement logic: Swipe ONLY allowed for Images.
-    // PDF, DOCX, TXT, etc., are locked to prevent accidental navigation while reading.
     val isSwipeAllowed by remember(filePlaylist, isCurrentPageZoomed) {
         derivedStateOf {
             val currentPage = pagerState.currentPage
@@ -91,7 +89,7 @@ fun UniversalFilePager(
             modifier = Modifier.fillMaxSize(),
             key = { index -> if (index in filePlaylist.indices) filePlaylist[index].path else index },
             userScrollEnabled = isSwipeAllowed,
-            beyondViewportPageCount = 0 // 🎯 FIXED: Set to 0 to prevent OOM/Crashes when swiping between heavy documents
+            beyondViewportPageCount = 0
         ) { page ->
             if (page in filePlaylist.indices) {
                 FileContentRenderer(
@@ -120,7 +118,6 @@ fun UniversalFilePager(
     }
 }
 
-// 🎯 FIXED: Added the complete missing renderer function here
 @Composable
 fun FileContentRenderer(
     file: FileModel,
@@ -137,7 +134,6 @@ fun FileContentRenderer(
         "pdf" -> {
             PdfViewerScreen(
                 filePath = file.path,
-                onZoomChanged = onZoomChanged,
                 onTap = onToggleControls
             )
         }
