@@ -15,8 +15,8 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +45,7 @@ fun UniversalFilePager(
     )
     val scope = rememberCoroutineScope()
 
-    // Tracks if the current file is actively being pinched or zoomed
+    // Tracks if the current active page element (Image/Doc/PDF) is zoomed in
     var isCurrentPageZoomed by remember { mutableStateOf(false) }
 
     LaunchedEffect(targetInitialPage) {
@@ -62,18 +62,21 @@ fun UniversalFilePager(
                 if (page in filePlaylist.indices) {
                     onFileChanged(filePlaylist[page])
                 }
+                // Reset zoom state on page change
                 isCurrentPageZoomed = false
             }
     }
 
-    val isSwipeAllowed by remember(filePlaylist, isCurrentPageZoomed) {
+    // Only allow HorizontalPager horizontal gestures if format is media (Images) AND not zoomed
+    val isSwipeAllowed by remember(filePlaylist, pagerState.currentPage, isCurrentPageZoomed) {
         derivedStateOf {
             val currentPage = pagerState.currentPage
             if (currentPage in filePlaylist.indices && !isCurrentPageZoomed) {
                 val ext = filePlaylist[currentPage].extension.lowercase()
-                // Only Images allow horizontal swiping between files
                 ext in listOf("jpg", "png", "webp", "gif", "jpeg")
-            } else false
+            } else {
+                false
+            }
         }
     }
 
@@ -168,7 +171,15 @@ fun FileContentRenderer(
             )
         }
 
-        "txt", "log", "json", "xml", "kt", "java", "csv", "docx", "doc" -> {
+        "docx", "doc" -> {
+            DocxViewer(
+                filePath = file.path,
+                onZoomChanged = onZoomChanged,
+                onTap = onToggleControls
+            )
+        }
+
+        "txt", "log", "json", "xml", "kt", "java", "csv" -> {
             TextViewer(
                 filePath = file.path,
                 onZoomChanged = onZoomChanged,
