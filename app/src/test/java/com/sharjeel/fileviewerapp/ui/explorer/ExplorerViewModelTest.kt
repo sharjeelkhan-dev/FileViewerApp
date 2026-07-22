@@ -1,6 +1,7 @@
 package com.sharjeel.fileviewerapp.ui.explorer
 
 import com.sharjeel.fileviewerapp.domain.repository.FileRepository
+import com.sharjeel.fileviewerapp.util.AIService
 import android.os.Environment
 import io.mockk.every
 import io.mockk.mockk
@@ -21,6 +22,7 @@ import java.io.File
 class ExplorerViewModelTest {
 
     private val repository = mockk<FileRepository>(relaxed = true)
+    private val aiService = mockk<AIService>(relaxed = true)
     private lateinit var viewModel: ExplorerViewModel
     private val testDispatcher = StandardTestDispatcher()
 
@@ -30,7 +32,7 @@ class ExplorerViewModelTest {
         every { Environment.getExternalStorageDirectory() } returns File("/sdcard")
         
         Dispatchers.setMain(testDispatcher)
-        viewModel = ExplorerViewModel(repository)
+        viewModel = ExplorerViewModel(repository, aiService)
     }
 
     @After

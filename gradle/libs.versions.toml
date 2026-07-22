@@ -51,6 +51,7 @@ mlkitTextRecognition = "19.0.1"
 media3 = "1.10.1"
 biometric = "1.2.0-alpha05"
 material3Adaptive = "1.1.2"
+errorProneAnnotations = "2.30.0"
 poiAndroid = "3.17"
 googleServices = "4.4.2"
 firebaseBom = "34.15.0"
@@ -135,6 +136,7 @@ firebase-ai = { group = "com.google.firebase", name = "firebase-ai" }
 firebase-appcheck = { group = "com.google.firebase", name = "firebase-appcheck" }
 firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug" }
 androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
+error-prone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version.ref = "errorProneAnnotations" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

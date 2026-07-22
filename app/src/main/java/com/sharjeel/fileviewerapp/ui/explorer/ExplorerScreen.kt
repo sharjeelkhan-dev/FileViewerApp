@@ -1,6 +1,6 @@
 package com.sharjeel.fileviewerapp.ui.explorer
-
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,14 +19,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -76,22 +77,31 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.ImageLoader
 import coil.compose.AsyncImage
+import coil.decode.VideoFrameDecoder
+import coil.request.CachePolicy
+import coil.request.ImageRequest
+import coil.request.videoFrameMillis
+import coil.size.Precision
 import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.domain.model.FileModel
-import androidx.compose.ui.tooling.preview.Preview
 import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
 import com.sharjeel.fileviewerapp.util.FileUtils
 
@@ -114,8 +124,8 @@ fun ExplorerScreen(
     val isMoving by viewModel.isMoving.collectAsState()
     val isCopying by viewModel.isCopying.collectAsState()
     val pickingFolderForArchive by viewModel.pickingFolderForArchive.collectAsState()
-    
-    val context = LocalContext.current
+
+    val localContext = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
@@ -164,7 +174,7 @@ fun ExplorerScreen(
         onSelectAllPaths = { viewModel.selectAllPaths(it) },
         onToggleFileSelection = { viewModel.toggleFileSelection(it) },
         onToggleFavorite = { viewModel.toggleFavorite(it) },
-        onExtractArchive = { viewModel.extractArchive(context, it) },
+        onExtractArchive = { viewModel.extractArchive(localContext, it) },
         onMoveToVault = { viewModel.moveToVault(it) },
         onBreadcrumbClick = { item ->
             if (item.category != null) {
@@ -218,13 +228,12 @@ fun ExplorerScreenContent(
     onBreadcrumbClick: (BreadcrumbItem) -> Unit,
     snackbarHostState: SnackbarHostState
 ) {
-    val context = LocalContext.current
-
     var isSearchActive by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var fileToRename by remember { mutableStateOf<FileModel?>(null) }
     var showSortSheet by remember { mutableStateOf(false) }
     var showViewOptionsSheet by remember { mutableStateOf(false) }
+    val localContext = LocalContext.current
 
     if (fileToRename != null) {
         RenameDialog(
@@ -474,9 +483,7 @@ fun ExplorerScreenContent(
                 onViewModeClick = { showViewOptionsSheet = true }
             )
             HorizontalDivider(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .offset(y = (-10).dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 thickness = 0.5.dp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
             )
@@ -489,7 +496,8 @@ fun ExplorerScreenContent(
                         }
                     }
                     is ExplorerUiState.Success -> {
-                        if (uiState.files.isEmpty()) {
+                        val files = uiState.files
+                        if (files.isEmpty()) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
@@ -510,7 +518,7 @@ fun ExplorerScreenContent(
                             }
                         } else {
                             FileList(
-                                files = uiState.files,
+                                files = files,
                                 selectedFiles = selectedFiles,
                                 viewMode = viewMode,
                                 onFileClick = { file ->
@@ -523,8 +531,8 @@ fun ExplorerScreenContent(
                                 onFileLongClick = { onToggleFileSelection(it.path) },
                                 onDeleteClick = { onToggleFileSelection(it.path); onDeleteSelectedFiles() },
                                 onRenameClick = { fileToRename = it },
-                                onShareClick = { FileUtils.shareFile(context, it.path) },
-                                onOpenWithClick = { FileUtils.openWithExternalApp(context, it.path) },
+                                onShareClick = { FileUtils.shareFile(localContext, it.path) },
+                                onOpenWithClick = { FileUtils.openWithExternalApp(localContext, it.path) },
                                 onFavoriteClick = { onToggleFavorite(it) },
                                 onExtractClick = { onExtractArchive(it.path) },
                                 onLockClick = { onMoveToVault(it) },
@@ -597,7 +605,7 @@ fun Breadcrumbs(
     items: List<BreadcrumbItem>,
     onItemClick: (BreadcrumbItem) -> Unit
 ) {
-    val scrollState = androidx.compose.foundation.rememberScrollState()
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(items.size) {
         if (items.isNotEmpty()) {
@@ -607,7 +615,7 @@ fun Breadcrumbs(
 
     Row(
         modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 4.dp)
             .fillMaxWidth()
             .horizontalScroll(scrollState),
         verticalAlignment = Alignment.CenterVertically,
@@ -629,7 +637,7 @@ fun Breadcrumbs(
                 shape = RoundedCornerShape(12.dp),
                 color = when {
                     isFirst && item.category == null -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                    isLast -> MaterialTheme.colorScheme.secondaryContainer
+                    isLast -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.9f)
                     else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                 },
                 onClick = { onItemClick(item) }
@@ -673,8 +681,7 @@ fun SortBar(
 ) {
     Row(
         modifier = Modifier
-            .padding(horizontal = 20.dp)
-            .offset(y = (-10).dp)
+            .padding(horizontal = 20.dp, vertical = 4.dp)
             .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
@@ -732,66 +739,81 @@ fun FileList(
     onLockClick: (FileModel) -> Unit,
     onMoveClick: (FileModel) -> Unit,
     onCopyClick: (FileModel) -> Unit,
-    bottomPadding: androidx.compose.ui.unit.Dp
+    bottomPadding: Dp
 ) {
-    val finalContentPadding = PaddingValues(
-        start = 16.dp,
-        end = 16.dp,
-        top = 4.dp,
-        bottom = bottomPadding + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 24.dp
-    )
+    val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val finalContentPadding = remember(bottomPadding, navBarBottom) {
+        PaddingValues(
+            start = 16.dp,
+            end = 16.dp,
+            top = 4.dp,
+            bottom = bottomPadding + navBarBottom + 24.dp
+        )
+    }
 
-    if (viewMode == ViewMode.SMALL) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = finalContentPadding,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(files) { file ->
-                FileRowItem(
-                    file = file,
-                    isSelected = selectedFiles.contains(file.path),
-                    onClick = { onFileClick(file) },
-                    onLongClick = { onFileLongClick(file) },
-                    onDelete = { onDeleteClick(file) },
-                    onRename = { onRenameClick(file) },
-                    onShare = { onShareClick(file) },
-                    onOpenWith = { onOpenWithClick(file) },
-                    onFavorite = { onFavoriteClick(file) },
-                    onExtract = { onExtractClick(file) },
-                    onLock = { onLockClick(file) },
-                    onMove = { onMoveClick(file) },
-                    onCopy = { onCopyClick(file) }
-                )
+    val currentOnFileClick by rememberUpdatedState(onFileClick)
+    val currentOnFileLongClick by rememberUpdatedState(onFileLongClick)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (viewMode == ViewMode.SMALL) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = finalContentPadding,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(
+                    items = files,
+                    key = { file -> file.path },
+                    contentType = { file -> if (file.isDirectory) "folder" else "file" }
+                ) { file ->
+                    FileRowItem(
+                        file = file,
+                        isSelected = selectedFiles.contains(file.path),
+                        onClick = { currentOnFileClick(file) },
+                        onLongClick = { currentOnFileLongClick(file) },
+                        onDeleteClick = onDeleteClick,
+                        onRenameClick = onRenameClick,
+                        onShareClick = onShareClick,
+                        onOpenWithClick = onOpenWithClick,
+                        onFavoriteClick = onFavoriteClick,
+                        onExtractClick = onExtractClick,
+                        onLockClick = onLockClick,
+                        onMoveClick = onMoveClick,
+                        onCopyClick = onCopyClick
+                    )
+                }
             }
-        }
-    } else {
-        val columnsCount = if (viewMode == ViewMode.MEDIUM) 3 else 2
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(columnsCount),
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = finalContentPadding,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(files.size) { index ->
-                val file = files[index]
-                FileGridItem(
-                    file = file,
-                    viewMode = viewMode,
-                    isSelected = selectedFiles.contains(file.path),
-                    onClick = { onFileClick(file) },
-                    onLongClick = { onFileLongClick(file) },
-                    onDelete = { onDeleteClick(file) },
-                    onRename = { onRenameClick(file) },
-                    onShare = { onShareClick(file) },
-                    onOpenWith = { onOpenWithClick(file) },
-                    onFavorite = { onFavoriteClick(file) },
-                    onExtract = { onExtractClick(file) },
-                    onLock = { onLockClick(file) },
-                    onMove = { onMoveClick(file) },
-                    onCopy = { onCopyClick(file) }
-                )
+        } else {
+            val columnsCount = if (viewMode == ViewMode.MEDIUM) 3 else 2
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columnsCount),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = finalContentPadding,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(
+                    items = files,
+                    key = { file -> file.path },
+                    contentType = { file -> if (file.isDirectory) "folder" else "file" }
+                ) { file ->
+                    FileGridItem(
+                        file = file,
+                        viewMode = viewMode,
+                        isSelected = selectedFiles.contains(file.path),
+                        onClick = { currentOnFileClick(file) },
+                        onLongClick = { currentOnFileLongClick(file) },
+                        onDeleteClick = onDeleteClick,
+                        onRenameClick = onRenameClick,
+                        onShareClick = onShareClick,
+                        onOpenWithClick = onOpenWithClick,
+                        onFavoriteClick = onFavoriteClick,
+                        onExtractClick = onExtractClick,
+                        onLockClick = onLockClick,
+                        onMoveClick = onMoveClick,
+                        onCopyClick = onCopyClick
+                    )
+                }
             }
         }
     }
@@ -804,23 +826,25 @@ fun FileRowItem(
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onDelete: () -> Unit,
-    onRename: () -> Unit,
-    onShare: () -> Unit,
-    onOpenWith: () -> Unit,
-    onFavorite: () -> Unit,
-    onExtract: () -> Unit,
-    onLock: () -> Unit,
-    onMove: () -> Unit,
-    onCopy: () -> Unit
+    onDeleteClick: (FileModel) -> Unit,
+    onRenameClick: (FileModel) -> Unit,
+    onShareClick: (FileModel) -> Unit,
+    onOpenWithClick: (FileModel) -> Unit,
+    onFavoriteClick: (FileModel) -> Unit,
+    onExtractClick: (FileModel) -> Unit,
+    onLockClick: (FileModel) -> Unit,
+    onMoveClick: (FileModel) -> Unit,
+    onCopyClick: (FileModel) -> Unit
 ) {
+    var isMenuExpanded by remember { mutableStateOf(false) }
+    val formattedSize = remember(file.size) { FileUtils.formatFileSize(file.size) }
+    val formattedDate = remember(file.lastModified) { FileUtils.formatDate(file.lastModified) }
+
     Surface(
         color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
         else MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(24.dp),
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp,
-            MaterialTheme.colorScheme.primary) else null,
-        shadowElevation = if (isSelected) 0.dp else 2.dp,
+        shape = RoundedCornerShape(16.dp),
+        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
@@ -830,12 +854,12 @@ fun FileRowItem(
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(12.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             FileThumbnail(file, isGrid = false)
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = file.name,
@@ -845,21 +869,45 @@ fun FileRowItem(
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                if (file.isDirectory) {
-                    Text(
-                        text = "${file.itemCount} Items",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    Text(
-                        text = "${FileUtils.formatFileSize(file.size)} • ${FileUtils.formatDate(file.lastModified)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                Text(
+                    text = if (file.isDirectory) "${file.itemCount} Items" else "$formattedSize • $formattedDate",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (isSelected) {
+                Icon(
+                    painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            } else {
+                Box {
+                    IconButton(onClick = { isMenuExpanded = true }, modifier = Modifier.size(24.dp)) {
+                        Icon(
+                            Icons.Rounded.MoreVert,
+                            contentDescription = "Actions",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
+                    FileActionContextMenu(
+                        expanded = isMenuExpanded,
+                        file = file,
+                        onDismiss = { isMenuExpanded = false },
+                        onRenameClick = onRenameClick,
+                        onMoveClick = onMoveClick,
+                        onCopyClick = onCopyClick,
+                        onDeleteClick = onDeleteClick,
+                        onExtractClick = onExtractClick,
+                        onFavoriteClick = onFavoriteClick,
+                        onLockClick = onLockClick,
+                        onShareClick = onShareClick,
+                        onOpenWithClick = onOpenWithClick,
+                        onLongClick = onLongClick
                     )
                 }
             }
-            ActionMenuButton(file, isSelected, onLongClick, onDelete, onRename, onMove, onCopy, onExtract, onFavorite, onLock, onShare, onOpenWith)
         }
     }
 }
@@ -872,25 +920,24 @@ fun FileGridItem(
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onDelete: () -> Unit,
-    onRename: () -> Unit,
-    onShare: () -> Unit,
-    onOpenWith: () -> Unit,
-    onFavorite: () -> Unit,
-    onExtract: () -> Unit,
-    onLock: () -> Unit,
-    onMove: () -> Unit,
-    onCopy: () -> Unit
+    onDeleteClick: (FileModel) -> Unit,
+    onRenameClick: (FileModel) -> Unit,
+    onShareClick: (FileModel) -> Unit,
+    onOpenWithClick: (FileModel) -> Unit,
+    onFavoriteClick: (FileModel) -> Unit,
+    onExtractClick: (FileModel) -> Unit,
+    onLockClick: (FileModel) -> Unit,
+    onMoveClick: (FileModel) -> Unit,
+    onCopyClick: (FileModel) -> Unit
 ) {
-    val itemHeight = if (viewMode == ViewMode.LARGE) 150.dp else 120.dp
+    var isMenuExpanded by remember { mutableStateOf(false) }
+    val itemHeight = if (viewMode == ViewMode.LARGE) 140.dp else 110.dp
 
     Surface(
         color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
         else MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(20.dp),
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp,
-            MaterialTheme.colorScheme.primary) else null,
-        shadowElevation = if (isSelected) 0.dp else 1.dp,
+        shape = RoundedCornerShape(16.dp),
+        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
         modifier = Modifier
             .fillMaxWidth()
             .height(itemHeight)
@@ -899,14 +946,14 @@ fun FileGridItem(
                 onLongClick = onLongClick
             )
     ) {
-        Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+        Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 FileThumbnail(file, isGrid = true)
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = file.name,
                     style = MaterialTheme.typography.bodyMedium,
@@ -919,133 +966,116 @@ fun FileGridItem(
                 )
             }
             Box(modifier = Modifier.align(Alignment.TopEnd)) {
-                ActionMenuButton(file, isSelected, onLongClick, onDelete, onRename, onMove, onCopy, onExtract, onFavorite, onLock, onShare, onOpenWith)
+                if (isSelected) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    IconButton(onClick = { isMenuExpanded = true }, modifier = Modifier.size(20.dp)) {
+                        Icon(
+                            Icons.Rounded.MoreVert,
+                            contentDescription = "Actions",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
+                    FileActionContextMenu(
+                        expanded = isMenuExpanded,
+                        file = file,
+                        onDismiss = { isMenuExpanded = false },
+                        onRenameClick = onRenameClick,
+                        onMoveClick = onMoveClick,
+                        onCopyClick = onCopyClick,
+                        onDeleteClick = onDeleteClick,
+                        onExtractClick = onExtractClick,
+                        onFavoriteClick = onFavoriteClick,
+                        onLockClick = onLockClick,
+                        onShareClick = onShareClick,
+                        onOpenWithClick = onOpenWithClick,
+                        onLongClick = onLongClick
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun ActionMenuButton(
+private fun FileActionContextMenu(
+    expanded: Boolean,
     file: FileModel,
-    isSelected: Boolean,
-    onLongClick: () -> Unit,
-    onDelete: () -> Unit,
-    onRename: () -> Unit,
-    onMove: () -> Unit,
-    onCopy: () -> Unit,
-    onExtract: () -> Unit,
-    onFavorite: () -> Unit,
-    onLock: () -> Unit,
-    onShare: () -> Unit,
-    onOpenWith: () -> Unit
+    onDismiss: () -> Unit,
+    onRenameClick: (FileModel) -> Unit,
+    onMoveClick: (FileModel) -> Unit,
+    onCopyClick: (FileModel) -> Unit,
+    onDeleteClick: (FileModel) -> Unit,
+    onExtractClick: (FileModel) -> Unit,
+    onFavoriteClick: (FileModel) -> Unit,
+    onLockClick: (FileModel) -> Unit,
+    onShareClick: (FileModel) -> Unit,
+    onOpenWithClick: (FileModel) -> Unit,
+    onLongClick: () -> Unit
 ) {
-    if (isSelected) {
-        Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        DropdownMenuItem(
+            text = { Text("Rename", fontWeight = FontWeight.SemiBold) },
+            onClick = { onRenameClick(file); onDismiss() },
+            leadingIcon = { Icon(painter = painterResource(id = R.drawable.brush_paintbrush_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
         )
-    } else {
-        var showFileMenu by remember { mutableStateOf(false) }
-        Box {
-            IconButton(onClick = { showFileMenu = true }, modifier = Modifier.size(24.dp)) {
-                Icon(
-                    Icons.Rounded.MoreVert,
-                    contentDescription = "Actions",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
-            }
-            DropdownMenu(
-                expanded = showFileMenu,
-                onDismissRequest = { showFileMenu = false },
-                containerColor = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(24.dp)
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Rename", fontWeight = FontWeight.SemiBold) },
-                    onClick = { onRename(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.brush_paintbrush_icon),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)) }
-                )
-                DropdownMenuItem(
-                    text = { Text("Move", fontWeight = FontWeight.SemiBold) },
-                    onClick = { onMove(); showFileMenu = false },
-                    leadingIcon = { Icon(Icons.Rounded.MoveUp,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)) }
-                )
-                DropdownMenuItem(
-                    text = { Text("Copy", fontWeight = FontWeight.SemiBold) },
-                    onClick = { onCopy(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.copy_outline_icon),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)) }
-                )
-                DropdownMenuItem(
-                    text = { Text("Delete", fontWeight = FontWeight.SemiBold) },
-                    onClick = { onDelete(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.recycle_bin_line_icon),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(20.dp)) }
-                )
-                if (file.extension.lowercase() in listOf("zip", "rar")) {
-                    DropdownMenuItem(
-                        text = { Text("Extract Here", fontWeight = FontWeight.SemiBold) },
-                        onClick = { onExtract(); showFileMenu = false },
-                        leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)) }
-                    )
-                }
-                DropdownMenuItem(
-                    text = { Text("Select", fontWeight = FontWeight.SemiBold) },
-                    onClick = { onLongClick(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(20.dp)) }
-                )
-                DropdownMenuItem(
-                    text = { Text("Favorite", fontWeight = FontWeight.SemiBold) },
-                    onClick = { onFavorite(); showFileMenu = false },
-                    leadingIcon = { Icon(Icons.Rounded.Favorite,
-                        contentDescription = null,
-                        tint = Color(0xFFFF4081),
-                        modifier = Modifier.size(20.dp)) }
-                )
-                DropdownMenuItem(
-                    text = { Text("Lock (Vault)", fontWeight = FontWeight.SemiBold) },
-                    onClick = { onLock(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.lock_line_icon),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)) }
-                )
-                DropdownMenuItem(
-                    text = { Text("Share", fontWeight = FontWeight.SemiBold) },
-                    onClick = { onShare(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.share_icon),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(20.dp)) }
-                )
-                DropdownMenuItem(
-                    text = { Text("Open with", fontWeight = FontWeight.SemiBold) },
-                    onClick = { onOpenWith(); showFileMenu = false },
-                    leadingIcon = { Icon(painter = painterResource(id = R.drawable.shortcut_icon),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(20.dp)) }
-                )
-            }
+        DropdownMenuItem(
+            text = { Text("Move", fontWeight = FontWeight.SemiBold) },
+            onClick = { onMoveClick(file); onDismiss() },
+            leadingIcon = { Icon(Icons.Rounded.MoveUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+        )
+        DropdownMenuItem(
+            text = { Text("Copy", fontWeight = FontWeight.SemiBold) },
+            onClick = { onCopyClick(file); onDismiss() },
+            leadingIcon = { Icon(painter = painterResource(id = R.drawable.copy_outline_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+        )
+        DropdownMenuItem(
+            text = { Text("Delete", fontWeight = FontWeight.SemiBold) },
+            onClick = { onDeleteClick(file); onDismiss() },
+            leadingIcon = { Icon(painter = painterResource(id = R.drawable.recycle_bin_line_icon), contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) }
+        )
+        if (file.extension.lowercase() in listOf("zip", "rar")) {
+            DropdownMenuItem(
+                text = { Text("Extract Here", fontWeight = FontWeight.SemiBold) },
+                onClick = { onExtractClick(file); onDismiss() },
+                leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+            )
         }
+        DropdownMenuItem(
+            text = { Text("Select", fontWeight = FontWeight.SemiBold) },
+            onClick = { onLongClick(); onDismiss() },
+            leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon), contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp)) }
+        )
+        DropdownMenuItem(
+            text = { Text("Favorite", fontWeight = FontWeight.SemiBold) },
+            onClick = { onFavoriteClick(file); onDismiss() },
+            leadingIcon = { Icon(Icons.Rounded.Favorite, contentDescription = null, tint = Color(0xFFFF4081), modifier = Modifier.size(20.dp)) }
+        )
+        DropdownMenuItem(
+            text = { Text("Lock (Vault)", fontWeight = FontWeight.SemiBold) },
+            onClick = { onLockClick(file); onDismiss() },
+            leadingIcon = { Icon(painter = painterResource(id = R.drawable.lock_line_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+        )
+        DropdownMenuItem(
+            text = { Text("Share", fontWeight = FontWeight.SemiBold) },
+            onClick = { onShareClick(file); onDismiss() },
+            leadingIcon = { Icon(painter = painterResource(id = R.drawable.share_icon), contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp)) }
+        )
+        DropdownMenuItem(
+            text = { Text("Open with", fontWeight = FontWeight.SemiBold) },
+            onClick = { onOpenWithClick(file); onDismiss() },
+            leadingIcon = { Icon(painter = painterResource(id = R.drawable.shortcut_icon), contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp)) }
+        )
     }
 }
 
@@ -1091,19 +1121,47 @@ fun RenameDialog(
 
 @Composable
 fun FileThumbnail(file: FileModel, isGrid: Boolean) {
-    val isVideo = FileUtils.isVideoFile(file.path)
-    val isImage = FileUtils.isImageFile(file.path)
-    val isApk = file.extension.lowercase() == "apk"
-    val thumbSize = if (isGrid) 56.dp else 48.dp
+    val isVideo = remember(file.path) { FileUtils.isVideoFile(file.path) }
+    val isImage = remember(file.path) { FileUtils.isImageFile(file.path) }
+    val ext = remember(file.extension) { file.extension.lowercase() }
+    val isApk = ext == "apk"
+    val thumbSize = if (isGrid) 48.dp else 40.dp
+    val localContext = LocalContext.current
 
     if (isVideo || isImage || isApk) {
+        // Video decoder support added for Coil
+        val videoImageLoader = remember(localContext) {
+            ImageLoader.Builder(localContext)
+                .components {
+                    add(VideoFrameDecoder.Factory())
+                }
+                .build()
+        }
+
+        val imageRequest = remember(file.path, localContext, isVideo) {
+            ImageRequest.Builder(localContext)
+                .data(file.path)
+                .apply {
+                    if (isVideo) {
+                        videoFrameMillis(1000) // 1 second mark frame extract
+                    }
+                }
+                .crossfade(true)
+                .size(96, 96)
+                .precision(Precision.EXACT)
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.ENABLED)
+                .build()
+        }
+
         Surface(
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(10.dp),
             modifier = Modifier.size(thumbSize),
             color = MaterialTheme.colorScheme.surfaceVariant
         ) {
             AsyncImage(
-                model = file.path,
+                model = imageRequest,
+                imageLoader = videoImageLoader,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -1114,35 +1172,26 @@ fun FileThumbnail(file: FileModel, isGrid: Boolean) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.2f)),
+                        .background(Color.Black.copy(alpha = 0.25f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.video_playlist_icon),
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.8f),
-                        modifier = Modifier.size(20.dp)
+                        tint = Color.White.copy(alpha = 0.9f),
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
         }
     } else {
-        val (icon, color) = when {
-            file.isDirectory -> painterResource(R.drawable.folder_icon) to Color(0xFF64B5F6)
-            file.extension.lowercase() == "pdf" -> painterResource(R.drawable.text_document_line_icon) to Color(0xFFEF5350)
-            file.extension.lowercase() in listOf("doc", "docx") -> painterResource(R.drawable.text_document_line_icon) to Color(0xFF1E88E5)
-            file.extension.lowercase() in listOf("xls", "xlsx") -> painterResource(R.drawable.text_document_line_icon) to Color(0xFF43A047)
-            file.extension.lowercase() in listOf("ppt", "pptx") -> painterResource(R.drawable.text_document_line_icon) to Color(0xFFF4511E)
-            file.extension.lowercase() in listOf("mp3", "wav", "flac", "opus", "ogg") -> painterResource(R.drawable.audio_tune_icon) to Color(0xFF66BB6A)
-            file.extension.lowercase() in listOf("zip", "rar", "7z") -> painterResource(R.drawable.archive_line_icon) to Color(0xFF78909C)
-            else -> painterResource(R.drawable.text_document_line_icon) to Color(0xFFBDBDBD)
-        }
+        val (icon, color) = rememberFileTypeIconAndColor(file.isDirectory, ext)
         Box(
             modifier = Modifier
                 .size(thumbSize)
                 .background(
                     color.copy(alpha = 0.15f),
-                    RoundedCornerShape(14.dp)
+                    RoundedCornerShape(10.dp)
                 ),
             contentAlignment = Alignment.Center
         ) {
@@ -1150,8 +1199,29 @@ fun FileThumbnail(file: FileModel, isGrid: Boolean) {
                 icon,
                 contentDescription = null,
                 tint = color,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(20.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun rememberFileTypeIconAndColor(isDirectory: Boolean, ext: String): Pair<Painter, Color> {
+    val folderIcon = painterResource(R.drawable.folder_icon)
+    val docIcon = painterResource(R.drawable.text_document_line_icon)
+    val audioIcon = painterResource(R.drawable.audio_tune_icon)
+    val archiveIcon = painterResource(R.drawable.archive_line_icon)
+
+    return remember(isDirectory, ext) {
+        when {
+            isDirectory -> folderIcon to Color(0xFF64B5F6)
+            ext == "pdf" -> docIcon to Color(0xFFEF5350)
+            ext in listOf("doc", "docx") -> docIcon to Color(0xFF1E88E5)
+            ext in listOf("xls", "xlsx") -> docIcon to Color(0xFF43A047)
+            ext in listOf("ppt", "pptx") -> docIcon to Color(0xFFF4511E)
+            ext in listOf("mp3", "wav", "flac", "opus", "ogg") -> audioIcon to Color(0xFF66BB6A)
+            ext in listOf("zip", "rar", "7z") -> archiveIcon to Color(0xFF78909C)
+            else -> docIcon to Color(0xFFBDBDBD)
         }
     }
 }
@@ -1255,7 +1325,7 @@ fun SortOptionBox(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
         modifier = modifier.height(56.dp)
     ) {
         Row(
@@ -1341,7 +1411,7 @@ fun ViewModeBox(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             width = if (isSelected) 2.dp else 1.dp,
             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
         ),

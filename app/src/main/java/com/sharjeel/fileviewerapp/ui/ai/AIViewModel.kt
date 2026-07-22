@@ -3,10 +3,6 @@ package com.sharjeel.fileviewerapp.ui.ai
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.appcheck.appCheck
-import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
-import com.google.firebase.Firebase
-import com.sharjeel.fileviewerapp.BuildConfig
 import com.sharjeel.fileviewerapp.util.AIService
 import com.sharjeel.fileviewerapp.util.FileUtils
 import com.sharjeel.fileviewerapp.util.TextExtractionUtils
@@ -37,24 +33,6 @@ class AIViewModel @Inject constructor(
     // Global Exception Handler to catch unexpected failures cleanly
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         _uiState.value = AIUiState.Error(throwable.localizedMessage ?: "An unexpected error occurred")
-    }
-
-    init {
-        // App Check setup for local development as per specs
-        setupAppCheckDebugProvider()
-    }
-
-    private fun setupAppCheckDebugProvider() {
-        if (BuildConfig.DEBUG) {
-            try {
-                Firebase.appCheck.installAppCheckProviderFactory(
-                    DebugAppCheckProviderFactory.getInstance()
-                )
-                Log.d(tag, "App Check initialized with DebugAppCheckProviderFactory successfully.")
-            } catch (e: Exception) {
-                Log.e(tag, "Failed to initialize App Check Debug Provider: ${e.message}", e)
-            }
-        }
     }
 
     fun summarizeFile(filePath: String) {
