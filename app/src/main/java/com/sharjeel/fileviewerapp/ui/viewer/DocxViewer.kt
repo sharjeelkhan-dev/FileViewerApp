@@ -1,6 +1,8 @@
 package com.sharjeel.fileviewerapp.ui.viewer
 
+import android.os.Build
 import android.util.Xml
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -145,6 +147,7 @@ fun DocxViewer(
 /**
  * Fast Stream Reader for Word (.docx) files matching Android native efficiency standards.
  */
+@RequiresApi(Build.VERSION_CODES.KITKAT)
 private fun extractDocxParagraphsSafely(filePath: String): List<DocxParagraph> {
     val file = File(filePath)
     if (!file.exists()) return emptyList()
@@ -221,6 +224,5 @@ private fun extractDocxParagraphsSafely(filePath: String): List<DocxParagraph> {
     } catch (e: Exception) {
         e.printStackTrace()
     }
-
     return paragraphList
 }

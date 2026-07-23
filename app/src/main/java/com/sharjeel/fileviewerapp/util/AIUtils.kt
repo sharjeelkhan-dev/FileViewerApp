@@ -19,6 +19,7 @@ class AIService @Inject constructor(
         // Target token size safe limits roughly mapping characters (~4000 words)
         private const val MAX_CHUNK_CHARACTERS = 16000
     }
+
     private fun sanitizeAndChunkText(rawText: String): List<String> {
         val cleanText = rawText.replace(Regex("\\s+"), " ").trim()
         if (cleanText.length <= MAX_CHUNK_CHARACTERS) return listOf(cleanText)
@@ -47,7 +48,13 @@ class AIService @Inject constructor(
         Log.d(TAG, "Summarizing media. MimeType: $mimeType, Size: ${bytes.size}")
         val prompt = content {
             inlineData(bytes, mimeType)
-            text("Please provide a concise and structured summary of this media file in exactly 5-6 bullet points. Describe what you see or hear clearly.")
+            text(
+                """
+                Please provide a concise and structured summary of this media file in exactly 5-6 bullet points.
+                Language Instruction:
+                - Respond in the primary language detected in the content, or default to clear, simple language.
+                """.trimIndent()
+            )
         }
         return try {
             val response = model.generateContent(prompt)
@@ -60,12 +67,23 @@ class AIService @Inject constructor(
 
     fun chatWithMedia(bytes: ByteArray, mimeType: String, question: String, history: List<String> = emptyList()): Flow<String?> {
         Log.d(TAG, "Chatting with media. Question: $question, History size: ${history.size}")
+        val historyText = if (history.isNotEmpty()) "Conversation History:\n${history.joinToString("\n")}\n\n" else ""
+
         val prompt = content {
             inlineData(bytes, mimeType)
-            if (history.isNotEmpty()) {
-                text("Conversation History:\n${history.joinToString("\n")}\n\n")
-            }
-            text("You are an expert media and document analyzer. Based on the provided file (image, audio, video, or PDF), answer the user's question precisely. If history is provided, maintain continuity.\n\nQuestion: $question")
+            text(
+                """
+                You are an expert AI assistant inside 'File Viewer App'.
+                $historyText
+                System Directives:
+                1. Detect the language of the user's question (English, Hinglish/Roman Urdu, Urdu, Hindi, etc.).
+                2. Respond strictly in the SAME language, script, and style used by the user.
+                3. If the user asks about the media file, analyze it and answer accurately.
+                4. If the user asks a general question, answer clearly and accurately using your general knowledge.
+                
+                Question: $question
+                """.trimIndent()
+            )
         }
         return model.generateContentStream(prompt)
             .onEach { Log.d(TAG, "Media chunk processed") }
@@ -90,7 +108,7 @@ class AIService @Inject constructor(
             }
         }
 
-        // For heavy files / long PDFs: Recursive Map-Reduce approach to squeeze core context
+        // For heavy files / long PDFs: Recursive Map-Reduce approach
         Log.d(TAG, "Large document detected. Processing ${textChunks.size} chunks sequentially.")
         val structuralSummaries = mutableListOf<String>()
 
@@ -106,7 +124,6 @@ class AIService @Inject constructor(
 
         if (structuralSummaries.isEmpty()) return null
 
-        // Final reduce pass to forge standard 5-6 bullet points layout requested by user
         val masterPrompt = "Merge the following structural context points from a single document into a single cohesive, high-quality summary consisting of exactly 5-6 bullet points:\n\n${structuralSummaries.joinToString("\n\n")}"
         return try {
             val finalResponse = model.generateContent(masterPrompt)
@@ -122,15 +139,38 @@ class AIService @Inject constructor(
 
         val workingContext = if (text.isNotBlank()) {
             val chunks = sanitizeAndChunkText(text)
-            // Squeezing dynamic boundaries to keep safe margin overheads for question tokens
             if (chunks.size > 1) chunks.take(2).joinToString("\n...\n") else chunks[0]
         } else ""
 
+        val historyText = if (history.isNotEmpty()) "History:\n${history.joinToString("\n")}\n\n" else ""
+
         val prompt = if (workingContext.isBlank()) {
-            question
+            """
+            You are a helpful, smart AI assistant inside 'File Viewer App'.
+            
+            System Directives:
+            1. Automatically detect the user's input language (English, Hinglish/Roman Urdu, Urdu, Hindi, etc.).
+            2. Answer the question directly and accurately in the EXACT SAME language and conversational style.
+            
+            $historyText
+            Question: $question
+            """.trimIndent()
         } else {
-            val historyText = if (history.isNotEmpty()) "History:\n${history.joinToString("\n")}\n\n" else ""
-            "You are an elite, highly precise context analyzer. Rely ONLY on the provided content below to answer the user's question.\n\n$historyText Context:\n$workingContext\n\nQuestion: $question"
+            """
+            You are an elite, highly precise context and general intelligence analyzer inside 'File Viewer App'.
+            
+            System Directives:
+            1. Automatically detect the user's input language (English, Hinglish/Roman Urdu, Urdu, Hindi, etc.).
+            2. Always reply in the EXACT SAME language and script used by the user.
+            3. Prioritize using the provided Document Context to answer questions about the file.
+            4. If the user asks general questions outside the context, answer accurately using your general knowledge while keeping the user's preferred language.
+            
+            $historyText
+            Context:
+            $workingContext
+            
+            Question: $question
+            """.trimIndent()
         }
 
         return model.generateContentStream(prompt)
@@ -142,7 +182,6 @@ class AIService @Inject constructor(
         if (content.isBlank()) return null
         Log.d(TAG, "Analyzing structural metrics for naming strategy.")
 
-        // Naming strategy only requires structural insights from initial document pages
         val operationalSample = sanitizeAndChunkText(content).first()
 
         val prompt = """
@@ -176,8 +215,8 @@ class AIService @Inject constructor(
         Log.d(TAG, "Parsing system action for prompt: $prompt")
         val systemInstructions = """
             You are the AI controller for 'File Viewer App'. 
-            Determine the most likely action based on the user's prompt.
-            Respond ONLY with the action string. No extra text or quotes.
+            Determine the user's intent based on their prompt in ANY language (English, Hinglish, Roman Urdu, Urdu, Hindi, etc.).
+            Respond ONLY with the matched action string. No extra text, quotes, or markdown.
             
             Available actions:
             - NAVIGATE:HOME
@@ -190,8 +229,14 @@ class AIService @Inject constructor(
             - NAVIGATE:SETTINGS
             - SEARCH:[query]
             
-            Example: NAVIGATE:RECENT or SEARCH:bills
-            If you don't understand, respond with UNKNOWN.
+            Examples:
+            - "mujhe settings me le jao" -> NAVIGATE:SETTINGS
+            - "recent files dikhao" -> NAVIGATE:RECENT
+            - "downloads open karo" -> NAVIGATE:DOWNLOADS
+            - "search my invoices" / "invoices dhoondo" -> SEARCH:invoices
+            - "favorite list dikhao" -> NAVIGATE:FAVORITES
+            
+            If you don't understand or it's not a direct app navigation/search command, respond strictly with UNKNOWN.
             
             User Prompt: $prompt
         """.trimIndent()

@@ -37,6 +37,11 @@ class AIViewModel @Inject constructor(
 
     fun summarizeFile(filePath: String) {
         viewModelScope.launch(Dispatchers.Main + exceptionHandler) {
+            if (filePath.isBlank()) {
+                _uiState.value = AIUiState.Error("Invalid or empty file path.")
+                return@launch
+            }
+
             val isAudio = FileUtils.isAudioFile(filePath)
             val isVideo = FileUtils.isVideoFile(filePath)
             val isImage = FileUtils.isImageFile(filePath)
@@ -45,7 +50,12 @@ class AIViewModel @Inject constructor(
             if (isAudio || isVideo || isImage || isPdf) {
                 _uiState.value = AIUiState.Loading("Analyzing file and generating summary...")
                 try {
-                    val bytes = withContext(Dispatchers.IO) { File(filePath).readBytes() }
+                    val file = File(filePath)
+                    if (!file.exists()) {
+                        _uiState.value = AIUiState.Error("File not found on device.")
+                        return@launch
+                    }
+                    val bytes = withContext(Dispatchers.IO) { file.readBytes() }
                     val mime = FileUtils.getMimeType(filePath)
                     val result = withContext(Dispatchers.IO) {
                         aiService.summarizeMedia(bytes, mime)
@@ -68,7 +78,7 @@ class AIViewModel @Inject constructor(
             } ?: ""
 
             if (text.isBlank()) {
-                _uiState.value = AIUiState.Error("Could not read file content")
+                _uiState.value = AIUiState.Error("Could not read file content or file is empty.")
                 return@launch
             }
 
@@ -89,69 +99,70 @@ class AIViewModel @Inject constructor(
         }
     }
 
-    fun askQuestion(filePath: String, question: String) {
+    fun askQuestion(filePath: String = "", question: String) {
         viewModelScope.launch(Dispatchers.Main + exceptionHandler) {
             if (question.isBlank()) return@launch
 
             val history = _chatMessages.value.takeLast(10).map { "${if (it.isUser) "User" else "AI"}: ${it.content}" }
-            
+
             val userMsg = ChatMessage(content = question, isUser = true)
             _chatMessages.update { it + userMsg }
 
-            val isAudio = FileUtils.isAudioFile(filePath)
-            val isVideo = FileUtils.isVideoFile(filePath)
-            val isImage = FileUtils.isImageFile(filePath)
-            val isPdf = filePath.lowercase().endsWith(".pdf")
+            val fileExists = filePath.isNotBlank() && File(filePath).exists()
+            val isAudio = fileExists && FileUtils.isAudioFile(filePath)
+            val isVideo = fileExists && FileUtils.isVideoFile(filePath)
+            val isImage = fileExists && FileUtils.isImageFile(filePath)
+            val isPdf = fileExists && filePath.lowercase().endsWith(".pdf")
 
-            if (isAudio || isVideo || isImage || isPdf) {
+            if (fileExists && (isAudio || isVideo || isImage || isPdf)) {
                 try {
                     val bytes = withContext(Dispatchers.IO) { File(filePath).readBytes() }
                     val mime = FileUtils.getMimeType(filePath)
-                    
+
                     aiService.chatWithMedia(bytes, mime, question, history).collect { chunkText ->
                         if (!chunkText.isNullOrEmpty()) {
-                            _chatMessages.update { currentList ->
-                                val lastMsg = currentList.lastOrNull()
-                                if (lastMsg != null && !lastMsg.isUser) {
-                                    currentList.dropLast(1) + lastMsg.copy(content = lastMsg.content + chunkText)
-                                } else {
-                                    currentList + ChatMessage(content = chunkText, isUser = false)
-                                }
-                            }
+                            updateAiChatMessage(chunkText)
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e(tag, "Media chat failure: ${e.message}", e)
-                    _chatMessages.update { it + ChatMessage("Error: AI analysis failed. ${e.localizedMessage}", isUser = false) }
+                    Log.e(tag, "Media chat failure, falling back to general AI chat: ${e.message}", e)
+                    streamDocumentOrGeneralChat("", question, history)
                 }
                 return@launch
             }
 
-            val text = withContext(Dispatchers.IO) {
-                TextExtractionUtils.extractText(filePath)
-            } ?: ""
+            // Extract context if file exists, else keep blank context for general question answering
+            val text = if (fileExists) {
+                withContext(Dispatchers.IO) {
+                    TextExtractionUtils.extractText(filePath)
+                } ?: ""
+            } else ""
 
-            if (text.isBlank()) {
-                _chatMessages.update { it + ChatMessage("Error: Unable to read context from this file.", isUser = false) }
-                return@launch
-            }
+            // Stream response seamlessly whether file context exists or not
+            streamDocumentOrGeneralChat(text, question, history)
+        }
+    }
 
-            try {
-                aiService.chatWithDocument(text, question, history).collect { chunkText ->
-                    if (!chunkText.isNullOrEmpty()) {
-                        _chatMessages.update { currentList ->
-                            val lastMsg = currentList.lastOrNull()
-                            if (lastMsg != null && !lastMsg.isUser) {
-                                currentList.dropLast(1) + lastMsg.copy(content = lastMsg.content + chunkText)
-                            } else {
-                                currentList + ChatMessage(content = chunkText, isUser = false)
-                            }
-                        }
-                    }
+    private suspend fun streamDocumentOrGeneralChat(contextText: String, question: String, history: List<String>) {
+        try {
+            aiService.chatWithDocument(contextText, question, history).collect { chunkText ->
+                if (!chunkText.isNullOrEmpty()) {
+                    updateAiChatMessage(chunkText)
                 }
-            } catch (e: Exception) {
-                Log.e(tag, "Streaming conversation failure: ${e.message}", e)
-                _chatMessages.update { it + ChatMessage("Error: Stream interrupted. ${e.localizedMessage}", isUser = false) }
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Streaming conversation failure: ${e.message}", e)
+            _chatMessages.update { it + ChatMessage("Error: Stream interrupted. ${e.localizedMessage}", isUser = false) }
+        }
+    }
+
+    private fun updateAiChatMessage(chunkText: String) {
+        _chatMessages.update { currentList ->
+            val lastMsg = currentList.lastOrNull()
+            if (lastMsg != null && !lastMsg.isUser) {
+                currentList.dropLast(1) + lastMsg.copy(content = lastMsg.content + chunkText)
+            } else {
+                currentList + ChatMessage(content = chunkText, isUser = false)
             }
         }
     }
