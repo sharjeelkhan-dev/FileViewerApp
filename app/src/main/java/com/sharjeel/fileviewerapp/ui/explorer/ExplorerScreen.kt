@@ -1,6 +1,13 @@
 package com.sharjeel.fileviewerapp.ui.explorer
 
+import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -8,24 +15,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -33,63 +26,26 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.ViewList
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Clear
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.MoveUp
-import androidx.compose.material.icons.rounded.PieChart
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.SortByAlpha
-import androidx.compose.material.icons.rounded.ViewModule
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -104,7 +60,6 @@ import coil.request.videoFrameMillis
 import coil.size.Precision
 import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.domain.model.FileModel
-import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
 import com.sharjeel.fileviewerapp.util.FileUtils
 
 @Composable
@@ -227,9 +182,12 @@ fun ExplorerScreenContent(
     var isSearchActive by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var fileToRename by remember { mutableStateOf<FileModel?>(null) }
+    var fileForActions by remember { mutableStateOf<FileModel?>(null) }
     var showSortSheet by remember { mutableStateOf(false) }
     var showViewOptionsSheet by remember { mutableStateOf(false) }
     val localContext = LocalContext.current
+
+    val isSelectionActive = selectedFiles.isNotEmpty()
 
     if (fileToRename != null) {
         RenameDialog(
@@ -239,6 +197,23 @@ fun ExplorerScreenContent(
                 onRenameFile(fileToRename!!.path, newName)
                 fileToRename = null
             }
+        )
+    }
+
+    if (fileForActions != null) {
+        FileActionBottomSheet(
+            file = fileForActions!!,
+            onDismiss = { fileForActions = null },
+            onRenameClick = { onRenameFile(it.path, fileToRename?.name ?: it.name); fileToRename = it },
+            onMoveClick = { onStartMove(listOf(it.path)) },
+            onCopyClick = { onStartCopy(listOf(it.path)) },
+            onDeleteClick = { onToggleFileSelection(it.path); onDeleteSelectedFiles() },
+            onExtractClick = { onExtractArchive(it.path) },
+            onFavoriteClick = { onToggleFavorite(it) },
+            onLockClick = { onMoveToVault(it) },
+            onShareClick = { FileUtils.shareFile(localContext, it.path) },
+            onOpenWithClick = { FileUtils.openWithExternalApp(localContext, it.path) },
+            onSelectClick = { onToggleFileSelection(it.path) }
         )
     }
 
@@ -268,7 +243,7 @@ fun ExplorerScreenContent(
     if (pickingFolderForArchive != null) {
         AlertDialog(
             onDismissRequest = { onStopPickingFolder() },
-            title = { Text("Select Destination") },
+            title = { Text("Select Destination", fontWeight = FontWeight.Bold) },
             text = { Text("Extract '${pickingFolderForArchive.name}' to current folder?") },
             confirmButton = {
                 Button(onClick = { onExtractToCurrentFolder() }) {
@@ -283,8 +258,8 @@ fun ExplorerScreenContent(
         )
     }
 
-    BackHandler(enabled = selectedFiles.isNotEmpty() || isSearchActive) {
-        if (selectedFiles.isNotEmpty()) {
+    BackHandler(enabled = isSelectionActive || isSearchActive) {
+        if (isSelectionActive) {
             onClearSelection()
         } else if (isSearchActive) {
             isSearchActive = false
@@ -295,6 +270,92 @@ fun ExplorerScreenContent(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            if (isMoving.isNotEmpty() || isCopying.isNotEmpty()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 8.dp,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isMoving.isNotEmpty()) "Moving ${isMoving.size} items" else "Copying ${isCopying.size} items",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { onCancelOperation() }) {
+                                Text("Cancel")
+                            }
+                            Button(
+                                onClick = { onPaste() },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Text("Paste Here")
+                            }
+                        }
+                    }
+                }
+            }
+
+            AnimatedVisibility(
+                visible = isSelectionActive,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    tonalElevation = 12.dp,
+                    shadowElevation = 16.dp,
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(vertical = 14.dp, horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SelectionActionButton(
+                            drawableRes = R.drawable.copy_outline_icon,
+                            label = "Copy",
+                            onClick = { onStartCopy(selectedFiles.toList()) }
+                        )
+                        SelectionActionButton(
+                            drawableRes = R.drawable.open_folder_outline_icon,
+                            label = "Move",
+                            onClick = { onStartMove(selectedFiles.toList()) }
+                        )
+                        SelectionActionButton(
+                            drawableRes = R.drawable.share_icon,
+                            label = "Share",
+                            onClick = {
+                                if (selectedFiles.size == 1) {
+                                    FileUtils.shareFile(localContext, selectedFiles.first())
+                                }
+                            }
+                        )
+                        SelectionActionButton(
+                            drawableRes = R.drawable.delete_icon,
+                            label = "Delete",
+                            tint = MaterialTheme.colorScheme.error,
+                            onClick = { onDeleteSelectedFiles() }
+                        )
+                    }
+                }
+            }
+        },
         topBar = {
             Surface(
                 color = MaterialTheme.colorScheme.background,
@@ -313,144 +374,108 @@ fun ExplorerScreenContent(
                     TopAppBar(
                         title = {
                             Text(
-                                if (selectedFiles.isNotEmpty()) "${selectedFiles.size} Selected" else title.uppercase(),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp,
+                                text = if (isSelectionActive) "${selectedFiles.size} items" else title,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Normal,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                         },
                         navigationIcon = {
                             IconButton(onClick = {
-                                if (selectedFiles.isNotEmpty()) {
+                                if (isSelectionActive) {
                                     onClearSelection()
                                 } else {
                                     onBackClick()
                                 }
                             }) {
                                 Icon(
-                                    if (selectedFiles.isNotEmpty()) Icons.Rounded.Close
-                                    else Icons.AutoMirrored.Rounded.ArrowBack,
-                                    contentDescription = "Back/Close",
+                                    imageVector = if (isSelectionActive) Icons.Rounded.Close else Icons.AutoMirrored.Rounded.ArrowBack,
+                                    contentDescription = "Back",
                                     tint = MaterialTheme.colorScheme.onBackground
                                 )
                             }
                         },
                         actions = {
-                            if (selectedFiles.isNotEmpty()) {
-                                IconButton(onClick = { onDeleteSelectedFiles() }) {
+                            if (isSelectionActive) {
+                                if (uiState is ExplorerUiState.Success) {
+                                    val filesList = uiState.files
+                                    val isAllSelected = selectedFiles.size == filesList.size && filesList.isNotEmpty()
+                                    IconButton(onClick = {
+                                        if (isAllSelected) onClearSelection() else onSelectAllPaths(filesList.map { it.path })
+                                    }) {
+                                        Icon(
+                                            Icons.Rounded.SelectAll,
+                                            contentDescription = "Select All",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            } else {
+                                IconButton(onClick = { isSearchActive = true }) {
                                     Icon(
-                                        painterResource(id = R.drawable.recycle_bin_line_icon),
-                                        contentDescription = "Delete",
+                                        painter = painterResource(id = R.drawable.magnifying_glass_icon),
+                                        contentDescription = "Search",
                                         modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                                IconButton(onClick = { onStartMove(selectedFiles.toList()) }) {
-                                    Icon(Icons.Rounded.MoveUp, contentDescription = "Move")
-                                }
-                                IconButton(onClick = { onStartCopy(selectedFiles.toList()) }) {
-                                    Icon(painterResource(R.drawable.copy_outline_icon), contentDescription = "Copy", modifier = Modifier.size(20.dp))
-                                }
-                            }
-                            if (isMoving.isNotEmpty() || isCopying.isNotEmpty()) {
-                                IconButton(onClick = { onPaste() }) {
-                                    Icon(painterResource(R.drawable.shortcut_icon), contentDescription = "Paste", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                                }
-                                IconButton(onClick = { onCancelOperation() }) {
-                                    Icon(Icons.Rounded.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.error)
-                                }
-                            }
-                            IconButton(onClick = { isSearchActive = true }) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.magnifying_glass_icon),
-                                    contentDescription = "Search",
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onBackground
-                                )
-                            }
-                            Box {
-                                IconButton(onClick = { showMenu = !showMenu }) {
-                                    Icon(
-                                        Icons.Rounded.MoreVert,
-                                        contentDescription = "More",
                                         tint = MaterialTheme.colorScheme.onBackground
                                     )
                                 }
-                                DropdownMenu(
-                                    expanded = showMenu,
-                                    onDismissRequest = { showMenu = false },
-                                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                                    shape = RoundedCornerShape(16.dp)
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text("Refresh") },
-                                        onClick = {
-                                            showMenu = false
-                                            onRefresh()
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                Icons.Rounded.Refresh,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    )
-                                    if (uiState is ExplorerUiState.Success) {
-                                        val filesList = uiState.files
-                                        val isAllSelected = selectedFiles.size == filesList.size && filesList.isNotEmpty()
-
+                                Box {
+                                    IconButton(onClick = { showMenu = !showMenu }) {
+                                        Icon(
+                                            Icons.Rounded.MoreVert,
+                                            contentDescription = "More",
+                                            tint = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = showMenu,
+                                        onDismissRequest = { showMenu = false },
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        shape = RoundedCornerShape(16.dp)
+                                    ) {
                                         DropdownMenuItem(
-                                            text = { Text(if (isAllSelected) "Clear Selection" else "Select All") },
+                                            text = { Text("Refresh") },
                                             onClick = {
                                                 showMenu = false
-                                                if (isAllSelected) {
-                                                    onClearSelection()
-                                                } else {
-                                                    val allPaths = filesList.map { it.path }
-                                                    onSelectAllPaths(allPaths)
-                                                }
+                                                onRefresh()
                                             },
                                             leadingIcon = {
                                                 Icon(
-                                                    if (isAllSelected) Icons.Rounded.Close
-                                                    else Icons.Rounded.CheckCircle,
+                                                    Icons.Rounded.Refresh,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Sort Options") },
+                                            onClick = {
+                                                showMenu = false
+                                                showSortSheet = true
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    Icons.Rounded.SortByAlpha,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("View Layout") },
+                                            onClick = {
+                                                showMenu = false
+                                                showViewOptionsSheet = true
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    Icons.Rounded.GridView,
                                                     contentDescription = null,
                                                     tint = MaterialTheme.colorScheme.primary
                                                 )
                                             }
                                         )
                                     }
-                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                                    DropdownMenuItem(
-                                        text = { Text("Sort Options") },
-                                        onClick = {
-                                            showMenu = false
-                                            showSortSheet = true
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                Icons.Rounded.SortByAlpha,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("View Layout") },
-                                        onClick = {
-                                            showMenu = false
-                                            showViewOptionsSheet = true
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                Icons.Rounded.GridView,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    )
                                 }
                             }
                         },
@@ -461,95 +486,567 @@ fun ExplorerScreenContent(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            Breadcrumbs(
-                items = breadcrumbsList,
-                onItemClick = onBreadcrumbClick
-            )
-
-            SortBar(
-                currentType = sortType,
-                currentOrder = sortOrder,
-                viewMode = viewMode,
-                onSortClick = { showSortSheet = true },
-                onViewModeClick = { showViewOptionsSheet = true }
-            )
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                thickness = 0.5.dp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-            )
-
-            Box(modifier = Modifier.fillMaxSize()) {
-                when (uiState) {
-                    is ExplorerUiState.Loading -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        }
+            when (uiState) {
+                is ExplorerUiState.Loading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
-                    is ExplorerUiState.Success -> {
-                        val files = uiState.files
-                        if (files.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(
-                                        Icons.Rounded.FolderOpen,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(64.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text(
-                                        "No files found",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                }
+                is ExplorerUiState.Success -> {
+                    val files = uiState.files
+                    FileList(
+                        files = files,
+                        selectedFiles = selectedFiles,
+                        isSelectionActive = isSelectionActive,
+                        viewMode = viewMode,
+                        breadcrumbsList = breadcrumbsList,
+                        sortType = sortType,
+                        sortOrder = sortOrder,
+                        onBreadcrumbClick = onBreadcrumbClick,
+                        onSortClick = { showSortSheet = true },
+                        onViewModeClick = { showViewOptionsSheet = true },
+                        onFileClick = { file ->
+                            if (isSelectionActive) {
+                                onToggleFileSelection(file.path)
+                            } else {
+                                onFileClick(file)
                             }
-                        } else {
-                            FileList(
-                                files = files,
-                                selectedFiles = selectedFiles,
-                                viewMode = viewMode,
-                                onFileClick = { file ->
-                                    if (selectedFiles.isNotEmpty()) {
-                                        onToggleFileSelection(file.path)
-                                    } else {
-                                        onFileClick(file)
-                                    }
-                                },
-                                onFileLongClick = { onToggleFileSelection(it.path) },
-                                onDeleteClick = { onToggleFileSelection(it.path); onDeleteSelectedFiles() },
-                                onRenameClick = { fileToRename = it },
-                                onShareClick = { FileUtils.shareFile(localContext, it.path) },
-                                onOpenWithClick = { FileUtils.openWithExternalApp(localContext, it.path) },
-                                onFavoriteClick = { onToggleFavorite(it) },
-                                onExtractClick = { onExtractArchive(it.path) },
-                                onLockClick = { onMoveToVault(it) },
-                                onMoveClick = { onStartMove(listOf(it.path)) },
-                                onCopyClick = { onStartCopy(listOf(it.path)) },
-                                bottomPadding = innerPadding.calculateBottomPadding()
-                            )
-                        }
-                    }
-                    is ExplorerUiState.Error -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(uiState.message, color = MaterialTheme.colorScheme.error)
-                        }
+                        },
+                        onFileLongClick = { onToggleFileSelection(it.path) },
+                        onFileActionsClick = { fileForActions = it },
+                        onSelectionToggle = { onToggleFileSelection(it.path) },
+                        bottomPadding = innerPadding.calculateBottomPadding()
+                    )
+                }
+                is ExplorerUiState.Error -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(uiState.message, color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun SelectionActionButton(
+    imageVector: ImageVector? = null,
+    drawableRes: Int? = null,
+    label: String,
+    tint: Color = MaterialTheme.colorScheme.onSurface,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp)
+    ) {
+        if (drawableRes != null) {
+            Icon(
+                painter = painterResource(id = drawableRes),
+                contentDescription = label,
+                tint = tint,
+                modifier = Modifier.size(24.dp)
+            )
+        } else if (imageVector != null) {
+            Icon(
+                imageVector = imageVector,
+                contentDescription = label,
+                tint = tint,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = tint)
+    }
+}
+
+@Composable
+fun FileList(
+    files: List<FileModel>,
+    selectedFiles: Set<String>,
+    isSelectionActive: Boolean,
+    viewMode: ViewMode,
+    breadcrumbsList: List<BreadcrumbItem>,
+    sortType: SortType,
+    sortOrder: SortOrder,
+    onBreadcrumbClick: (BreadcrumbItem) -> Unit,
+    onSortClick: () -> Unit,
+    onViewModeClick: () -> Unit,
+    onFileClick: (FileModel) -> Unit,
+    onFileLongClick: (FileModel) -> Unit,
+    onFileActionsClick: (FileModel) -> Unit,
+    onSelectionToggle: (FileModel) -> Unit,
+    bottomPadding: Dp
+) {
+    val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    // Horizontal padding ko zero rakha hai taake headers full width occupy karein
+    val finalContentPadding = remember(bottomPadding, navBarBottom) {
+        PaddingValues(
+            start = 0.dp,
+            end = 0.dp,
+            top = 4.dp,
+            bottom = bottomPadding + navBarBottom + 24.dp
+        )
+    }
+
+    val currentOnFileClick by rememberUpdatedState(onFileClick)
+    val currentOnFileLongClick by rememberUpdatedState(onFileLongClick)
+    val currentOnFileActionsClick by rememberUpdatedState(onFileActionsClick)
+    val currentOnSelectionToggle by rememberUpdatedState(onSelectionToggle)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (files.isEmpty()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Breadcrumbs(items = breadcrumbsList, onItemClick = onBreadcrumbClick)
+                }
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    SortBar(
+                        currentType = sortType,
+                        currentOrder = sortOrder,
+                        viewMode = viewMode,
+                        onSortClick = onSortClick,
+                        onViewModeClick = onViewModeClick
+                    )
+                }
+                HorizontalDivider(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Rounded.FolderOpen,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "No files found",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        } else if (viewMode == ViewMode.SMALL || viewMode == ViewMode.LIST) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = finalContentPadding,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Header 1: Breadcrumbs
+                item(key = "breadcrumbs_header") {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Breadcrumbs(items = breadcrumbsList, onItemClick = onBreadcrumbClick)
+                    }
+                }
+
+                // Header 2: Sort Bar & Divider
+                item(key = "sortbar_header") {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        SortBar(
+                            currentType = sortType,
+                            currentOrder = sortOrder,
+                            viewMode = viewMode,
+                            onSortClick = onSortClick,
+                            onViewModeClick = onViewModeClick
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                        )
+                    }
+                }
+
+                // File Items (Horizontal Padding is for individual rows)
+                items(
+                    items = files,
+                    key = { file -> file.path },
+                    contentType = { file -> if (file.isDirectory) "folder" else "file" }
+                ) { file ->
+                    Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                        FileRowItem(
+                            file = file,
+                            isSelected = selectedFiles.contains(file.path),
+                            isSelectionActive = isSelectionActive,
+                            onClick = { currentOnFileClick(file) },
+                            onLongClick = { currentOnFileLongClick(file) },
+                            onActionsClick = { currentOnFileActionsClick(file) },
+                            onSelectionToggle = { currentOnSelectionToggle(file) }
+                        )
+                    }
+                }
+            }
+        } else {
+            val columnsCount = if (viewMode == ViewMode.MEDIUM) 3 else 2
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columnsCount),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 12.dp,
+                    end = 12.dp,
+                    top = 4.dp,
+                    bottom = finalContentPadding.calculateBottomPadding()
+                ),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Header Span 1: Breadcrumbs
+                item(span = { GridItemSpan(columnsCount) }, key = "breadcrumbs_header") {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Breadcrumbs(items = breadcrumbsList, onItemClick = onBreadcrumbClick)
+                    }
+                }
+
+                // Header Span 2: Sort Bar & Divider
+                item(span = { GridItemSpan(columnsCount) }, key = "sortbar_header") {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        SortBar(
+                            currentType = sortType,
+                            currentOrder = sortOrder,
+                            viewMode = viewMode,
+                            onSortClick = onSortClick,
+                            onViewModeClick = onViewModeClick
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                        )
+                    }
+                }
+
+                // File Grid Items
+                items(
+                    items = files,
+                    key = { file -> file.path },
+                    contentType = { file -> if (file.isDirectory) "folder" else "file" }
+                ) { file ->
+                    FileGridItem(
+                        file = file,
+                        viewMode = viewMode,
+                        isSelected = selectedFiles.contains(file.path),
+                        onClick = { currentOnFileClick(file) },
+                        onLongClick = { currentOnFileLongClick(file) },
+                        onActionsClick = { currentOnFileActionsClick(file) },
+                        onSelectionToggle = { currentOnSelectionToggle(file) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun FileRowItem(
+    file: FileModel,
+    isSelected: Boolean,
+    isSelectionActive: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onActionsClick: () -> Unit,
+    onSelectionToggle: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected)
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
+        else
+            Color.Transparent,
+        label = "containerColor"
+    )
+
+    val subtitleText = remember(file.formattedSize, file.formattedDate, file.itemCount, file.isDirectory, file.size, file.lastModified) {
+        if (file.formattedSize.isNotEmpty() && file.formattedDate.isNotEmpty()) {
+            if (file.isDirectory) "${file.itemCount} Items" else "${file.formattedSize} • ${file.formattedDate}"
+        } else {
+            if (file.isDirectory) "${file.itemCount} Items" else "${FileUtils.formatFileSize(file.size)} • ${FileUtils.formatDate(file.lastModified)}"
+        }
+    }
+
+    Surface(
+        color = containerColor,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongClick()
+                }
+            )
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FileThumbnail(file, isGrid = false)
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = file.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitleText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (isSelectionActive || isSelected) {
+                IconButton(onClick = onSelectionToggle) {
+                    if (isSelected) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.approve_accept_icon),
+                            contentDescription = "Selected",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.RadioButtonUnchecked,
+                            contentDescription = "Unselected",
+                            tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            } else {
+                IconButton(onClick = onActionsClick, modifier = Modifier.size(24.dp)) {
+                    Icon(
+                        Icons.Rounded.MoreVert,
+                        contentDescription = "Actions",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun FileGridItem(
+    file: FileModel,
+    viewMode: ViewMode,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onActionsClick: () -> Unit,
+    onSelectionToggle: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    val itemHeight = if (viewMode == ViewMode.LARGE) 130.dp else 105.dp
+
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected)
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
+        else
+            MaterialTheme.colorScheme.surface,
+        label = "gridContainerColor"
+    )
+
+    Surface(
+        color = containerColor,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(itemHeight)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongClick()
+                }
+            )
+    ) {
+        Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                FileThumbnail(file, isGrid = true)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = file.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Box(modifier = Modifier.align(Alignment.TopEnd)) {
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Rounded.CheckCircle,
+                        contentDescription = "Selected",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clickable { onSelectionToggle() }
+                    )
+                } else {
+                    IconButton(
+                        onClick = onActionsClick,
+                        modifier = Modifier.size(20.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.MoreVert,
+                            contentDescription = "Actions",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FileActionBottomSheet(
+    file: FileModel,
+    onDismiss: () -> Unit,
+    onRenameClick: (FileModel) -> Unit,
+    onMoveClick: (FileModel) -> Unit,
+    onCopyClick: (FileModel) -> Unit,
+    onDeleteClick: (FileModel) -> Unit,
+    onExtractClick: (FileModel) -> Unit,
+    onFavoriteClick: (FileModel) -> Unit,
+    onLockClick: (FileModel) -> Unit,
+    onShareClick: (FileModel) -> Unit,
+    onOpenWithClick: (FileModel) -> Unit,
+    onSelectClick: (FileModel) -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(),
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FileThumbnail(file = file, isGrid = false)
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = file.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = if (file.isDirectory) "${file.itemCount} Items" else FileUtils.formatFileSize(file.size),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            val ext = remember(file.extension) { file.extension.lowercase() }
+
+            FileActionItem(imageVector = Icons.AutoMirrored.Rounded.OpenInNew, label = "Open With") { onOpenWithClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.share_icon, label = "Share") { onShareClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.rename_icon, label = "Rename") { onRenameClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.open_folder_outline_icon, label = "Move") { onMoveClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.copy_outline_icon, label = "Copy") { onCopyClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.approve_accept_icon, label = "Select") { onSelectClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.heart_thin_icon, label = "Favorite", tint = Color(0xFFFFB300)) { onFavoriteClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.shield_lock_line_icon, label = "Move to Vault") { onLockClick(file); onDismiss() }
+
+            if (ext in listOf("zip", "rar", "7z")) {
+                FileActionItem(drawableRes = R.drawable.archive_line_icon, label = "Extract Here") { onExtractClick(file); onDismiss() }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            FileActionItem(drawableRes = R.drawable.delete_icon, label = "Delete", tint = MaterialTheme.colorScheme.error) { onDeleteClick(file); onDismiss() }
+        }
+    }
+}
+
+@Composable
+private fun FileActionItem(
+    imageVector: ImageVector? = null,
+    drawableRes: Int? = null,
+    label: String,
+    tint: Color = MaterialTheme.colorScheme.onSurface,
+    onClick: () -> Unit
+) {
+    ListItem(
+        headlineContent = { Text(label, color = tint, fontWeight = FontWeight.Medium) },
+        leadingContent = {
+            if (drawableRes != null) {
+                Icon(
+                    painter = painterResource(id = drawableRes),
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(24.dp)
+                )
+            } else if (imageVector != null) {
+                Icon(
+                    imageVector = imageVector,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        },
+        modifier = Modifier.combinedClickable(onClick = onClick),
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -611,11 +1108,11 @@ fun Breadcrumbs(
 
     Row(
         modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 4.dp)
             .fillMaxWidth()
-            .horizontalScroll(scrollState),
+            .horizontalScroll(scrollState)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         items.forEachIndexed { index, item ->
             val isFirst = index == 0
@@ -623,43 +1120,35 @@ fun Breadcrumbs(
 
             if (!isFirst) {
                 Icon(
-                    painter = painterResource(id = R.drawable.arrow_right_direction_icon),
+                    imageVector = Icons.Rounded.ChevronRight,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                 )
             }
             Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = when {
-                    isFirst && item.category == null -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                    isLast -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.9f)
-                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                },
+                shape = RoundedCornerShape(8.dp),
+                color = if (isLast) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
                 onClick = { onItemClick(item) }
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (isFirst && item.category == null) {
                         Icon(
-                            painter = painterResource(id = R.drawable.house_window_icon),
+                            imageVector = Icons.Rounded.Home,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isLast) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                     }
                     Text(
                         text = item.name,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (isLast) FontWeight.ExtraBold else FontWeight.Bold,
-                        color = when {
-                            isFirst && item.category == null -> MaterialTheme.colorScheme.onPrimaryContainer
-                            isLast -> MaterialTheme.colorScheme.onSecondaryContainer
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isLast) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -677,8 +1166,8 @@ fun SortBar(
 ) {
     Row(
         modifier = Modifier
-            .padding(horizontal = 20.dp, vertical = 4.dp)
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -689,13 +1178,12 @@ fun SortBar(
             Text(
                 currentType.name,
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Black,
+                fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Icon(
-                if (currentOrder == SortOrder.ASCENDING)
-                    Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
+                if (currentOrder == SortOrder.ASCENDING) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
                 contentDescription = null,
                 modifier = Modifier
                     .size(14.dp)
@@ -716,380 +1204,6 @@ fun SortBar(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-    }
-}
-
-@Composable
-fun FileList(
-    files: List<FileModel>,
-    selectedFiles: Set<String>,
-    viewMode: ViewMode,
-    onFileClick: (FileModel) -> Unit,
-    onFileLongClick: (FileModel) -> Unit,
-    onDeleteClick: (FileModel) -> Unit,
-    onRenameClick: (FileModel) -> Unit,
-    onShareClick: (FileModel) -> Unit,
-    onOpenWithClick: (FileModel) -> Unit,
-    onFavoriteClick: (FileModel) -> Unit,
-    onExtractClick: (FileModel) -> Unit,
-    onLockClick: (FileModel) -> Unit,
-    onMoveClick: (FileModel) -> Unit,
-    onCopyClick: (FileModel) -> Unit,
-    bottomPadding: Dp
-) {
-    val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val finalContentPadding = remember(bottomPadding, navBarBottom) {
-        PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = 4.dp,
-            bottom = bottomPadding + navBarBottom + 24.dp
-        )
-    }
-
-    val currentOnFileClick by rememberUpdatedState(onFileClick)
-    val currentOnFileLongClick by rememberUpdatedState(onFileLongClick)
-    val currentOnDeleteClick by rememberUpdatedState(onDeleteClick)
-    val currentOnRenameClick by rememberUpdatedState(onRenameClick)
-    val currentOnShareClick by rememberUpdatedState(onShareClick)
-    val currentOnOpenWithClick by rememberUpdatedState(onOpenWithClick)
-    val currentOnFavoriteClick by rememberUpdatedState(onFavoriteClick)
-    val currentOnExtractClick by rememberUpdatedState(onExtractClick)
-    val currentOnLockClick by rememberUpdatedState(onLockClick)
-    val currentOnMoveClick by rememberUpdatedState(onMoveClick)
-    val currentOnCopyClick by rememberUpdatedState(onCopyClick)
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (viewMode == ViewMode.SMALL) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = finalContentPadding,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(
-                    items = files,
-                    key = { file -> "${file.path}_${file.lastModified}" },
-                    contentType = { file -> if (file.isDirectory) "folder" else "file" }
-                ) { file ->
-                    FileRowItem(
-                        file = file,
-                        isSelected = selectedFiles.contains(file.path),
-                        onClick = { currentOnFileClick(file) },
-                        onLongClick = { currentOnFileLongClick(file) },
-                        onDeleteClick = currentOnDeleteClick,
-                        onRenameClick = currentOnRenameClick,
-                        onShareClick = currentOnShareClick,
-                        onOpenWithClick = currentOnOpenWithClick,
-                        onFavoriteClick = currentOnFavoriteClick,
-                        onExtractClick = currentOnExtractClick,
-                        onLockClick = currentOnLockClick,
-                        onMoveClick = currentOnMoveClick,
-                        onCopyClick = currentOnCopyClick
-                    )
-                }
-            }
-        } else {
-            val columnsCount = if (viewMode == ViewMode.MEDIUM) 3 else 2
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(columnsCount),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = finalContentPadding,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(
-                    items = files,
-                    key = { file -> "${file.path}_${file.lastModified}" },
-                    contentType = { file -> if (file.isDirectory) "folder" else "file" }
-                ) { file ->
-                    FileGridItem(
-                        file = file,
-                        viewMode = viewMode,
-                        isSelected = selectedFiles.contains(file.path),
-                        onClick = { currentOnFileClick(file) },
-                        onLongClick = { currentOnFileLongClick(file) },
-                        onDeleteClick = currentOnDeleteClick,
-                        onRenameClick = currentOnRenameClick,
-                        onShareClick = currentOnShareClick,
-                        onOpenWithClick = currentOnOpenWithClick,
-                        onFavoriteClick = currentOnFavoriteClick,
-                        onExtractClick = currentOnExtractClick,
-                        onLockClick = currentOnLockClick,
-                        onMoveClick = currentOnMoveClick,
-                        onCopyClick = currentOnCopyClick
-                    )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun FileRowItem(
-    file: FileModel,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    onDeleteClick: (FileModel) -> Unit,
-    onRenameClick: (FileModel) -> Unit,
-    onShareClick: (FileModel) -> Unit,
-    onOpenWithClick: (FileModel) -> Unit,
-    onFavoriteClick: (FileModel) -> Unit,
-    onExtractClick: (FileModel) -> Unit,
-    onLockClick: (FileModel) -> Unit,
-    onMoveClick: (FileModel) -> Unit,
-    onCopyClick: (FileModel) -> Unit
-) {
-    var isMenuExpanded by remember { mutableStateOf(false) }
-
-    val subtitleText = remember(file.formattedSize, file.formattedDate, file.itemCount, file.isDirectory, file.size, file.lastModified) {
-        if (file.formattedSize.isNotEmpty() && file.formattedDate.isNotEmpty()) {
-            if (file.isDirectory) "${file.itemCount} Items" else "${file.formattedSize} • ${file.formattedDate}"
-        } else {
-            if (file.isDirectory) "${file.itemCount} Items" else "${FileUtils.formatFileSize(file.size)} • ${FileUtils.formatDate(file.lastModified)}"
-        }
-    }
-
-    Surface(
-        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-        else MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
-        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-        modifier = Modifier
-            .fillMaxWidth()
-            .graphicsLayer { clip = true }
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(12.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            FileThumbnail(file, isGrid = false)
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = file.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = subtitleText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (isSelected) {
-                Icon(
-                    painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-            } else {
-                Box {
-                    IconButton(onClick = { isMenuExpanded = true }, modifier = Modifier.size(24.dp)) {
-                        Icon(
-                            Icons.Rounded.MoreVert,
-                            contentDescription = "Actions",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
-                    }
-                    FileActionContextMenu(
-                        expanded = isMenuExpanded,
-                        file = file,
-                        onDismiss = { isMenuExpanded = false },
-                        onRenameClick = onRenameClick,
-                        onMoveClick = onMoveClick,
-                        onCopyClick = onCopyClick,
-                        onDeleteClick = onDeleteClick,
-                        onExtractClick = onExtractClick,
-                        onFavoriteClick = onFavoriteClick,
-                        onLockClick = onLockClick,
-                        onShareClick = onShareClick,
-                        onOpenWithClick = onOpenWithClick,
-                        onLongClick = onLongClick
-                    )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun FileGridItem(
-    file: FileModel,
-    viewMode: ViewMode,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    onDeleteClick: (FileModel) -> Unit,
-    onRenameClick: (FileModel) -> Unit,
-    onShareClick: (FileModel) -> Unit,
-    onOpenWithClick: (FileModel) -> Unit,
-    onFavoriteClick: (FileModel) -> Unit,
-    onExtractClick: (FileModel) -> Unit,
-    onLockClick: (FileModel) -> Unit,
-    onMoveClick: (FileModel) -> Unit,
-    onCopyClick: (FileModel) -> Unit
-) {
-    var isMenuExpanded by remember { mutableStateOf(false) }
-    val itemHeight = if (viewMode == ViewMode.LARGE) 140.dp else 110.dp
-
-    Surface(
-        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-        else MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
-        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(itemHeight)
-            .graphicsLayer { clip = true }
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
-    ) {
-        Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                FileThumbnail(file, isGrid = true)
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = file.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            Box(modifier = Modifier.align(Alignment.TopEnd)) {
-                if (isSelected) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.check_mark_circle_line_icon),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    IconButton(onClick = { isMenuExpanded = true }, modifier = Modifier.size(20.dp)) {
-                        Icon(
-                            Icons.Rounded.MoreVert,
-                            contentDescription = "Actions",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
-                    }
-                    FileActionContextMenu(
-                        expanded = isMenuExpanded,
-                        file = file,
-                        onDismiss = { isMenuExpanded = false },
-                        onRenameClick = onRenameClick,
-                        onMoveClick = onMoveClick,
-                        onCopyClick = onCopyClick,
-                        onDeleteClick = onDeleteClick,
-                        onExtractClick = onExtractClick,
-                        onFavoriteClick = onFavoriteClick,
-                        onLockClick = onLockClick,
-                        onShareClick = onShareClick,
-                        onOpenWithClick = onOpenWithClick,
-                        onLongClick = onLongClick
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FileActionContextMenu(
-    expanded: Boolean,
-    file: FileModel,
-    onDismiss: () -> Unit,
-    onRenameClick: (FileModel) -> Unit,
-    onMoveClick: (FileModel) -> Unit,
-    onCopyClick: (FileModel) -> Unit,
-    onDeleteClick: (FileModel) -> Unit,
-    onExtractClick: (FileModel) -> Unit,
-    onFavoriteClick: (FileModel) -> Unit,
-    onLockClick: (FileModel) -> Unit,
-    onShareClick: (FileModel) -> Unit,
-    onOpenWithClick: (FileModel) -> Unit,
-    onLongClick: () -> Unit
-) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(24.dp)
-    ) {
-        DropdownMenuItem(
-            text = { Text("Rename", fontWeight = FontWeight.SemiBold) },
-            onClick = { onRenameClick(file); onDismiss() },
-            leadingIcon = { Icon(painter = painterResource(id = R.drawable.brush_paintbrush_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
-        )
-        DropdownMenuItem(
-            text = { Text("Move", fontWeight = FontWeight.SemiBold) },
-            onClick = { onMoveClick(file); onDismiss() },
-            leadingIcon = { Icon(Icons.Rounded.MoveUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
-        )
-        DropdownMenuItem(
-            text = { Text("Copy", fontWeight = FontWeight.SemiBold) },
-            onClick = { onCopyClick(file); onDismiss() },
-            leadingIcon = { Icon(painter = painterResource(id = R.drawable.copy_outline_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
-        )
-        DropdownMenuItem(
-            text = { Text("Delete", fontWeight = FontWeight.SemiBold) },
-            onClick = { onDeleteClick(file); onDismiss() },
-            leadingIcon = { Icon(painter = painterResource(id = R.drawable.recycle_bin_line_icon), contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) }
-        )
-        val ext = remember(file.extension) { file.extension.lowercase() }
-        if (ext in listOf("zip", "rar")) {
-            DropdownMenuItem(
-                text = { Text("Extract Here", fontWeight = FontWeight.SemiBold) },
-                onClick = { onExtractClick(file); onDismiss() },
-                leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
-            )
-        }
-        DropdownMenuItem(
-            text = { Text("Select", fontWeight = FontWeight.SemiBold) },
-            onClick = { onLongClick(); onDismiss() },
-            leadingIcon = { Icon(painter = painterResource(id = R.drawable.check_mark_circle_line_icon), contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp)) }
-        )
-        DropdownMenuItem(
-            text = { Text("Favorite", fontWeight = FontWeight.SemiBold) },
-            onClick = { onFavoriteClick(file); onDismiss() },
-            leadingIcon = { Icon(Icons.Rounded.Favorite, contentDescription = null, tint = Color(0xFFFF4081), modifier = Modifier.size(20.dp)) }
-        )
-        DropdownMenuItem(
-            text = { Text("Lock (Vault)", fontWeight = FontWeight.SemiBold) },
-            onClick = { onLockClick(file); onDismiss() },
-            leadingIcon = { Icon(painter = painterResource(id = R.drawable.lock_line_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
-        )
-        DropdownMenuItem(
-            text = { Text("Share", fontWeight = FontWeight.SemiBold) },
-            onClick = { onShareClick(file); onDismiss() },
-            leadingIcon = { Icon(painter = painterResource(id = R.drawable.share_icon), contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp)) }
-        )
-        DropdownMenuItem(
-            text = { Text("Open with", fontWeight = FontWeight.SemiBold) },
-            onClick = { onOpenWithClick(file); onDismiss() },
-            leadingIcon = { Icon(painter = painterResource(id = R.drawable.shortcut_icon), contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp)) }
-        )
     }
 }
 
@@ -1141,7 +1255,7 @@ fun FileThumbnail(file: FileModel, isGrid: Boolean) {
     val isVideo = remember(ext) { ext in listOf("mp4", "mkv", "avi", "mov", "3gp", "webm") }
     val isImage = remember(ext) { ext in listOf("jpg", "jpeg", "png", "webp", "gif", "heic") }
     val isApk = ext == "apk"
-    val thumbSize = if (isGrid) 48.dp else 40.dp
+    val thumbSize = if (isGrid) 44.dp else 40.dp
 
     if (isVideo || isImage || isApk) {
         val imageRequest = remember(file.path, isVideo) {
@@ -1444,30 +1558,57 @@ fun ViewModeBox(
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun ExplorerScreenPreview() {
-    val mockFiles = listOf(
-        FileModel("Documents", "/Documents", 0, System.currentTimeMillis(), true),
-        FileModel("Images", "/Images", 0, System.currentTimeMillis(), true),
-        FileModel("report.pdf", "/report.pdf", 1024L * 1024, System.currentTimeMillis(), false, "pdf"),
-        FileModel("vacation.jpg", "/vacation.jpg", 2L * 1024 * 1024, System.currentTimeMillis(), false, "jpg")
-    )
-    val mockBreadcrumbs = listOf(
-        BreadcrumbItem("Home", "", null),
-        BreadcrumbItem("Internal Storage", "/storage/emulated/0", null)
-    )
+// =========================================================================
+// PREVIEW COMPOSABLES
+// =========================================================================
 
-    FileViewerAppTheme {
+private val previewMockFiles = listOf(
+    FileModel(
+        path = "/storage/emulated/0/Documents",
+        name = "Documents Folder",
+        isDirectory = true,
+        size = 0L,
+        lastModified = System.currentTimeMillis(),
+        itemCount = 12
+    ),
+    FileModel(
+        path = "/storage/emulated/0/Pictures/photo.jpg",
+        name = "Sample_Image.jpg",
+        isDirectory = false,
+        size = 2450000L,
+        lastModified = System.currentTimeMillis() - 86400000,
+        extension = "jpg"
+    ),
+    FileModel(
+        path = "/storage/emulated/0/Download/document.pdf",
+        name = "Project_Report.pdf",
+        isDirectory = false,
+        size = 10485760L,
+        lastModified = System.currentTimeMillis() - 172800000,
+        extension = "pdf"
+    )
+)
+
+private val previewBreadcrumbs = listOf(
+    BreadcrumbItem(name = "Home", path = ""),
+    BreadcrumbItem(name = "Internal Storage", path = "/storage/emulated/0"),
+    BreadcrumbItem(name = "Documents", path = "/storage/emulated/0/Documents")
+)
+
+@Preview(name = "Normal Screen - Light Mode", showBackground = true)
+@Preview(name = "Normal Screen - Dark Mode", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Composable
+fun ExplorerScreenNormalPreview() {
+    MaterialTheme {
         ExplorerScreenContent(
-            title = "Explorer",
-            uiState = ExplorerUiState.Success(mockFiles),
+            title = "Internal Storage",
+            uiState = ExplorerUiState.Success(previewMockFiles),
             selectedFiles = emptySet(),
             searchQuery = "",
             sortType = SortType.NAME,
             sortOrder = SortOrder.ASCENDING,
-            viewMode = ViewMode.LIST,
-            breadcrumbsList = mockBreadcrumbs,
+            viewMode = ViewMode.SMALL,
+            breadcrumbsList = previewBreadcrumbs,
             isMoving = emptyList(),
             isCopying = emptyList(),
             pickingFolderForArchive = null,
@@ -1494,5 +1635,70 @@ fun ExplorerScreenPreview() {
             onBreadcrumbClick = {},
             snackbarHostState = remember { SnackbarHostState() }
         )
+    }
+}
+
+@Preview(name = "Selection Mode Active - Bottom Bar Lifted", showBackground = true)
+@Composable
+fun ExplorerScreenSelectionActivePreview() {
+    MaterialTheme {
+        ExplorerScreenContent(
+            title = "Internal Storage",
+            uiState = ExplorerUiState.Success(previewMockFiles),
+            selectedFiles = setOf(previewMockFiles[1].path),
+            searchQuery = "",
+            sortType = SortType.NAME,
+            sortOrder = SortOrder.ASCENDING,
+            viewMode = ViewMode.SMALL,
+            breadcrumbsList = previewBreadcrumbs,
+            isMoving = emptyList(),
+            isCopying = emptyList(),
+            pickingFolderForArchive = null,
+            onBackClick = {},
+            onFileClick = {},
+            onRenameFile = { _, _ -> },
+            onSetSort = { _, _ -> },
+            onSetViewMode = {},
+            onStopPickingFolder = {},
+            onExtractToCurrentFolder = {},
+            onClearSelection = {},
+            onSetSearchQuery = {},
+            onDeleteSelectedFiles = {},
+            onStartMove = {},
+            onStartCopy = {},
+            onPaste = {},
+            onCancelOperation = {},
+            onRefresh = {},
+            onSelectAllPaths = {},
+            onToggleFileSelection = {},
+            onToggleFavorite = {},
+            onExtractArchive = {},
+            onMoveToVault = {},
+            onBreadcrumbClick = {},
+            snackbarHostState = remember { SnackbarHostState() }
+        )
+    }
+}
+
+@Preview(name = "File Action Sheet Preview", showBackground = true)
+@Composable
+fun FileActionBottomSheetPreview() {
+    MaterialTheme {
+        Surface {
+            FileActionBottomSheet(
+                file = previewMockFiles[1],
+                onDismiss = {},
+                onRenameClick = {},
+                onMoveClick = {},
+                onCopyClick = {},
+                onDeleteClick = {},
+                onExtractClick = {},
+                onFavoriteClick = {},
+                onLockClick = {},
+                onShareClick = {},
+                onOpenWithClick = {},
+                onSelectClick = {}
+            )
+        }
     }
 }

@@ -7,7 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.domain.repository.FileCategory
-import com.sharjeel.fileviewerapp.domain.repository.FileRepository
+import com.sharjeel.fileviewerapp.domain.repository.FileRepository // ✅ Fixed import to domain layer
 import com.sharjeel.fileviewerapp.util.AIService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -42,7 +42,7 @@ sealed interface ExplorerUiState {
 class ExplorerViewModel @Inject constructor(
     private val repository: FileRepository,
     private val aiService: AIService,
-    @ApplicationContext private val appContext: Context // ✅ Memory Leak Fix via Hilt
+    @param:ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     private val _events = Channel<ExplorerEvent>(Channel.CONFLATED)
@@ -70,7 +70,6 @@ class ExplorerViewModel @Inject constructor(
     private val _isCopying = MutableStateFlow<List<String>>(emptyList())
     val isCopying = _isCopying.asStateFlow()
 
-    // ✅ FIXED: Heavy computation moved to Dispatchers.Default (Background Thread)
     val uiState: StateFlow<ExplorerUiState> = combine(
         _rawFiles,
         _searchQuery,
@@ -114,7 +113,6 @@ class ExplorerViewModel @Inject constructor(
     private val _currentCategory = MutableStateFlow<FileCategory?>(null)
     val currentCategory: StateFlow<FileCategory?> = _currentCategory.asStateFlow()
 
-    // ✅ FIXED: Moved breadcrumbs String manipulation to Dispatchers.Default
     val breadcrumbs: StateFlow<List<BreadcrumbItem>> = combine(
         _currentPath,
         _currentCategory
@@ -127,6 +125,7 @@ class ExplorerViewModel @Inject constructor(
 
         if (category != null) {
             val categoryLabel = when(category) {
+                FileCategory.ALL -> "All Files"
                 FileCategory.IMAGES -> "Images"
                 FileCategory.VIDEOS -> "Videos"
                 FileCategory.AUDIO -> "Audio"

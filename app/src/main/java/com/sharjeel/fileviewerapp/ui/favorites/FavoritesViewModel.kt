@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import android.os.Environment
 
 @HiltViewModel
 class FavoritesViewModel @Inject constructor(
@@ -25,10 +24,11 @@ class FavoritesViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<ExplorerUiState>(ExplorerUiState.Loading)
     val uiState: StateFlow<ExplorerUiState> = _uiState.asStateFlow()
 
-    // 🎯 ADDED: Breadcrumbs for Favorites
+    // 🎯 Fixed Clean Breadcrumbs Hierarchy (Matches Explorer Root Style)
     val breadcrumbs: StateFlow<List<BreadcrumbItem>> = MutableStateFlow(
         listOf(
-            BreadcrumbItem("Internal Storage", Environment.getExternalStorageDirectory().absolutePath, null),
+            BreadcrumbItem("Home", "", null),
+            BreadcrumbItem("Internal Storage", android.os.Environment.getExternalStorageDirectory().absolutePath, null),
             BreadcrumbItem("Favorites", "", null)
         )
     ).asStateFlow()
@@ -65,6 +65,13 @@ class FavoritesViewModel @Inject constructor(
         _selectedFiles.value = current
     }
 
+    fun selectAll() {
+        val currentState = _uiState.value
+        if (currentState is ExplorerUiState.Success) {
+            _selectedFiles.value = currentState.files.map { it.path }.toSet()
+        }
+    }
+
     fun clearSelection() {
         _selectedFiles.value = emptySet()
     }
@@ -72,6 +79,20 @@ class FavoritesViewModel @Inject constructor(
     fun toggleFavorite(file: FileModel) {
         viewModelScope.launch {
             repository.toggleFavorite(file)
+            loadFavorites()
+        }
+    }
+
+    fun removeSelectedFromFavorites() {
+        viewModelScope.launch {
+            val currentState = _uiState.value
+            if (currentState is ExplorerUiState.Success) {
+                val filesToRemove = currentState.files.filter { _selectedFiles.value.contains(it.path) }
+                filesToRemove.forEach { file ->
+                    repository.toggleFavorite(file)
+                }
+            }
+            clearSelection()
             loadFavorites()
         }
     }

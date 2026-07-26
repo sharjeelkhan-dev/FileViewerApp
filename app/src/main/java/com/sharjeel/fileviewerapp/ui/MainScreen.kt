@@ -51,7 +51,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,7 +86,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
     val scope = rememberCoroutineScope()
 
     val backstack = rememberSaveable(
-        saver = listSaver<SnapshotStateList<NavRoute>, String>(
+        saver = listSaver(
             save = { it.toList().map { route -> Json.encodeToString(route) } },
             restore = { it.map { json -> Json.decodeFromString<NavRoute>(json) }.toMutableStateList() }
         )
@@ -205,7 +204,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
 
                     NavigationDrawerItem(
                         label = { Text("Internal Storage") },
-                        selected = currentRoute is NavRoute.Explorer && (currentRoute as NavRoute.Explorer).title == "Storage",
+                        selected = currentRoute is NavRoute.Explorer && currentRoute.title == "Storage",
                         onClick = {
                             backstack.clear()
                             backstack.add(NavRoute.Home)
@@ -231,7 +230,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
 
                     NavigationDrawerItem(
                         label = { Text("Downloads") },
-                        selected = currentRoute is NavRoute.Explorer && (currentRoute as NavRoute.Explorer).title == "Downloads",
+                        selected = currentRoute is NavRoute.Explorer && currentRoute.title == "Downloads",
                         onClick = {
                             backstack.clear()
                             backstack.add(NavRoute.Home)
@@ -256,7 +255,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
 
                     NavigationDrawerItem(
                         label = { Text("Recent Files") },
-                        selected = currentRoute is NavRoute.Explorer && (currentRoute as NavRoute.Explorer).title == "Recent",
+                        selected = currentRoute is NavRoute.Explorer && currentRoute.title == "Recent",
                         onClick = {
                             backstack.clear()
                             backstack.add(NavRoute.Home)
@@ -489,13 +488,12 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                 )
                             }
                             is NavRoute.Explorer -> NavEntry(route) {
-                                val key = route as NavRoute.Explorer
 
-                                LaunchedEffect(key.title, key.path) {
-                                    if (key.path != null) {
-                                        explorerViewModel.loadFiles(key.path!!)
+                                LaunchedEffect(route.title, route.path) {
+                                    if (route.path != null) {
+                                        explorerViewModel.loadFiles(route.path)
                                     } else {
-                                        when (key.title) {
+                                        when (route.title) {
                                             "Storage" -> explorerViewModel.loadFiles(Environment.getExternalStorageDirectory().absolutePath)
                                             "Downloads" -> explorerViewModel.loadCategory(FileCategory.DOWNLOADS)
                                             "Recent" -> explorerViewModel.loadRecent()
@@ -510,7 +508,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                 }
 
                                 ExplorerScreen(
-                                    title = key.title,
+                                    title = route.title,
                                     viewModel = explorerViewModel,
                                     onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) },
                                     onFileClick = { file ->
@@ -535,7 +533,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                                 explorerViewModel.loadFiles(previousPath)
                                             }
                                         } else {
-                                            backstack.add(NavRoute.Explorer(title = key.title, path = path))
+                                            backstack.add(NavRoute.Explorer(title = route.title, path = path))
                                             explorerViewModel.loadFiles(path)
                                         }
                                     },
@@ -547,10 +545,9 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                 )
                             }
                             is NavRoute.Viewer -> NavEntry(route) {
-                                val key = route as NavRoute.Viewer
                                 FileViewerScreen(
-                                    filePath = key.filePath,
-                                    fileType = key.fileType,
+                                    filePath = route.filePath,
+                                    fileType = route.fileType,
                                     viewModel = viewerViewModel,
                                     onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) },
                                     onShowInFolder = { folderPath ->
@@ -573,13 +570,21 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                 )
                             }
                             is NavRoute.Trash -> NavEntry(route) {
+                                val trashFiles by trashViewModel.uiState.collectAsState()
+
+                                val trashUiState by trashViewModel.uiState.collectAsState()
+
                                 TrashScreen(
                                     viewModel = trashViewModel,
-                                    onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) },
+                                    onBackClick = {
+                                        if (backstack.size > 1) {
+                                            backstack.removeAt(backstack.lastIndex)
+                                        }
+                                    },
                                     onFileClick = { file ->
-                                        val state = trashFiles
-                                        if (state is com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState.Success) {
-                                            viewerViewModel.setPlaylist(state.files, file.path)
+                                        val currentState = trashUiState
+                                        if (currentState is com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState.Success) {
+                                            viewerViewModel.setPlaylist(currentState.files, file.path)
                                         }
                                         backstack.add(NavRoute.Viewer(file.path, file.extension))
                                     }

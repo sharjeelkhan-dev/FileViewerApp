@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.domain.repository.FileRepository
+import com.sharjeel.fileviewerapp.ui.explorer.BreadcrumbItem
 import com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState
 import com.sharjeel.fileviewerapp.ui.explorer.SortOrder
 import com.sharjeel.fileviewerapp.ui.explorer.SortType
@@ -35,8 +36,37 @@ class VaultViewModel @Inject constructor(
     private val _sortOrder = MutableStateFlow(SortOrder.ASCENDING)
     val sortOrder: StateFlow<SortOrder> = _sortOrder.asStateFlow()
 
+    private val _selectedFiles = MutableStateFlow<Set<String>>(emptySet())
+    val selectedFiles: StateFlow<Set<String>> = _selectedFiles.asStateFlow()
+
+    val breadcrumbs: StateFlow<List<BreadcrumbItem>> = MutableStateFlow(
+        listOf(
+            BreadcrumbItem("Home", "", null),
+            BreadcrumbItem("Internal Storage", android.os.Environment.getExternalStorageDirectory().absolutePath, null),
+            BreadcrumbItem("Vault", "", null)
+        )
+    ).asStateFlow()
+
     fun updateViewMode(mode: ViewMode) {
         _viewMode.value = mode
+    }
+
+    fun toggleFileSelection(path: String) {
+        val current = _selectedFiles.value.toMutableSet()
+        if (current.contains(path)) current.remove(path)
+        else current.add(path)
+        _selectedFiles.value = current
+    }
+
+    fun selectAll() {
+        val currentState = _uiState.value
+        if (currentState is ExplorerUiState.Success) {
+            _selectedFiles.value = currentState.files.map { it.path }.toSet()
+        }
+    }
+
+    fun clearSelection() {
+        _selectedFiles.value = emptySet()
     }
 
     fun updateSort(type: SortType, order: SortOrder) {
@@ -68,6 +98,30 @@ class VaultViewModel @Inject constructor(
             if (repository.toggleVault(file)) {
                 loadVaultFiles()
             }
+        }
+    }
+
+    fun removeSelectedFromVault() {
+        viewModelScope.launch {
+            val currentState = _uiState.value
+            if (currentState is ExplorerUiState.Success) {
+                val toRemove = currentState.files.filter { _selectedFiles.value.contains(it.path) }
+                toRemove.forEach { file ->
+                    repository.toggleVault(file)
+                }
+                clearSelection()
+                loadVaultFiles()
+            }
+        }
+    }
+
+    fun deleteSelectedFiles() {
+        viewModelScope.launch {
+            _selectedFiles.value.forEach { path ->
+                repository.deleteFile(path)
+            }
+            clearSelection()
+            loadVaultFiles()
         }
     }
     

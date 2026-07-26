@@ -1,27 +1,38 @@
 package com.sharjeel.fileviewerapp.ui.favorites
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.Sort
+import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.ui.components.AppScaffold
 import com.sharjeel.fileviewerapp.ui.explorer.*
-import com.sharjeel.fileviewerapp.R
+import com.sharjeel.fileviewerapp.util.FileUtils
 
 @Composable
 fun FavoritesScreen(
@@ -54,8 +65,16 @@ fun FavoritesScreen(
         viewMode = viewMode,
         sortType = sortType,
         sortOrder = sortOrder,
-        searchQuery = searchQuery,
         breadcrumbsList = breadcrumbsList,
+        isSearchActive = isSearchActive,
+        searchQuery = searchQuery,
+        onSearchToggle = { active: Boolean ->
+            isSearchActive = active
+            if (!active) searchQuery = ""
+        },
+        onSearchQueryChange = { query: String -> searchQuery = query },
+        onClearSelection = { viewModel.clearSelection() },
+        onSelectAll = { viewModel.selectAll() },
         onBackClick = onBackClick,
         onFileClick = { file: FileModel ->
             if (selectedFiles.isNotEmpty()) {
@@ -66,6 +85,7 @@ fun FavoritesScreen(
         },
         onFileLongClick = { file: FileModel -> viewModel.toggleFileSelection(file.path) },
         onToggleFavorite = { file: FileModel -> viewModel.toggleFavorite(file) },
+        onRemoveSelectedFavorites = { viewModel.removeSelectedFromFavorites() },
         onDeleteSelected = { viewModel.deleteSelectedFiles() },
         onSortSelected = { type: SortType, order: SortOrder -> viewModel.updateSort(type, order) },
         onViewModeSelected = { mode: ViewMode -> viewModel.updateViewMode(mode) }
@@ -80,109 +100,239 @@ fun FavoritesContent(
     viewMode: ViewMode,
     sortType: SortType,
     sortOrder: SortOrder,
-    searchQuery: String,
     breadcrumbsList: List<BreadcrumbItem>,
+    isSearchActive: Boolean,
+    searchQuery: String,
+    onSearchToggle: (Boolean) -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onClearSelection: () -> Unit,
+    onSelectAll: () -> Unit,
     onBackClick: () -> Unit,
     onFileClick: (FileModel) -> Unit,
     onFileLongClick: (FileModel) -> Unit,
     onToggleFavorite: (FileModel) -> Unit,
+    onRemoveSelectedFavorites: () -> Unit,
     onDeleteSelected: () -> Unit,
     onSortSelected: (SortType, SortOrder) -> Unit,
     onViewModeSelected: (ViewMode) -> Unit
 ) {
     var showSortSheet by remember { mutableStateOf(false) }
     var showViewOptionsSheet by remember { mutableStateOf(false) }
+    var fileForActions by remember { mutableStateOf<FileModel?>(null) }
+    var showMenu by remember { mutableStateOf(false) }
+    val localContext = LocalContext.current
 
-    val isPreview = LocalInspectionMode.current
-    val hasContent = (uiState as? ExplorerUiState.Success)?.files?.isNotEmpty() == true
+    val visibleFiles = (uiState as? ExplorerUiState.Success)?.files?.filter { !it.name.startsWith(".") } ?: emptyList()
+    val filteredFiles = if (searchQuery.isBlank()) visibleFiles else visibleFiles.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    val isFavoritesEmpty = filteredFiles.isEmpty() && uiState is ExplorerUiState.Success
+    val isSelectionActive = selectedFiles.isNotEmpty()
 
-    val shouldShowHeaders = hasContent || selectedFiles.isNotEmpty()
+    if (showSortSheet && !isFavoritesEmpty) {
+        SortBottomSheet(
+            currentType = sortType,
+            currentOrder = sortOrder,
+            onDismiss = { showSortSheet = false },
+            onSortSelected = { type: SortType, order: SortOrder ->
+                onSortSelected(type, order)
+                showSortSheet = false
+            }
+        )
+    }
 
-    if (!isPreview) {
-        if (showSortSheet && hasContent) {
-            SortBottomSheet(
-                currentType = sortType,
-                currentOrder = sortOrder,
-                onDismiss = { showSortSheet = false },
-                onSortSelected = { type: SortType, order: SortOrder ->
-                    onSortSelected(type, order)
-                    showSortSheet = false
-                }
-            )
-        }
+    if (showViewOptionsSheet && !isFavoritesEmpty) {
+        ViewOptionsBottomSheet(
+            currentMode = viewMode,
+            onDismiss = { showViewOptionsSheet = false },
+            onModeSelected = { mode: ViewMode ->
+                onViewModeSelected(mode)
+                showViewOptionsSheet = false
+            }
+        )
+    }
 
-        if (showViewOptionsSheet && hasContent) {
-            ViewOptionsBottomSheet(
-                currentMode = viewMode,
-                onDismiss = { showViewOptionsSheet = false },
-                onModeSelected = { mode: ViewMode ->
-                    onViewModeSelected(mode)
-                    showViewOptionsSheet = false
-                }
-            )
-        }
+    if (fileForActions != null) {
+        FileActionBottomSheet(
+            file = fileForActions!!,
+            onDismiss = { fileForActions = null },
+            onRenameClick = { },
+            onMoveClick = { },
+            onCopyClick = { },
+            onDeleteClick = { onDeleteSelected() },
+            onExtractClick = { },
+            onFavoriteClick = { onToggleFavorite(it) },
+            onLockClick = { },
+            onShareClick = { FileUtils.shareFile(localContext, it.path) },
+            onOpenWithClick = { FileUtils.openWithExternalApp(localContext, it.path) },
+            onSelectClick = { onFileLongClick(it) }
+        )
     }
 
     AppScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            if (shouldShowHeaders) {
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = if (selectedFiles.isNotEmpty()) "${selectedFiles.size} SELECTED" else "FAVORITES",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.2.sp,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBackClick) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                                contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onBackground
-                            )
-                        }
-                    },
-                    actions = {
-                        if (selectedFiles.isNotEmpty()) {
-                            IconButton(onClick = onDeleteSelected) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.recycle_bin_line_icon),
-                                    contentDescription = "Delete",
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-                        if (hasContent) {
-                            IconButton(onClick = { showSortSheet = true }) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.Sort,
-                                    contentDescription = "Sort"
-                                )
-                            }
-                            IconButton(onClick = { showViewOptionsSheet = true }) {
-                                Icon(Icons.Rounded.GridView, contentDescription = "View Options")
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
-                        actionIconContentColor = MaterialTheme.colorScheme.onBackground
+            Surface(
+                color = MaterialTheme.colorScheme.background,
+                tonalElevation = 0.dp
+            ) {
+                if (isSearchActive) {
+                    SearchTopBar(
+                        query = searchQuery,
+                        onQueryChange = onSearchQueryChange,
+                        onCloseClick = { onSearchToggle(false) }
                     )
-                )
+                } else {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                text = if (isSelectionActive) "${selectedFiles.size} items" else "Favorites",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        },
+                        navigationIcon = {
+                            IconButton(
+                                onClick = {
+                                    if (isSelectionActive) onClearSelection() else onBackClick()
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = if (isSelectionActive) Icons.Rounded.Close else Icons.AutoMirrored.Rounded.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
+                        },
+                        actions = {
+                            if (isSelectionActive) {
+                                val isAllSelected = selectedFiles.size == filteredFiles.size && filteredFiles.isNotEmpty()
+                                IconButton(onClick = { if (isAllSelected) onClearSelection() else onSelectAll() }) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.SelectAll,
+                                        contentDescription = "Select All",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            } else {
+                                IconButton(onClick = { onSearchToggle(true) }) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.magnifying_glass_icon),
+                                        contentDescription = "Search",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onBackground
+                                    )
+                                }
+                                Box {
+                                    IconButton(onClick = { showMenu = !showMenu }) {
+                                        Icon(
+                                            Icons.Rounded.MoreVert,
+                                            contentDescription = "More",
+                                            tint = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = showMenu,
+                                        onDismissRequest = { showMenu = false },
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        shape = RoundedCornerShape(16.dp)
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Sort Options") },
+                                            onClick = {
+                                                showMenu = false
+                                                showSortSheet = true
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    Icons.Rounded.SortByAlpha,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("View Layout") },
+                                            onClick = {
+                                                showMenu = false
+                                                showViewOptionsSheet = true
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    Icons.Rounded.GridView,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                    )
+                }
+            }
+        },
+        bottomBar = {
+            AnimatedVisibility(
+                visible = isSelectionActive,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    tonalElevation = 12.dp,
+                    shadowElevation = 16.dp,
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(vertical = 14.dp, horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SelectionActionButton(
+                            drawableRes = R.drawable.copy_outline_icon,
+                            label = "Copy",
+                            onClick = { /* Copy Action */ }
+                        )
+                        SelectionActionButton(
+                            drawableRes = R.drawable.open_folder_outline_icon,
+                            label = "Move",
+                            onClick = { /* Move Action */ }
+                        )
+                        SelectionActionButton(
+                            drawableRes = R.drawable.heart_black_icon,
+                            label = "Unfavorite",
+                            onClick = { onRemoveSelectedFavorites() }
+                        )
+                        SelectionActionButton(
+                            drawableRes = R.drawable.share_icon,
+                            label = "Share",
+                            onClick = {
+                                if (selectedFiles.size == 1) {
+                                    FileUtils.shareFile(localContext, selectedFiles.first())
+                                }
+                            }
+                        )
+                        SelectionActionButton(
+                            drawableRes = R.drawable.delete_icon,
+                            label = "Delete",
+                            tint = MaterialTheme.colorScheme.error,
+                            onClick = { onDeleteSelected() }
+                        )
+                    }
+                }
             }
         }
     ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(top = paddingValues.calculateTopPadding())
         ) {
             when (uiState) {
                 is ExplorerUiState.Loading -> {
@@ -191,77 +341,46 @@ fun FavoritesContent(
                     }
                 }
                 is ExplorerUiState.Success -> {
-                    val filteredFiles = if (searchQuery.isBlank()) uiState.files
-                    else uiState.files.filter { it.name.contains(searchQuery, ignoreCase = true) }
-
-                    if (filteredFiles.isEmpty()) {
+                    if (isFavoritesEmpty) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
+                                verticalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(24.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.FavoriteBorder,
+                                    painter = painterResource(id = R.drawable.heart_thin_icon),
                                     contentDescription = null,
-                                    modifier = Modifier.size(72.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                    modifier = Modifier.size(64.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text(
-                                    "No favorites yet",
+                                    text = if (searchQuery.isNotBlank()) "No matching favorites" else "No favorites yet",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    "Mark files as favorite to see them here",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                )
-                                Spacer(modifier = Modifier.height(28.dp))
-                                Button(
-                                    onClick = onBackClick,
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Text("Go Back")
-                                }
                             }
                         }
                     } else {
-                        Column {
-                            // 🎯 FIXED: Breadcrumbs added
-                            Breadcrumbs(
-                                items = breadcrumbsList,
-                                onItemClick = { }
-                            )
-
-                            SortBar(
-                                currentType = sortType,
-                                currentOrder = sortOrder,
-                                viewMode = viewMode,
-                                onSortClick = { showSortSheet = true },
-                                onViewModeClick = { showViewOptionsSheet = true }
-                            )
-
-                            FileList(
-                                files = filteredFiles,
-                                selectedFiles = selectedFiles,
-                                viewMode = viewMode,
-                                onFileClick = onFileClick,
-                                onFileLongClick = onFileLongClick,
-                                onFavoriteClick = { file: FileModel -> onToggleFavorite(file) },
-                                onDeleteClick = { onFileLongClick(it) },
-                                onRenameClick = { },
-                                onShareClick = { },
-                                onOpenWithClick = { },
-                                onExtractClick = { },
-                                onLockClick = { },
-                                onMoveClick = { },
-                                onCopyClick = { },
-                                bottomPadding = 0.dp
-                            )
-                        }
+                        FileList(
+                            files = filteredFiles,
+                            selectedFiles = selectedFiles,
+                            isSelectionActive = isSelectionActive,
+                            viewMode = viewMode,
+                            sortType = sortType,
+                            sortOrder = sortOrder,
+                            breadcrumbsList = breadcrumbsList,
+                            onFileClick = onFileClick,
+                            onFileLongClick = onFileLongClick,
+                            onFileActionsClick = { fileForActions = it },
+                            onBreadcrumbClick = { item -> if (item.path.isEmpty()) onBackClick() },
+                            onSortClick = { showSortSheet = true },
+                            onViewModeClick = { showViewOptionsSheet = true },
+                            onSelectionToggle = { file -> onFileLongClick(file) },
+                            bottomPadding = paddingValues.calculateBottomPadding()
+                        )
                     }
                 }
                 is ExplorerUiState.Error -> {
@@ -274,33 +393,37 @@ fun FavoritesContent(
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun FavoritesScreenPreview() {
-    val mockFiles = listOf(
-        FileModel("Fav_Photo.jpg", "/path/fav.jpg", 1024L, System.currentTimeMillis(), false, "jpg"),
-        FileModel("Fav_Doc.pdf", "/path/fav.pdf", 2048L, System.currentTimeMillis(), false, "pdf")
-    )
-    val mockBreadcrumbs = listOf(
-        BreadcrumbItem("Internal Storage", "/root", null),
-        BreadcrumbItem("Favorites", "", null)
-    )
-    MaterialTheme {
-        FavoritesContent(
-            uiState = ExplorerUiState.Success(files = mockFiles),
-            selectedFiles = emptySet(),
-            viewMode = ViewMode.LIST,
-            sortType = SortType.NAME,
-            sortOrder = SortOrder.ASCENDING,
-            searchQuery = "",
-            breadcrumbsList = mockBreadcrumbs,
-            onBackClick = {},
-            onFileClick = {},
-            onFileLongClick = {},
-            onToggleFavorite = {},
-            onDeleteSelected = {},
-            onSortSelected = { _, _ -> },
-            onViewModeSelected = {}
-        )
+private fun SelectionActionButton(
+    imageVector: ImageVector? = null,
+    drawableRes: Int? = null,
+    label: String,
+    tint: Color = MaterialTheme.colorScheme.onSurface,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        if (drawableRes != null) {
+            Icon(
+                painter = painterResource(id = drawableRes),
+                contentDescription = label,
+                tint = tint,
+                modifier = Modifier.size(24.dp)
+            )
+        } else if (imageVector != null) {
+            Icon(
+                imageVector = imageVector,
+                contentDescription = label,
+                tint = tint,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = tint)
     }
 }
