@@ -12,6 +12,7 @@
 | 📄 **Document Support** | Low-latency IO processing engines managing native rendering extensions for plain Text, JSON, XML, and Office formats (Docx, Xlsx). |
 | 🎨 **Design Philosophy** | Complete edge-to-edge system interfaces engineered using frosted-glass canvas rules and vibrant neon palettes matching dynamic system dark modes. |
 | 🔧 **State Preservation** | Architecture configured over strict MVVM and Clean boundaries using Hilt DI and Room caching to preserve state across rotation vectors. |
+| 🎨 **Asset Attribution** | Core system actions, navigation nodes, and modern news channel vector elements curated via [Uxwing](https://uxwing.com/). |
 
 <details>
 <summary><b>✨ View Interface Design (Click to Expand)</b></summary>
