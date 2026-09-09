@@ -394,7 +394,7 @@ fun CategoryCard(
                         painter = item.icon,
                         contentDescription = item.name,
                         tint = item.color,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
