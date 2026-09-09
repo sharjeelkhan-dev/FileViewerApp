@@ -120,7 +120,6 @@ fun HomeHeader(
                 modifier = Modifier.size(26.dp)
             )
         }
-
         Text(
             text = "FILE VIEWER",
             style = MaterialTheme.typography.titleMedium,
@@ -128,23 +127,18 @@ fun HomeHeader(
             letterSpacing = 2.sp,
             color = MaterialTheme.colorScheme.onBackground
         )
-
-        Surface(
+        IconButton(
             onClick = onAIClick,
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
             modifier = Modifier.size(44.dp)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Rounded.AutoAwesome,
-                    contentDescription = "AI Assistant",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+            Icon(
+                imageVector = Icons.Rounded.AutoAwesome,
+                contentDescription = "AI Assistant",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
         }
-    }
+        }
 }
 
 @Composable
@@ -195,13 +189,13 @@ fun StorageDashboardCard(onClick: () -> Unit) {
                     Text(
                         text = "Manage",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Bold
                     )
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                         contentDescription = "Open Storage",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -214,25 +208,20 @@ fun StorageDashboardCard(onClick: () -> Unit) {
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = "63% used • 47 GB free",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
-
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 LinearProgressIndicator(
                     progress = { 0.63f },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(4.dp)
+                        .height(5.dp)
                         .clip(CircleShape),
                     color = primaryColor,
                     trackColor = surfaceVariant.copy(alpha = 0.6f),
-                    strokeCap = StrokeCap.Round
+                    strokeCap = StrokeCap.Round,
+                    gapSize = 0.dp,
+                    drawStopIndicator = {}
                 )
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -274,10 +263,10 @@ fun PlacesGrid(onPlaceClick: (String) -> Unit) {
     val secondaryColor = MaterialTheme.colorScheme.secondary
 
     val places = listOf(
-        PlaceItem("Downloads", painterResource(R.drawable.import_icon), primaryColor),
-        PlaceItem("Recent", painterResource(R.drawable.rotate_left_arrow_icon), secondaryColor),
+        PlaceItem("Downloads", painterResource(R.drawable.arrow_round_bottom_black_icon), primaryColor),
+        PlaceItem("Recent", painterResource(R.drawable.hand_watch_icon), secondaryColor),
         PlaceItem("Favorites", painterResource(R.drawable.heart_black_icon), Color(0xFFE11D48)),
-        PlaceItem("Vault", painterResource(R.drawable.shield_lock_line_icon), Color(0xFF059669)),
+        PlaceItem("Vault", painterResource(R.drawable.padlock_black_icon), Color(0xFF059669)),
         PlaceItem("Trash", painterResource(R.drawable.delete_icon), Color(0xFFDC2626))
     )
 
@@ -323,8 +312,6 @@ fun PlaceCard(
         Surface(
             modifier = Modifier.size(58.dp),
             shape = RoundedCornerShape(18.dp),
-            color = place.color.copy(alpha = 0.12f),
-            border = BorderStroke(1.dp, place.color.copy(alpha = 0.2f))
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
@@ -347,14 +334,12 @@ fun PlaceCard(
 
 @Composable
 fun CategoriesGrid(onCategoryClick: (String) -> Unit) {
-    // Dynamic counts hardcoded here for layout preview;
-    // real app mein aap ViewModel se query karke pass karenge.
     val categories = listOf(
         CategoryItem("Images", painterResource(R.drawable.photo_collage_icon), AccentImages, "1,240 items"),
         CategoryItem("Videos", painterResource(R.drawable.video_playlist_icon), AccentVideos, "312 items"),
         CategoryItem("Audio", painterResource(R.drawable.audio_tune_icon), AccentAudio, "185 items"),
-        CategoryItem("Docs", painterResource(R.drawable.text_document_line_icon), AccentDocuments, "94 items"),
-        CategoryItem("Archives", painterResource(R.drawable.archive_line_icon), AccentArchives, "42 items")
+        CategoryItem("Docs", painterResource(R.drawable.page_black_icon), AccentDocuments, "94 items"),
+        CategoryItem("Archives", painterResource(R.drawable.archive_icon), AccentArchives, "42 items")
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -403,7 +388,6 @@ fun CategoryCard(
             Surface(
                 modifier = Modifier.size(44.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = item.color.copy(alpha = 0.12f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -421,12 +405,6 @@ fun CategoryCard(
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = item.count,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Normal,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
