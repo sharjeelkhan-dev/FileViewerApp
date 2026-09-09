@@ -239,7 +239,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                         },
                         icon = {
                             Icon(
-                                painter = painterResource(R.drawable.import_icon),
+                                painter = painterResource(R.drawable.arrow_round_bottom_black_icon),
                                 contentDescription = null,
                                 modifier = Modifier.size(22.dp)
                             )
@@ -264,7 +264,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                         },
                         icon = {
                             Icon(
-                                painter = painterResource(R.drawable.rotate_left_arrow_icon),
+                                painter = painterResource(R.drawable.hand_watch_icon),
                                 contentDescription = null,
                                 modifier = Modifier.size(22.dp)
                             )
@@ -289,7 +289,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                         },
                         icon = {
                             Icon(
-                                painter = painterResource(R.drawable.photo_collage_icon),
+                                painter = painterResource(R.drawable.heart_black_icon),
                                 contentDescription = null,
                                 modifier = Modifier.size(22.dp)
                             )
@@ -314,7 +314,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                         },
                         icon = {
                             Icon(
-                                painter = painterResource(R.drawable.recycle_bin_line_icon),
+                                painter = painterResource(R.drawable.delete_icon),
                                 contentDescription = null,
                                 modifier = Modifier.size(22.dp)
                             )
