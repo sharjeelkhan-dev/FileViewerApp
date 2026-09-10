@@ -264,7 +264,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                         },
                         icon = {
                             Icon(
-                                painter = painterResource(R.drawable.hand_watch_icon),
+                                painter = painterResource(R.drawable.time_clock_icon),
                                 contentDescription = null,
                                 modifier = Modifier.size(22.dp)
                             )

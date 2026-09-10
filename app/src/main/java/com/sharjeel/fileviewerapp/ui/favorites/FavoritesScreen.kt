@@ -7,31 +7,67 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.SelectAll
+import androidx.compose.material.icons.rounded.SortByAlpha
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.domain.model.FileModel
 import com.sharjeel.fileviewerapp.ui.components.AppScaffold
-import com.sharjeel.fileviewerapp.ui.explorer.*
+import com.sharjeel.fileviewerapp.ui.explorer.BreadcrumbItem
+import com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState
+import com.sharjeel.fileviewerapp.ui.explorer.FileActionBottomSheet
+import com.sharjeel.fileviewerapp.ui.explorer.FileList
+import com.sharjeel.fileviewerapp.ui.explorer.SearchTopBar
+import com.sharjeel.fileviewerapp.ui.explorer.SortBottomSheet
+import com.sharjeel.fileviewerapp.ui.explorer.SortOrder
+import com.sharjeel.fileviewerapp.ui.explorer.SortType
+import com.sharjeel.fileviewerapp.ui.explorer.ViewMode
+import com.sharjeel.fileviewerapp.ui.explorer.ViewOptionsBottomSheet
 import com.sharjeel.fileviewerapp.util.FileUtils
 
 @Composable
@@ -295,12 +331,12 @@ fun FavoritesContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         SelectionActionButton(
-                            drawableRes = R.drawable.copy_outline_icon,
+                            drawableRes = R.drawable.copy_solid_full,
                             label = "Copy",
                             onClick = { /* Copy Action */ }
                         )
                         SelectionActionButton(
-                            drawableRes = R.drawable.open_folder_outline_icon,
+                            drawableRes = R.drawable.folder_icon,
                             label = "Move",
                             onClick = { /* Move Action */ }
                         )

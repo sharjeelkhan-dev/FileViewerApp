@@ -264,7 +264,7 @@ fun VaultScreen(
                                                 },
                                                 leadingIcon = {
                                                     Icon(
-                                                        painter = painterResource(id = R.drawable.shield_lock_line_icon),
+                                                        painter = painterResource(id = R.drawable.padlock_black_icon),
                                                         contentDescription = null,
                                                         tint = MaterialTheme.colorScheme.primary,
                                                         modifier = Modifier.size(20.dp)
@@ -331,7 +331,7 @@ fun VaultScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         SelectionActionButton(
-                            drawableRes = R.drawable.lock_line_icon,
+                            drawableRes = R.drawable.padlock_black_icon,
                             label = "Unlock",
                             tint = MaterialTheme.colorScheme.primary,
                             onClick = { viewModel.removeSelectedFromVault() }
@@ -576,11 +576,10 @@ private fun VaultFileActionBottomSheet(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            FileActionItem(drawableRes = R.drawable.lock_line_icon, label = "Unlock", tint = MaterialTheme.colorScheme.primary) { onUnlockClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.padlock_black_icon, label = "Unlock", tint = MaterialTheme.colorScheme.primary) { onUnlockClick(file); onDismiss() }
             FileActionItem(drawableRes = R.drawable.share_icon, label = "Share") { onShareClick(file); onDismiss() }
-            FileActionItem(drawableRes = R.drawable.rename_icon, label = "Rename") { onRenameClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.svgviewer_output, label = "Rename") { onRenameClick(file); onDismiss() }
             FileActionItem(drawableRes = R.drawable.approve_accept_icon, label = "Select") { onSelectClick(file); onDismiss() }
-
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
             FileActionItem(drawableRes = R.drawable.delete_icon, label = "Delete", tint = MaterialTheme.colorScheme.error) { onDeleteClick(file); onDismiss() }
         }

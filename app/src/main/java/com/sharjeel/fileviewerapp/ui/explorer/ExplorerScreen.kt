@@ -388,12 +388,12 @@ fun ExplorerScreenContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         SelectionActionButton(
-                            drawableRes = R.drawable.copy_outline_icon,
+                            drawableRes = R.drawable.copy_solid_full,
                             label = "Copy",
                             onClick = { onStartCopy(selectedFiles.toList()) }
                         )
                         SelectionActionButton(
-                            drawableRes = R.drawable.open_folder_outline_icon,
+                            drawableRes = R.drawable.folder_icon,
                             label = "Move",
                             onClick = { onStartMove(selectedFiles.toList()) }
                         )
@@ -1060,18 +1060,18 @@ fun FileActionBottomSheet(
 
             FileActionItem(imageVector = Icons.AutoMirrored.Rounded.OpenInNew, label = "Open With") { onOpenWithClick(file); onDismiss() }
             FileActionItem(drawableRes = R.drawable.share_icon, label = "Share") { onShareClick(file); onDismiss() }
-            FileActionItem(drawableRes = R.drawable.rename_icon, label = "Rename") { onRenameClick(file); onDismiss() }
-            FileActionItem(drawableRes = R.drawable.open_folder_outline_icon, label = "Move") { onMoveClick(file); onDismiss() }
-            FileActionItem(drawableRes = R.drawable.copy_outline_icon, label = "Copy") { onCopyClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.svgviewer_output, label = "Rename") { onRenameClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.folder_icon, label = "Move") { onMoveClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.copy_solid_full, label = "Copy") { onCopyClick(file); onDismiss() }
             FileActionItem(drawableRes = R.drawable.approve_accept_icon, label = "Select") { onSelectClick(file); onDismiss() }
             FileActionItem(drawableRes = R.drawable.heart_thin_icon, label = "Favorite", tint = Color(
                 0xFFEF0000
             )
             ) { onFavoriteClick(file); onDismiss() }
-            FileActionItem(drawableRes = R.drawable.shield_lock_line_icon, label = "Move to Vault") { onLockClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.padlock_black_icon, label = "Move to Vault") { onLockClick(file); onDismiss() }
 
             if (ext in listOf("zip", "rar", "7z")) {
-                FileActionItem(drawableRes = R.drawable.archive_line_icon, label = "Extract Here") { onExtractClick(file); onDismiss() }
+                FileActionItem(drawableRes = R.drawable.archive_icon, label = "Extract Here") { onExtractClick(file); onDismiss() }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -1344,7 +1344,6 @@ fun FileThumbnail(file: FileModel, isGrid: Boolean) {
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             val painter = rememberAsyncImagePainter(model = imageRequest)
-
             Image(
                 painter = painter,
                 contentDescription = null,
@@ -1390,9 +1389,9 @@ fun FileThumbnail(file: FileModel, isGrid: Boolean) {
 @Composable
 private fun rememberFileTypeIconAndColor(isDirectory: Boolean, ext: String): Pair<Painter, Color> {
     val folderIcon = painterResource(R.drawable.folder_icon)
-    val docIcon = painterResource(R.drawable.text_document_line_icon)
+    val docIcon = painterResource(R.drawable.page_black_icon)
     val audioIcon = painterResource(R.drawable.audio_tune_icon)
-    val archiveIcon = painterResource(R.drawable.archive_line_icon)
+    val archiveIcon = painterResource(R.drawable.archive_icon)
 
     return remember(isDirectory, ext) {
         when {

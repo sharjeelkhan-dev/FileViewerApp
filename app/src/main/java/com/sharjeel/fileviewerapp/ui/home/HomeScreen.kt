@@ -1,7 +1,6 @@
 package com.sharjeel.fileviewerapp.ui.home
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -264,7 +263,7 @@ fun PlacesGrid(onPlaceClick: (String) -> Unit) {
 
     val places = listOf(
         PlaceItem("Downloads", painterResource(R.drawable.arrow_round_bottom_black_icon), primaryColor),
-        PlaceItem("Recent", painterResource(R.drawable.hand_watch_icon), secondaryColor),
+        PlaceItem("Recent", painterResource(R.drawable.time_clock_icon), secondaryColor),
         PlaceItem("Favorites", painterResource(R.drawable.heart_black_icon), Color(0xFFE11D48)),
         PlaceItem("Vault", painterResource(R.drawable.padlock_black_icon), Color(0xFF059669)),
         PlaceItem("Trash", painterResource(R.drawable.delete_icon), Color(0xFFDC2626))
@@ -306,12 +305,14 @@ fun PlaceCard(
     onPlaceClick: (String) -> Unit
 ) {
     Column(
-        modifier = modifier.clickable { onPlaceClick(place.name) },
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Surface(
             modifier = Modifier.size(58.dp),
             shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            onClick = { onPlaceClick(place.name) }
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
