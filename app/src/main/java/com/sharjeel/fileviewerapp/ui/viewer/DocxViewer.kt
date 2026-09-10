@@ -1,8 +1,6 @@
 package com.sharjeel.fileviewerapp.ui.viewer
 
-import android.os.Build
 import android.util.Xml
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -144,10 +142,6 @@ fun DocxViewer(
     }
 }
 
-/**
- * Fast Stream Reader for Word (.docx) files matching Android native efficiency standards.
- */
-@RequiresApi(Build.VERSION_CODES.KITKAT)
 private fun extractDocxParagraphsSafely(filePath: String): List<DocxParagraph> {
     val file = File(filePath)
     if (!file.exists()) return emptyList()
@@ -167,38 +161,48 @@ private fun extractDocxParagraphsSafely(filePath: String): List<DocxParagraph> {
                 var eventType = parser.eventType
                 val currentParagraphText = StringBuilder()
                 var insideParagraph = false
+                var insideTextRun = false
                 var isBold = false
                 var fontSizeHalfPoints = 28 // Default 14sp
 
                 while (eventType != XmlPullParser.END_DOCUMENT) {
-                    val tagName = parser.name
+                    val tagName = parser.name?.lowercase() ?: ""
+
                     when (eventType) {
                         XmlPullParser.START_TAG -> {
-                            if (tagName != null && (tagName.equals("p", ignoreCase = true) || tagName.endsWith(":p"))) {
+                            if (tagName == "w:p" || tagName == "p") {
                                 insideParagraph = true
                                 currentParagraphText.clear()
                                 isBold = false
                                 fontSizeHalfPoints = 28
-                            } else if (tagName != null && (tagName.equals("t", ignoreCase = true) || tagName.endsWith(":t")) && insideParagraph) {
-                                val text = parser.nextText()
-                                if (!text.isNullOrEmpty()) {
-                                    currentParagraphText.append(text)
-                                }
-                            } else if (tagName != null && (tagName.equals("b", ignoreCase = true) || tagName.endsWith(":b"))) {
-                                val valAttr = parser.getAttributeValue(null, "val")
+                            } else if (insideParagraph && (tagName == "w:t" || tagName == "t")) {
+                                insideTextRun = true
+                            } else if (insideParagraph && (tagName == "w:b" || tagName == "b")) {
+                                val valAttr = parser.getAttributeValue(null, "w:val") ?: parser.getAttributeValue(null, "val")
                                 if (valAttr == null || valAttr.equals("true", ignoreCase = true) || valAttr == "1") {
                                     isBold = true
                                 }
-                            } else if (tagName != null && (tagName.equals("sz", ignoreCase = true) || tagName.endsWith(":sz"))) {
-                                val szVal = parser.getAttributeValue(null, "val")?.toIntOrNull()
+                            } else if (insideParagraph && (tagName == "w:sz" || tagName == "sz")) {
+                                val szVal = (parser.getAttributeValue(null, "w:val") ?: parser.getAttributeValue(null, "val"))?.toIntOrNull()
                                 if (szVal != null) {
                                     fontSizeHalfPoints = szVal
                                 }
                             }
                         }
 
+                        XmlPullParser.TEXT -> {
+                            if (insideParagraph && insideTextRun) {
+                                val text = parser.text
+                                if (!text.isNullOrEmpty()) {
+                                    currentParagraphText.append(text)
+                                }
+                            }
+                        }
+
                         XmlPullParser.END_TAG -> {
-                            if (tagName != null && (tagName.equals("p", ignoreCase = true) || tagName.endsWith(":p"))) {
+                            if (tagName == "w:t" || tagName == "t") {
+                                insideTextRun = false
+                            } else if (tagName == "w:p" || tagName == "p") {
                                 insideParagraph = false
                                 val text = currentParagraphText.toString().trim()
                                 if (text.isNotEmpty()) {
