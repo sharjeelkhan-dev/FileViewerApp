@@ -20,7 +20,7 @@
 <table width="100%">
  <tr>
   <td width="33.3%" align="center">
-    <img src="https://github.com/user-attachments/assets/af8885b8-8d07-498e-b671-453f5325c767" width="100%" alt="Screen 1" />
+    <img src="https://github.com/user-attachments/assets/26b69172-ef24-4524-889f-7536d2235aab" width="100%" alt="Screen 1" />
     <br />
     <b>Screen 1: Home Screen</b> 
   </td>
