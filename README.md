@@ -6,7 +6,7 @@
 | Subsystem | Technical Execution Architecture |
 | :--- | :--- |
 | 🚀 **Smart Explorer** | Seamless navigation across Internal Storage, Downloads, and Recent structures with a blazing-fast query engine. |
-| 🧠 **Gemini Intelligence** | Context-aware AI bridge leveraging Gemini 3.5-Flash for real-time document summarization, natural language file querying, and automated data extraction. |
+| 🧠 **Gemini Intelligence** | Context-aware AI bridge leveraging Gemini Intelligence for real-time document summarization, natural language file querying, and automated data extraction. |
 | 🛡️ **Secure Vault** | Isolated filesystem layers wrapping biometric prompt access constraints (fingerprint/face unlock) to encrypt and hide sensitive states. |
 | 🎥 **All-in-One Viewer** | Immersive media rendering engine integrating Android Media3 (ExoPlayer) pipelines alongside custom high-fidelity PDF, image, and text layouts. |
 | 📄 **Document Support** | Low-latency IO processing engines managing native rendering extensions for plain Text, JSON, XML, and Office formats (Docx, Xlsx). |
