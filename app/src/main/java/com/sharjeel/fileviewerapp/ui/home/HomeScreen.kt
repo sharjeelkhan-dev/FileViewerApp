@@ -131,7 +131,7 @@ fun HomeHeader(
             modifier = Modifier.size(44.dp)
         ) {
             Icon(
-                imageVector = Icons.Rounded.AutoAwesome,
+                painter = painterResource(id = R.drawable.ic_ai_stars),
                 contentDescription = "AI Assistant",
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)

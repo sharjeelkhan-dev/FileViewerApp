@@ -9,7 +9,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -178,12 +180,23 @@ private fun FileViewerContent(
                     .padding(horizontal = 24.dp)
                     .padding(bottom = 32.dp)
             ) {
-                Text(
-                    "AI Smart Assistant",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_ai_stars),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        "AI Smart Assistant",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 Spacer(modifier = Modifier.height(16.dp))
 
                 var userQuestion by remember { mutableStateOf("") }
@@ -417,7 +430,7 @@ private fun FileViewerContent(
                                             onSummarize()
                                             showAISummary = true
                                         },
-                                        leadingIcon = { Icon(painterResource(R.drawable.brush_paintbrush_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) }
+                                        leadingIcon = { Icon(painterResource(R.drawable.ic_ai_stars), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) }
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Chat with AI", color = MaterialTheme.colorScheme.primary) },
@@ -425,7 +438,7 @@ private fun FileViewerContent(
                                             showMenu = false
                                             showAISummary = true
                                         },
-                                        leadingIcon = { Icon(painter = painterResource(R.drawable.rotate_left_arrow_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) }
+                                        leadingIcon = { Icon(painter = painterResource(R.drawable.google_ai_studio_icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) }
                                     )
                                 }
                             }

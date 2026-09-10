@@ -1,10 +1,12 @@
 package com.sharjeel.fileviewerapp.ui.vault
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -80,6 +82,10 @@ import com.sharjeel.fileviewerapp.ui.explorer.ViewOptionsBottomSheet
 import com.sharjeel.fileviewerapp.util.BiometricHelper
 import com.sharjeel.fileviewerapp.util.FileUtils
 
+// ============================================================================
+// 1. MAIN SCREEN ENTRY POINT
+// ============================================================================
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VaultScreen(
@@ -87,8 +93,11 @@ fun VaultScreen(
     onFileClick: (FileModel) -> Unit,
     viewModel: VaultViewModel = hiltViewModel()
 ) {
+    // Context & Context Casting
     val context = LocalContext.current
     val activity = context as? FragmentActivity
+
+    // ViewModels & State Observation
     val isUnlocked by viewModel.isUnlocked.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val selectedFiles by viewModel.selectedFiles.collectAsState()
@@ -100,7 +109,7 @@ fun VaultScreen(
     val aiViewModel: com.sharjeel.fileviewerapp.ui.ai.AIViewModel = hiltViewModel()
     val aiUiState by aiViewModel.uiState.collectAsState()
 
-    // Handled AI suggestion state to safely bypass unresolved reference compilation errors
+    // Side Effects
     LaunchedEffect(aiUiState) {
         if (aiUiState is com.sharjeel.fileviewerapp.ui.ai.AIUiState.NamingSuggestion) {
             val suggestion = aiUiState as com.sharjeel.fileviewerapp.ui.ai.AIUiState.NamingSuggestion
@@ -109,6 +118,7 @@ fun VaultScreen(
         }
     }
 
+    // Local Composable States
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var fileToRename by remember { mutableStateOf<FileModel?>(null) }
     var fileForActions by remember { mutableStateOf<FileModel?>(null) }
@@ -121,6 +131,7 @@ fun VaultScreen(
 
     val isSelectionActive = selectedFiles.isNotEmpty()
 
+    // System Back Press Handler
     BackHandler(enabled = isSelectionActive || isSearchActive) {
         if (isSelectionActive) {
             viewModel.clearSelection()
@@ -130,6 +141,7 @@ fun VaultScreen(
         }
     }
 
+    // Overlays & Dialogs
     if (fileToRename != null) {
         RenameDialog(
             fileName = fileToRename!!.name,
@@ -176,6 +188,7 @@ fun VaultScreen(
         )
     }
 
+    // UI Structure Container
     AppScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -374,7 +387,7 @@ fun VaultScreen(
                         modifier = Modifier.size(120.dp),
                         shape = RoundedCornerShape(32.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant,
-                        border = androidx.compose.foundation.BorderStroke(
+                        border = BorderStroke(
                             1.dp,
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                         ),
@@ -382,7 +395,7 @@ fun VaultScreen(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                painter = painterResource(id = R.drawable.shield_lock_line_icon),
+                                painter = painterResource(id = R.drawable.padlock_black_icon),
                                 contentDescription = null,
                                 modifier = Modifier.size(64.dp),
                                 tint = MaterialTheme.colorScheme.primary
@@ -467,7 +480,7 @@ fun VaultScreen(
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Icon(
-                                        painter = if (searchQuery.isNotEmpty()) painterResource(id = R.drawable.reload_sync_icon) else painterResource(id = R.drawable.shield_lock_line_icon),
+                                        painter = if (searchQuery.isNotEmpty()) painterResource(id = R.drawable.reload_sync_icon) else painterResource(id = R.drawable.padlock_black_icon),
                                         contentDescription = null,
                                         modifier = Modifier.size(80.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
@@ -528,6 +541,10 @@ fun VaultScreen(
     }
 }
 
+// ============================================================================
+// 2. INTERNAL BOTTOM SHEETS & HELPER COMPONENTS
+// ============================================================================
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun VaultFileActionBottomSheet(
@@ -576,12 +593,46 @@ private fun VaultFileActionBottomSheet(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            FileActionItem(drawableRes = R.drawable.padlock_black_icon, label = "Unlock", tint = MaterialTheme.colorScheme.primary) { onUnlockClick(file); onDismiss() }
-            FileActionItem(drawableRes = R.drawable.share_icon, label = "Share") { onShareClick(file); onDismiss() }
-            FileActionItem(drawableRes = R.drawable.svgviewer_output, label = "Rename") { onRenameClick(file); onDismiss() }
-            FileActionItem(drawableRes = R.drawable.approve_accept_icon, label = "Select") { onSelectClick(file); onDismiss() }
+            FileActionItem(
+                drawableRes = R.drawable.padlock_black_icon,
+                label = "Unlock",
+                tint = MaterialTheme.colorScheme.primary
+            ) {
+                onUnlockClick(file)
+                onDismiss()
+            }
+            FileActionItem(
+                drawableRes = R.drawable.share_icon,
+                label = "Share"
+            ) {
+                onShareClick(file)
+                onDismiss()
+            }
+            FileActionItem(
+                drawableRes = R.drawable.svgviewer_output,
+                label = "Rename"
+            ) {
+                onRenameClick(file)
+                onDismiss()
+            }
+            FileActionItem(
+                drawableRes = R.drawable.approve_accept_icon,
+                label = "Select"
+            ) {
+                onSelectClick(file)
+                onDismiss()
+            }
+
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            FileActionItem(drawableRes = R.drawable.delete_icon, label = "Delete", tint = MaterialTheme.colorScheme.error) { onDeleteClick(file); onDismiss() }
+
+            FileActionItem(
+                drawableRes = R.drawable.delete_icon,
+                label = "Delete",
+                tint = MaterialTheme.colorScheme.error
+            ) {
+                onDeleteClick(file)
+                onDismiss()
+            }
         }
     }
 }
