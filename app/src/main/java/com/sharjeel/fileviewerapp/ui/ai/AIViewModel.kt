@@ -244,5 +244,4 @@ sealed interface AIUiState {
     data class AppAction(val action: String) : AIUiState
     data class Error(val message: String) : AIUiState
 }
-
 data class ChatMessage(val content: String, val isUser: Boolean)
