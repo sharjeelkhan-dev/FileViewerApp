@@ -30,9 +30,18 @@ class AIViewModel @Inject constructor(
 
     private val tag = "AIViewModel_Debug"
 
+    private fun formatErrorMessage(defaultPrefix: String, throwable: Throwable): String {
+        val message = throwable.localizedMessage ?: throwable.message ?: "Unknown error"
+        return if (message.contains("App Check", ignoreCase = true)) {
+            "Firebase App Check token validation failed. Please ensure your debug token is registered in the Firebase Console."
+        } else {
+            "$defaultPrefix: $message"
+        }
+    }
+
     // Global Exception Handler to catch unexpected failures cleanly
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
-        _uiState.value = AIUiState.Error(throwable.localizedMessage ?: "An unexpected error occurred")
+        _uiState.value = AIUiState.Error(formatErrorMessage("Error", throwable))
     }
 
     fun summarizeFile(filePath: String) {
@@ -55,19 +64,25 @@ class AIViewModel @Inject constructor(
                         _uiState.value = AIUiState.Error("File not found on device.")
                         return@launch
                     }
+                    if (file.length() > 15 * 1024 * 1024) {
+                        val extractedText = withContext(Dispatchers.IO) { TextExtractionUtils.extractText(filePath) } ?: ""
+                        if (extractedText.isNotBlank()) {
+                            val result = withContext(Dispatchers.IO) { aiService.summarizeDocument(extractedText) }
+                            _uiState.value = AIUiState.SummaryReady(result)
+                            return@launch
+                        }
+                        _uiState.value = AIUiState.Error("File size is too large for inline AI analysis.")
+                        return@launch
+                    }
                     val bytes = withContext(Dispatchers.IO) { file.readBytes() }
                     val mime = FileUtils.getMimeType(filePath)
                     val result = withContext(Dispatchers.IO) {
                         aiService.summarizeMedia(bytes, mime)
                     }
-                    if (!result.isNullOrBlank()) {
-                        _uiState.value = AIUiState.SummaryReady(result)
-                    } else {
-                        _uiState.value = AIUiState.Error("Failed to generate summary content.")
-                    }
+                    _uiState.value = AIUiState.SummaryReady(result)
                 } catch (e: Exception) {
                     Log.e(tag, "Media summary failed: ${e.message}", e)
-                    _uiState.value = AIUiState.Error("Analysis Failed: ${e.localizedMessage}")
+                    _uiState.value = AIUiState.Error(formatErrorMessage("Analysis Failed", e))
                 }
                 return@launch
             }
@@ -86,15 +101,10 @@ class AIViewModel @Inject constructor(
                 val result = withContext(Dispatchers.IO) {
                     aiService.summarizeDocument(text)
                 }
-
-                if (!result.isNullOrBlank()) {
-                    _uiState.value = AIUiState.SummaryReady(result)
-                } else {
-                    _uiState.value = AIUiState.Error("Failed to generate summary content.")
-                }
+                _uiState.value = AIUiState.SummaryReady(result)
             } catch (e: Exception) {
                 Log.e(tag, "Error during summarizeFile execution: ${e.message}", e)
-                _uiState.value = AIUiState.Error("AI Generation Failed: ${e.localizedMessage}")
+                _uiState.value = AIUiState.Error(formatErrorMessage("AI Generation Failed", e))
             }
         }
     }
@@ -116,7 +126,13 @@ class AIViewModel @Inject constructor(
 
             if (fileExists && (isAudio || isVideo || isImage || isPdf)) {
                 try {
-                    val bytes = withContext(Dispatchers.IO) { File(filePath).readBytes() }
+                    val file = File(filePath)
+                    if (file.length() > 15 * 1024 * 1024) {
+                        val text = withContext(Dispatchers.IO) { TextExtractionUtils.extractText(filePath) } ?: ""
+                        streamDocumentOrGeneralChat(text, question, history)
+                        return@launch
+                    }
+                    val bytes = withContext(Dispatchers.IO) { file.readBytes() }
                     val mime = FileUtils.getMimeType(filePath)
 
                     aiService.chatWithMedia(bytes, mime, question, history).collect { chunkText ->
