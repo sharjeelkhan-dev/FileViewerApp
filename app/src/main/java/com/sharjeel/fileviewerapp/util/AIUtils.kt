@@ -44,7 +44,7 @@ class AIService @Inject constructor(
         return chunks
     }
 
-    suspend fun summarizeMedia(bytes: ByteArray, mimeType: String): String? {
+    suspend fun summarizeMedia(bytes: ByteArray, mimeType: String): String {
         Log.d(TAG, "Summarizing media. MimeType: $mimeType, Size: ${bytes.size}")
         val prompt = content {
             inlineData(bytes, mimeType)
@@ -56,13 +56,8 @@ class AIService @Inject constructor(
                 """.trimIndent()
             )
         }
-        return try {
-            val response = model.generateContent(prompt)
-            response.text
-        } catch (e: Exception) {
-            Log.e(TAG, "Error summarizing media: ${e.message}", e)
-            null
-        }
+        val response = model.generateContent(prompt)
+        return response.text ?: throw IllegalStateException("AI returned empty content")
     }
 
     fun chatWithMedia(bytes: ByteArray, mimeType: String, question: String, history: List<String> = emptyList()): Flow<String?> {
@@ -90,8 +85,8 @@ class AIService @Inject constructor(
             .map { it.text }
     }
 
-    suspend fun summarizeDocument(text: String): String? {
-        if (text.isBlank()) return null
+    suspend fun summarizeDocument(text: String): String {
+        if (text.isBlank()) throw IllegalArgumentException("Document text is empty")
         Log.d(TAG, "Summarizing document. Input length: ${text.length}")
 
         val textChunks = sanitizeAndChunkText(text)
@@ -99,13 +94,8 @@ class AIService @Inject constructor(
         // If the document is small, process directly
         if (textChunks.size == 1) {
             val prompt = "Please provide a concise summary of the following document content in exactly 5-6 bullet points:\n\n${textChunks[0]}"
-            return try {
-                val response = model.generateContent(prompt)
-                response.text
-            } catch (e: Exception) {
-                Log.e(TAG, "Error summarizing document: ${e.message}", e)
-                null
-            }
+            val response = model.generateContent(prompt)
+            return response.text ?: throw IllegalStateException("AI returned empty content")
         }
 
         // For heavy files / long PDFs: Recursive Map-Reduce approach
@@ -122,16 +112,11 @@ class AIService @Inject constructor(
             }
         }
 
-        if (structuralSummaries.isEmpty()) return null
+        if (structuralSummaries.isEmpty()) throw IllegalStateException("Failed to process document content")
 
         val masterPrompt = "Merge the following structural context points from a single document into a single cohesive, high-quality summary consisting of exactly 5-6 bullet points:\n\n${structuralSummaries.joinToString("\n\n")}"
-        return try {
-            val finalResponse = model.generateContent(masterPrompt)
-            finalResponse.text
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in final reduction summary step: ${e.message}", e)
-            null
-        }
+        val finalResponse = model.generateContent(masterPrompt)
+        return finalResponse.text ?: throw IllegalStateException("AI returned empty content")
     }
 
     fun chatWithDocument(text: String, question: String, history: List<String> = emptyList()): Flow<String?> {
