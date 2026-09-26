@@ -25,6 +25,6 @@ object FirebaseModule {
     fun provideGenerativeModel(): GenerativeModel {
         // Corrected the package reference for GenerativeBackend safely
         return Firebase.ai(backend = GenerativeBackend.googleAI())
-            .generativeModel("gemini-3.5-flash")
+            .generativeModel("gemini-3.8-flash")
     }
 }
