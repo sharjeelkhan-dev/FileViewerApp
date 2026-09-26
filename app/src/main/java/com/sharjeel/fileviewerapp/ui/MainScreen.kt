@@ -122,6 +122,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
     LaunchedEffect(aiUiState) {
         if (aiUiState is com.sharjeel.fileviewerapp.ui.ai.AIUiState.AppAction) {
             val action = (aiUiState as com.sharjeel.fileviewerapp.ui.ai.AIUiState.AppAction).action
+            showAIPrompt = false
             when {
                 action.startsWith("NAVIGATE:") -> {
                     val destination = action.removePrefix("NAVIGATE:")
