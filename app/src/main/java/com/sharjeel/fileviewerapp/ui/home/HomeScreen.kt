@@ -152,7 +152,7 @@ fun StorageDashboardCard(onClick: () -> Unit) {
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        border = BorderStroke(1.dp, surfaceVariant.copy(alpha = 0.5f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -311,7 +311,8 @@ fun PlaceCard(
         Surface(
             modifier = Modifier.size(58.dp),
             shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
             onClick = { onPlaceClick(place.name) }
         ) {
             Box(contentAlignment = Alignment.Center) {
