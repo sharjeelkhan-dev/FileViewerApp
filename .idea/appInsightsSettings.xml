@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.sharjeel.fileviewerapp" />
+                  <option name="mobileSdkAppId" value="1:256929843961:android:526e0de1e2a6b140c1b028" />
+                  <option name="projectId" value="file-viewer-app-d95ee" />
+                  <option name="projectNumber" value="256929843961" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
