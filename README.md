@@ -26,9 +26,9 @@
     <b>Screen 1: Home Screen</b> 
   </td>
   <td width="33.3%" align="center">
-    <img src="https://github.com/user-attachments/assets/b45857ca-262c-4c76-bdbf-c184bb9ca9d6" width="100%" alt="Screen 2" />
+    <img src="https://github.com/user-attachments/assets/764bb277-cd95-400b-85b9-129778d20fa7" width="100%" alt="Screen 2" />
     <br />
-    <b>Screen 2: Document Summarization</b> 
+    <b>Screen 2: Docs Converter</b> 
   </td>
   <td width="33.3%" align="center">
     <img src="https://github.com/user-attachments/assets/faf8bd6e-04d3-452a-8ed1-dd79fd66643c" width="100%" alt="Screen 3" />
