@@ -18,11 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -295,7 +292,7 @@ fun TrashContent(
                                             },
                                             leadingIcon = {
                                                 Icon(
-                                                    painter = painterResource(id = R.drawable.recycle_bin_line_icon),
+                                                    painter = painterResource(id = R.drawable.delete_icon),
                                                     contentDescription = null,
                                                     tint = MaterialTheme.colorScheme.error,
                                                     modifier = Modifier.size(20.dp)
@@ -487,11 +484,13 @@ private fun TrashFileActionBottomSheet(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            FileActionItem(drawableRes = R.drawable.reload_sync_icon, label = "Restore", tint = MaterialTheme.colorScheme.primary) { onRestoreClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.reload_sync_icon, label = "Restore",
+                tint = MaterialTheme.colorScheme.primary) { onRestoreClick(file); onDismiss() }
             FileActionItem(drawableRes = R.drawable.approve_accept_icon, label = "Select") { onSelectClick(file); onDismiss() }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            FileActionItem(drawableRes = R.drawable.delete_icon, label = "Delete Permanently", tint = MaterialTheme.colorScheme.error) { onDeletePermanentlyClick(file); onDismiss() }
+            FileActionItem(drawableRes = R.drawable.delete_icon, label = "Delete Permanently",
+                tint = MaterialTheme.colorScheme.error) { onDeletePermanentlyClick(file); onDismiss() }
         }
     }
 }
