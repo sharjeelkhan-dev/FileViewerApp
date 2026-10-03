@@ -6,8 +6,9 @@
 | Subsystem | Technical Execution Architecture |
 | :--- | :--- |
 | 🚀 **Smart Explorer** | Seamless navigation across Internal Storage, Downloads, and Recent structures with a blazing-fast query engine. |
-| 🧠 **Gemini Intelligence** | Context-aware AI bridge leveraging Gemini Intelligence for real-time document summarization, natural language file querying, and automated data extraction. |
+| 🧠 **Gemini Intelligence** | Context-aware AI bridge leveraging Gemini Intelligence for real-time document summarization, natural language file querying, and automated data extraction. 
 | 🛡️ **Secure Vault** | Isolated filesystem layers wrapping biometric prompt access constraints (fingerprint/face unlock) to encrypt and hide sensitive states. |
+| 🔄 **Multi-Format Converter** | High-performance document conversion engine leveraging native PdfDocument, PdfRenderer, and Jetpack Compose extraction pipelines for offline PDF creation, image rendering, and text processing. |
 | 🎥 **All-in-One Viewer** | Immersive media rendering engine integrating Android Media3 (ExoPlayer) pipelines alongside custom high-fidelity PDF, image, and text layouts. |
 | 📄 **Document Support** | Low-latency IO processing engines managing native rendering extensions for plain Text, JSON, XML, and Office formats (Docx, Xlsx). |
 | 🎨 **Design Philosophy** | Complete edge-to-edge system interfaces engineered using frosted-glass canvas rules and vibrant neon palettes matching dynamic system dark modes. |
@@ -20,19 +21,19 @@
 <table width="100%">
  <tr>
   <td width="33.3%" align="center">
-    <img src="https://github.com/user-attachments/assets/26b69172-ef24-4524-889f-7536d2235aab" width="100%" alt="Screen 1" />
+    <img src="https://github.com/user-attachments/assets/ac335c4e-04d9-4f58-8b26-9124312a56e3" width="100%" alt="Screen 1" />
     <br />
     <b>Screen 1: Home Screen</b> 
   </td>
   <td width="33.3%" align="center">
     <img src="https://github.com/user-attachments/assets/b45857ca-262c-4c76-bdbf-c184bb9ca9d6" width="100%" alt="Screen 2" />
     <br />
-    <b>Screen 2: Document Summarization</b> <!-- Yahan apna text likhein -->
+    <b>Screen 2: Document Summarization</b> 
   </td>
   <td width="33.3%" align="center">
     <img src="https://github.com/user-attachments/assets/faf8bd6e-04d3-452a-8ed1-dd79fd66643c" width="100%" alt="Screen 3" />
     <br />
-    <b>Screen 3: Video Screen</b> <!-- Yahan apna text likhein -->
+    <b>Screen 3: Video Screen</b> 
   </td>
 </tr>
 
@@ -41,17 +42,17 @@
   <td width="33.3%" align="center">
     <img src="https://github.com/user-attachments/assets/456d56d2-b7e8-4c93-af27-e5163d7d2757" width="100%" alt="Screen 4" />
     <br />
-    <b>Screen 4: Video Summarization</b> <!-- Yahan apna text likhein -->
+    <b>Screen 4: Video Summarization</b> 
   </td>
   <td width="33.3%" align="center">
     <img src="https://github.com/user-attachments/assets/3a85ff3b-c010-4080-956a-a394e025c098" width="100%" alt="Screen 5" />
     <br />
-    <b>Screen 5: Audio Screen</b> <!-- Yahan apna text likhein -->
+    <b>Screen 5: Audio Screen</b> 
   </td>
   <td width="33.3%" align="center">
     <img src="https://github.com/user-attachments/assets/b5db7d14-8f29-4267-9e52-9a90b57f718e" width="100%" alt="Screen 6" />
     <br />
-    <b>Screen 6: Audio Summarization</b> <!-- Yahan apna text likhein -->
+    <b>Screen 6: Audio Summarization</b> 
   </td>
 </tr>
 
