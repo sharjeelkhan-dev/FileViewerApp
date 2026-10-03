@@ -24,5 +24,8 @@ sealed interface NavRoute : NavKey {
     data object Favorites : NavRoute
 
     @Serializable
+    data object Converter : NavRoute
+
+    @Serializable
     data object Settings : NavRoute
 }
