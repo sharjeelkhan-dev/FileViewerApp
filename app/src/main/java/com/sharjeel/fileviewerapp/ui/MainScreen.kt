@@ -66,6 +66,7 @@ import androidx.navigation3.ui.NavDisplay
 import com.sharjeel.fileviewerapp.R
 import com.sharjeel.fileviewerapp.domain.repository.FileCategory
 import com.sharjeel.fileviewerapp.ui.components.AppScaffold
+import com.sharjeel.fileviewerapp.ui.converter.ConverterScreen
 import com.sharjeel.fileviewerapp.ui.explorer.ExplorerScreen
 import com.sharjeel.fileviewerapp.ui.explorer.ExplorerViewModel
 import com.sharjeel.fileviewerapp.ui.favorites.FavoritesScreen
@@ -137,6 +138,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                         "VAULT" -> backstack.add(NavRoute.Vault)
                         "TRASH" -> backstack.add(NavRoute.Trash)
                         "SETTINGS" -> backstack.add(NavRoute.Settings)
+                        "CONVERTER", "TOOLS" -> backstack.add(NavRoute.Converter)
                     }
                 }
                 action.startsWith("SEARCH:") -> {
@@ -190,7 +192,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                         },
                         icon = {
                             Icon(
-                                painter = painterResource(R.drawable.house_window_icon),
+                                painter = painterResource(R.drawable.home_svgrepo_com),
                                 contentDescription = null,
                                 modifier = Modifier.size(22.dp)
                             )
@@ -216,7 +218,7 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                         },
                         icon = {
                             Icon(
-                                painter = painterResource(R.drawable.database_line_icon),
+                                painter = painterResource(R.drawable.database_icon),
                                 contentDescription = null,
                                 modifier = Modifier.size(22.dp)
                             )
@@ -317,6 +319,31 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                         icon = {
                             Icon(
                                 painter = painterResource(R.drawable.delete_icon),
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                        colors = NavigationDrawerItemDefaults.colors(
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        )
+                    )
+
+                    NavigationDrawerItem(
+                        label = { Text("Tools") },
+                        selected = currentRoute == NavRoute.Converter,
+                        onClick = {
+                            backstack.clear()
+                            backstack.add(NavRoute.Home)
+                            backstack.add(NavRoute.Converter)
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.business_management_icon),
                                 contentDescription = null,
                                 modifier = Modifier.size(22.dp)
                             )
@@ -497,7 +524,11 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                             "Favorites" -> backstack.add(NavRoute.Favorites)
                                             "Vault" -> backstack.add(NavRoute.Vault)
                                             "Trash" -> backstack.add(NavRoute.Trash)
+                                            "Converter", "Tools" -> backstack.add(NavRoute.Converter)
                                         }
+                                    },
+                                    onToolsClick = {
+                                        backstack.add(NavRoute.Converter)
                                     }
                                 )
                             }
@@ -616,6 +647,14 @@ fun MainScreen(initialRoute: NavRoute = NavRoute.Home) {
                                             viewerViewModel.setPlaylist((favoritesFiles as com.sharjeel.fileviewerapp.ui.explorer.ExplorerUiState.Success).files, file.path)
                                         }
                                         backstack.add(NavRoute.Viewer(file.path, file.extension))
+                                    }
+                                )
+                            }
+                            is NavRoute.Converter -> NavEntry(route) {
+                                ConverterScreen(
+                                    onBackClick = { if (backstack.size > 1) backstack.removeAt(backstack.lastIndex) },
+                                    onOpenFileClick = { filePath, extension ->
+                                        backstack.add(NavRoute.Viewer(filePath, extension))
                                     }
                                 )
                             }
