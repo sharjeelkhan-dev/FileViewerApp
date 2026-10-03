@@ -20,11 +20,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -52,7 +50,6 @@ import com.sharjeel.fileviewerapp.ui.theme.AccentImages
 import com.sharjeel.fileviewerapp.ui.theme.AccentVideos
 import com.sharjeel.fileviewerapp.ui.theme.FileViewerAppTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
@@ -60,6 +57,7 @@ fun HomeScreen(
     onAIClick: () -> Unit = {},
     onCategoryClick: (String) -> Unit = {},
     onPlaceClick: (String) -> Unit = {},
+    onToolsClick: () -> Unit = {},
     onStorageClick: () -> Unit = {}
 ) {
     AppScaffold { innerPadding ->
@@ -82,7 +80,15 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             SectionHeader(title = "QUICK ACCESS")
-            PlacesGrid(onPlaceClick = onPlaceClick)
+            PlacesGrid(
+                onPlaceClick = { placeName ->
+                    if (placeName == "Tools") {
+                        onToolsClick()
+                    } else {
+                        onPlaceClick(placeName)
+                    }
+                }
+            )
 
             Spacer(modifier = Modifier.height(28.dp))
 
@@ -137,7 +143,7 @@ fun HomeHeader(
                 modifier = Modifier.size(24.dp)
             )
         }
-        }
+    }
 }
 
 @Composable
@@ -266,7 +272,8 @@ fun PlacesGrid(onPlaceClick: (String) -> Unit) {
         PlaceItem("Recent", painterResource(R.drawable.time_clock_icon), secondaryColor),
         PlaceItem("Favorites", painterResource(R.drawable.heart_black_icon), Color(0xFFE11D48)),
         PlaceItem("Vault", painterResource(R.drawable.padlock_black_icon), Color(0xFF059669)),
-        PlaceItem("Trash", painterResource(R.drawable.delete_icon), Color(0xFFDC2626))
+        PlaceItem("Trash", painterResource(R.drawable.delete_icon), Color(0xFFDC2626)),
+        PlaceItem("Tools", painterResource(R.drawable.business_management_icon), Color(0xFF0284C7))
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -293,7 +300,6 @@ fun PlacesGrid(onPlaceClick: (String) -> Unit) {
                     onPlaceClick = onPlaceClick
                 )
             }
-            Spacer(modifier = Modifier.weight((3 - places.size % 3).toFloat()))
         }
     }
 }
@@ -337,11 +343,11 @@ fun PlaceCard(
 @Composable
 fun CategoriesGrid(onCategoryClick: (String) -> Unit) {
     val categories = listOf(
-        CategoryItem("Images", painterResource(R.drawable.photo_collage_icon), AccentImages, "1,240 items"),
-        CategoryItem("Videos", painterResource(R.drawable.video_playlist_icon), AccentVideos, "312 items"),
-        CategoryItem("Audio", painterResource(R.drawable.audio_tune_icon), AccentAudio, "185 items"),
-        CategoryItem("Docs", painterResource(R.drawable.page_black_icon), AccentDocuments, "94 items"),
-        CategoryItem("Archives", painterResource(R.drawable.archive_icon), AccentArchives, "42 items")
+        CategoryItem("Images", painterResource(R.drawable.photo_collage_icon), AccentImages),
+        CategoryItem("Videos", painterResource(R.drawable.video_playlist_icon), AccentVideos),
+        CategoryItem("Audio", painterResource(R.drawable.audio_tune_icon), AccentAudio),
+        CategoryItem("Docs", painterResource(R.drawable.page_black_icon), AccentDocuments),
+        CategoryItem("Archives", painterResource(R.drawable.archive_icon), AccentArchives)
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
