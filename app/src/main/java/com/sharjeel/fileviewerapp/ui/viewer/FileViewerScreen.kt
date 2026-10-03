@@ -68,7 +68,6 @@ import com.sharjeel.fileviewerapp.ui.ai.AIViewModel
 import com.sharjeel.fileviewerapp.ui.components.AppScaffold
 import java.io.File
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileViewerScreen(
     filePath: String,
@@ -335,7 +334,7 @@ private fun FileViewerContent(
                         IconButton(onClick = onBackClick, modifier = if (isLandscape) Modifier.size(40.dp) else Modifier.size(48.dp)) {
                             if (isAudio || isVideo) {
                                 Icon(
-                                    painter = painterResource(R.drawable.house_window_icon),
+                                    painter = painterResource(R.drawable.home_svgrepo_com),
                                     contentDescription = "Home",
                                     modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp)
                                 )
