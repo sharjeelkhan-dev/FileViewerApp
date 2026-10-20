@@ -135,7 +135,7 @@ class FileRepositoryImpl @Inject constructor(
                     file.copyTo(newFile, overwrite = true)
                     file.delete()
                     true
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     false
                 }
             }
@@ -154,7 +154,7 @@ class FileRepositoryImpl @Inject constructor(
                 sourceFile.copyTo(targetFile, overwrite = true)
                 sourceFile.delete()
                 true
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 false
             }
         }
@@ -250,7 +250,7 @@ class FileRepositoryImpl @Inject constructor(
                 sourceFile.delete()
                 true
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }
@@ -288,7 +288,7 @@ class FileRepositoryImpl @Inject constructor(
                                 sourceFile.copyTo(targetFile, overwrite = true)
                                 sourceFile.delete()
                                 true
-                            } catch (e: Exception) { false }
+                            } catch (_: Exception) { false }
                         }
 
             if (moved) {
@@ -304,7 +304,7 @@ class FileRepositoryImpl @Inject constructor(
                 )
                 true
             } else false
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }
@@ -326,7 +326,7 @@ class FileRepositoryImpl @Inject constructor(
                                    sourceFile.copyTo(targetFile, overwrite = true)
                                    sourceFile.delete()
                                    true
-                               } catch (e: Exception) { false }
+                               } catch (_: Exception) { false }
                            }
 
             if (restored) {
@@ -342,7 +342,7 @@ class FileRepositoryImpl @Inject constructor(
                 )
                 true
             } else false
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }
@@ -367,7 +367,7 @@ class FileRepositoryImpl @Inject constructor(
                 )
             )
             true
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }
@@ -380,7 +380,7 @@ class FileRepositoryImpl @Inject constructor(
             }
             fileDao.emptyTrash()
             true
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }
