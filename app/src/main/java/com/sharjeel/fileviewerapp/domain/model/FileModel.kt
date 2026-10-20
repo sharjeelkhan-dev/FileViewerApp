@@ -43,7 +43,6 @@ data class FileModel(
                 fileType = getCategoryFromExtension(isDir, ext)
             )
         }
-
         private fun getCategoryFromExtension(isDir: Boolean, ext: String): FileCategory {
             if (isDir) return FileCategory.FOLDER
             return when (ext) {
@@ -55,22 +54,18 @@ data class FileModel(
                 "apk", "xapk" -> FileCategory.APK
                 else -> FileCategory.OTHER
             }
-        } }
-
-
+        }
+    }
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is FileModel) return false
-
         if (path != other.path) return false
         if (size != other.size) return false
         if (lastModified != other.lastModified) return false
         if (isDirectory != other.isDirectory) return false
         if (itemCount != other.itemCount) return false
-
         return true
     }
-
     override fun hashCode(): Int {
         var result = path.hashCode()
         result = 31 * result + size.hashCode()
@@ -80,7 +75,6 @@ data class FileModel(
         return result
     }
 }
-
 enum class FileCategory {
     FOLDER, IMAGE, VIDEO, AUDIO, DOCUMENT, ARCHIVE, APK, OTHER
 }
