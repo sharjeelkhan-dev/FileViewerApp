@@ -4,7 +4,6 @@ import androidx.room.*
 import com.sharjeel.fileviewerapp.data.local.entity.FavoriteFileEntity
 import com.sharjeel.fileviewerapp.data.local.entity.RecentFileEntity
 import kotlinx.coroutines.flow.Flow
-
 @Dao
 interface FileDao {
     @Query("SELECT * FROM recent_files ORDER BY timestamp DESC")
