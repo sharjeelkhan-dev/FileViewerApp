@@ -46,12 +46,35 @@ class FileRepositoryImpl @Inject constructor(
         val files = when (category) {
             FileCategory.DOWNLOADS -> {
                 val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                downloadsDir.listFiles()?.map { FileModel.fromFile(it, countItems = false) } ?: emptyList()
+                val directFiles = downloadsDir.listFiles()?.map { FileModel.fromFile(it, countItems = false) } ?: emptyList()
+                val convertedDir = File(downloadsDir, "ConvertedFiles")
+                val convertedFiles = if (convertedDir.exists() && convertedDir.isDirectory) {
+                    convertedDir.listFiles()?.map { FileModel.fromFile(it, countItems = false) } ?: emptyList()
+                } else emptyList()
+                (convertedFiles + directFiles).distinctBy { it.path }
             }
-            FileCategory.IMAGES -> queryMediaStore(MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+            FileCategory.IMAGES -> {
+                val mediaImages = queryMediaStore(MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+                val convertedDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "ConvertedFiles")
+                val convertedImages = if (convertedDir.exists() && convertedDir.isDirectory) {
+                    convertedDir.listFiles()?.filter { file ->
+                        file.extension.lowercase() in listOf("png", "jpg", "jpeg", "webp")
+                    }?.map { FileModel.fromFile(it, countItems = false) } ?: emptyList()
+                } else emptyList()
+                (convertedImages + mediaImages).distinctBy { it.path }
+            }
             FileCategory.VIDEOS -> queryMediaStore(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
             FileCategory.AUDIO -> queryMediaStore(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
-            FileCategory.DOCUMENTS -> queryMediaStore(MediaStore.Files.getContentUri("external"), isDocument = true)
+            FileCategory.DOCUMENTS -> {
+                val mediaDocs = queryMediaStore(MediaStore.Files.getContentUri("external"), isDocument = true)
+                val convertedDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "ConvertedFiles")
+                val convertedDocs = if (convertedDir.exists() && convertedDir.isDirectory) {
+                    convertedDir.listFiles()?.filter { file ->
+                        file.extension.lowercase() in listOf("pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "csv")
+                    }?.map { FileModel.fromFile(it, countItems = false) } ?: emptyList()
+                } else emptyList()
+                (convertedDocs + mediaDocs).distinctBy { it.path }
+            }
             FileCategory.ARCHIVES -> queryAllFilesForArchives()
             FileCategory.RECENT -> getRecentFiles().first()
             FileCategory.FAVORITES -> getFavoriteFiles().first()
@@ -71,7 +94,24 @@ class FileRepositoryImpl @Inject constructor(
         )
         
         val selection = if (isDocument) {
-            "${MediaStore.Files.FileColumns.MIME_TYPE} IN ('application/pdf', 'application/msword', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')"
+            "${MediaStore.Files.FileColumns.MIME_TYPE} IN (" +
+                "'application/pdf', 'application/msword', 'text/plain', 'text/csv', " +
+                "'application/vnd.openxmlformats-officedocument.wordprocessingml.document', " +
+                "'application/vnd.openxmlformats-officedocument.wordprocessingml.template', " +
+                "'application/vnd.ms-powerpoint', " +
+                "'application/vnd.openxmlformats-officedocument.presentationml.presentation', " +
+                "'application/vnd.ms-excel', " +
+                "'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', " +
+                "'application/epub+zip'" +
+            ") OR " +
+            "${MediaStore.MediaColumns.DATA} LIKE '%.pdf' OR " +
+            "${MediaStore.MediaColumns.DATA} LIKE '%.docx' OR " +
+            "${MediaStore.MediaColumns.DATA} LIKE '%.doc' OR " +
+            "${MediaStore.MediaColumns.DATA} LIKE '%.pptx' OR " +
+            "${MediaStore.MediaColumns.DATA} LIKE '%.ppt' OR " +
+            "${MediaStore.MediaColumns.DATA} LIKE '%.xlsx' OR " +
+            "${MediaStore.MediaColumns.DATA} LIKE '%.xls' OR " +
+            "${MediaStore.MediaColumns.DATA} LIKE '%.txt'"
         } else null
 
         context.contentResolver.query(uri, projection, selection, null, null)?.use { cursor ->
