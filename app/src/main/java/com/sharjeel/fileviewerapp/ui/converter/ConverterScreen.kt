@@ -20,10 +20,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -129,7 +126,15 @@ private val formatOptionsList = listOf(
         iconRes = R.drawable.microsoft_word_icon,
         mimeTypes = arrayOf(
             "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
+            "application/vnd.ms-word.document.macroEnabled.12",
+            "application/vnd.ms-word",
+            "application/docx",
+            "application/x-docx",
+            "application/x-msword",
+            "application/wps-office.docx",
+            "application/wps-office.doc"
         )
     ),
     FormatOption(
@@ -146,7 +151,14 @@ private val formatOptionsList = listOf(
         iconRes = R.drawable.microsoft_powerpoint_icon,
         mimeTypes = arrayOf(
             "application/vnd.ms-powerpoint",
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "application/vnd.openxmlformats-officedocument.presentationml.template",
+            "application/vnd.openxmlformats-officedocument.presentationml.slideshow",
+            "application/vnd.ms-powerpoint.presentation.macroEnabled.12",
+            "application/pptx",
+            "application/x-pptx",
+            "application/wps-office.pptx",
+            "application/wps-office.ppt"
         )
     ),
     FormatOption(
@@ -165,8 +177,12 @@ private val formatOptionsList = listOf(
             "application/pdf",
             "application/msword",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
+            "application/vnd.ms-word",
+            "application/docx",
             "application/vnd.ms-powerpoint",
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "application/pptx",
             "text/plain"
         )
     )
@@ -200,10 +216,7 @@ fun ConverterScreen(
             filePickerLauncher.launch(types)
         },
         onRemoveFile = { viewModel.removeFile(it) },
-        onConvertClick = { viewModel.convertFiles() },
-        onOpenFileClick = onOpenFileClick,
-        onClearConvertedFiles = { viewModel.clearConvertedFiles() },
-        onDeleteConvertedFile = { viewModel.removeConvertedFile(it) }
+        onConvertClick = { viewModel.convertFiles() }
     )
 }
 
@@ -215,13 +228,9 @@ fun ConverterContent(
     onFormatSelect: (DocumentFormat, Array<String>) -> Unit,
     onPickFileClick: () -> Unit,
     onRemoveFile: (ConverterFileItem) -> Unit,
-    onConvertClick: () -> Unit,
-    onOpenFileClick: (filePath: String, extension: String) -> Unit,
-    onClearConvertedFiles: () -> Unit,
-    onDeleteConvertedFile: (File) -> Unit
+    onConvertClick: () -> Unit
 ) {
     val colors = getConverterColors()
-    val context = LocalContext.current
 
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -463,54 +472,37 @@ fun ConverterContent(
                             }
                         }
 
-                        AnimatedVisibility(
-                            visible = uiState.outputFiles.isNotEmpty(),
-                            enter = fadeIn(),
-                            exit = fadeOut()
-                        ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                HorizontalDivider(
-                                    color = colors.outlineBorderColor.copy(alpha = 0.6f),
-                                    thickness = 1.dp
-                                )
-
+                        if (uiState.statusMessage != null && uiState.conversionComplete) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                                border = BorderStroke(1.dp, Color(0xFF86EFAC))
+                            ) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text(
-                                        text = "Converted Files (${uiState.outputFiles.size})",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = colors.primaryGradientStart
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        contentDescription = null,
+                                        tint = Color(0xFF16A34A),
+                                        modifier = Modifier.size(24.dp)
                                     )
-
-                                    TextButton(
-                                        onClick = onClearConvertedFiles,
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                                    ) {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "Clear All",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color(0xFFEF4444),
-                                            fontWeight = FontWeight.Bold
+                                            text = "Document Saved to System!",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF166534)
+                                        )
+                                        Text(
+                                            text = "${uiState.statusMessage}. You can view or delete it from Categories anytime.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF15803D)
                                         )
                                     }
-                                }
-
-                                uiState.outputFiles.forEach { file ->
-                                    ConvertedOutputFileCard(
-                                        file = file,
-                                        colors = colors,
-                                        onOpen = {
-                                            onOpenFileClick(file.absolutePath, file.extension)
-                                        },
-                                        onExternalOpen = {
-                                            FileUtils.openWithExternalApp(context, file.absolutePath)
-                                        },
-                                        onDelete = { onDeleteConvertedFile(file) }
-                                    )
                                 }
                             }
                         }
@@ -547,117 +539,13 @@ fun ConverterContent(
                             )
                         } else {
                             Text(
-                                text = if (uiState.conversionComplete) "Conversion Complete!" else "Convert Selected Files (${uiState.selectedFiles.size})",
+                                text = if (uiState.conversionComplete) "Converted & Saved to System!" else "Convert Selected Files (${uiState.selectedFiles.size})",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
                         }
                     }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ConvertedOutputFileCard(
-    file: File,
-    colors: ConverterColors,
-    onOpen: () -> Unit,
-    onExternalOpen: () -> Unit,
-    onDelete: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = colors.innerCardBg),
-        border = BorderStroke(1.dp, colors.selectedBorderColor.copy(alpha = 0.5f))
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(12.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = colors.chipSelectedContainer,
-                    modifier = Modifier.size(42.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(
-                                id = when (file.extension.lowercase()) {
-                                    "pdf" -> R.drawable.page_black_icon
-                                    "png", "jpg", "jpeg" -> R.drawable.photo_collage_icon
-                                    else -> R.drawable.page_black_icon
-                                }
-                            ),
-                            contentDescription = null,
-                            tint = colors.primaryGradientStart,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = file.name,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = colors.textPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = FileUtils.formatFileSize(file.length()),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.textSecondary
-                    )
-                }
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Button(
-                    onClick = onOpen,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Open", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-
-                IconButton(
-                    onClick = onExternalOpen,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
-                        contentDescription = "Open Externally",
-                        tint = colors.textSecondary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.DeleteOutline,
-                        contentDescription = "Delete",
-                        tint = Color(0xFFEF4444),
-                        modifier = Modifier.size(18.dp)
-                    )
                 }
             }
         }
