@@ -30,10 +30,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.util.zip.ZipInputStream
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -279,15 +277,18 @@ class ConverterViewModel @Inject constructor(
             }
 
             try {
-                val primaryDir = File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-                    "ConvertedFiles"
-                )
+                // Prioritize public Downloads directory so converted files are immediately visible in system files / gallery
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val primaryDir = File(downloadsDir, "ConvertedFiles")
+                val docsDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "ConvertedFiles")
+
                 val outputFolder = if (primaryDir.exists() || primaryDir.mkdirs()) {
                     primaryDir
+                } else if (docsDir.exists() || docsDir.mkdirs()) {
+                    docsDir
                 } else {
                     File(
-                        context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS),
+                        context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
                         "ConvertedFiles"
                     ).apply { if (!exists()) mkdirs() }
                 }
@@ -329,12 +330,20 @@ class ConverterViewModel @Inject constructor(
                             )
                         } catch (_: Throwable) {}
 
+                        // Dual broadcast & MediaScanner scan so all Android versions immediately show files
                         try {
                             android.media.MediaScannerConnection.scanFile(
                                 context,
                                 arrayOf(resultFile.absolutePath),
                                 arrayOf(FileUtils.getMimeType(resultFile.absolutePath))
                             ) { _, _ -> }
+                        } catch (_: Throwable) {}
+
+                        try {
+                            val scanIntent = android.content.Intent(android.content.Intent.ACTION_MEDIA_SCANNER_SCAN_FILE).apply {
+                                data = android.net.Uri.fromFile(resultFile)
+                            }
+                            context.sendBroadcast(scanIntent)
                         } catch (_: Throwable) {}
                     }
                 }
@@ -345,9 +354,9 @@ class ConverterViewModel @Inject constructor(
                             isConverting = false,
                             conversionComplete = true,
                             progress = 1.0f,
-                            statusMessage = "Successfully converted ${convertedFilesList.size} file(s)!",
-                            selectedFiles = emptyList(), // Converted queue cleared (Manage Files list vanishes)
-                            outputFiles = it.outputFiles + convertedFilesList
+                            statusMessage = "Saved directly to Downloads/ConvertedFiles (${convertedFilesList.size} file(s))",
+                            selectedFiles = emptyList(), // Converted queue cleared
+                            outputFiles = emptyList() // Do not clutter Docs screen with open/delete cards
                         )
                     }
                 } else {
@@ -401,6 +410,11 @@ class ConverterViewModel @Inject constructor(
 
             val ext = file.extension.lowercase()
 
+            val extracted = TextExtractionUtils.extractText(file.absolutePath)
+            if (!extracted.isNullOrBlank() && !extracted.startsWith("PDF Document:")) {
+                return extracted
+            }
+
             if (ext in listOf("txt", "csv", "log", "json", "xml", "kt", "java", "md", "html", "htm")) {
                 try {
                     val text = file.readText()
@@ -408,76 +422,10 @@ class ConverterViewModel @Inject constructor(
                 } catch (_: Throwable) {}
             }
 
-            val extracted = TextExtractionUtils.extractText(file.absolutePath)
-            if (!extracted.isNullOrBlank() && !extracted.startsWith("PDF Document:")) {
-                return extracted
-            }
-
-            if (ext in listOf("pptx", "xlsx", "docx")) {
-                val xmlText = extractOfficeXmlText(file)
-                if (xmlText.isNotBlank()) return xmlText
-            }
-
-            try {
-                val directText = file.readText()
-                if (directText.isNotBlank() && directText.take(500).all { it.code in 9..126 || it.code in 128..65533 || it.isWhitespace() }) {
-                    return directText
-                }
-            } catch (_: Throwable) {}
-
             "Document File: ${file.name}\nType: ${ext.uppercase()}\nSize: ${FileUtils.formatFileSize(file.length())}"
         } catch (_: Throwable) {
             "Document File: ${fileItem.name}"
         }
-    }
-
-    private fun extractOfficeXmlText(file: File): String {
-        val builder = StringBuilder()
-        try {
-            ZipInputStream(file.inputStream().buffered()).use { zis ->
-                var entry = zis.nextEntry
-                while (entry != null) {
-                    val entryName = entry.name.lowercase()
-                    if (entryName.endsWith(".xml") && (
-                                entryName.contains("sharedstrings") ||
-                                        entryName.contains("slide") ||
-                                        entryName.contains("document") ||
-                                        entryName.contains("sheet")
-                                )) {
-                        val baos = ByteArrayOutputStream()
-                        val buffer = ByteArray(4096)
-                        var len: Int
-                        while (zis.read(buffer).also { len = it } > 0) {
-                            baos.write(buffer, 0, len)
-                        }
-                        val xmlContent = baos.toString("UTF-8")
-                        val cleanText = stripXmlTags(xmlContent)
-                        if (cleanText.isNotBlank()) {
-                            builder.append(cleanText).append("\n\n")
-                            if (builder.length > 50_000) break
-                        }
-                    }
-                    entry = zis.nextEntry
-                }
-            }
-        } catch (_: Throwable) {}
-        return builder.toString().trim()
-    }
-
-    private fun stripXmlTags(xml: String): String {
-        val sb = StringBuilder(xml.length)
-        var inTag = false
-        for (char in xml) {
-            if (char == '<') {
-                inTag = true
-                sb.append(' ')
-            } else if (char == '>') {
-                inTag = false
-            } else if (!inTag) {
-                sb.append(char)
-            }
-        }
-        return sb.toString().replace(Regex("\\s+"), " ").trim()
     }
 
     private fun decodeSampledBitmapFromFile(path: String, reqWidth: Int = 1920, reqHeight: Int = 1920): Bitmap? {
@@ -586,10 +534,11 @@ class ConverterViewModel @Inject constructor(
 
             val wrappedLines = mutableListOf<String>()
             for (line in lines) {
-                if (line.length <= 70) {
-                    wrappedLines.add(line)
+                val cleanLine = line.filter { it >= ' ' || it == '\t' }
+                if (cleanLine.length <= 70) {
+                    wrappedLines.add(cleanLine)
                 } else {
-                    line.chunked(70).forEach { wrappedLines.add(it) }
+                    cleanLine.chunked(70).forEach { wrappedLines.add(it) }
                 }
             }
 
@@ -699,7 +648,8 @@ class ConverterViewModel @Inject constructor(
 
             val text = extractTextFromItem(fileItem)
             var yPos = 150f
-            text.lines().take(35).forEach { line ->
+            text.lines().take(35).forEach { rawLine ->
+                val line = rawLine.filter { it >= ' ' || it == '\t' }
                 val truncated = if (line.length > 50) line.take(50) + "..." else line
                 canvas.drawText(truncated, 40f, yPos, bodyPaint)
                 yPos += 24f
