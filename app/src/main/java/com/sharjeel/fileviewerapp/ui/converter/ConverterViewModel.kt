@@ -341,7 +341,7 @@ class ConverterViewModel @Inject constructor(
 
                         try {
                             val scanIntent = android.content.Intent(android.content.Intent.ACTION_MEDIA_SCANNER_SCAN_FILE).apply {
-                                data = android.net.Uri.fromFile(resultFile)
+                                data = Uri.fromFile(resultFile)
                             }
                             context.sendBroadcast(scanIntent)
                         } catch (_: Throwable) {}
